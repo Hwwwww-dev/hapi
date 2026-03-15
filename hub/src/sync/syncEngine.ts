@@ -64,7 +64,14 @@ export class SyncEngine {
         this.eventPublisher = new EventPublisher(sseManager, (event) => this.resolveNamespace(event))
         this.sessionCache = new SessionCache(store, this.eventPublisher)
         this.machineCache = new MachineCache(store, this.eventPublisher)
-        this.messageService = new MessageService(store, io, this.eventPublisher)
+        this.messageService = new MessageService(
+            store,
+            io,
+            this.eventPublisher,
+            (sessionId) => {
+                this.sessionCache.refreshSession(sessionId)
+            }
+        )
         this.rpcGateway = new RpcGateway(io, rpcRegistry)
         this.reloadAll()
         this.inactivityTimer = setInterval(() => this.expireInactive(), 5_000)
@@ -233,23 +240,40 @@ export class SyncEngine {
         metadata: unknown
         agentState?: unknown | null
     }): Session {
-        const session = this.sessionCache.getOrCreateSession(
-            payload.tag,
-            payload.metadata,
-            payload.agentState ?? null,
-            payload.namespace
-        )
+        const nativeIdentity = this.resolveNativeSessionIdentity(payload.metadata)
+        const matchingSessions = nativeIdentity
+            ? this.getSessionsByNamespace(payload.namespace).filter((session) => this.sessionMatchesNativeIdentity(session, nativeIdentity))
+            : []
+
+        const session = this.pickCanonicalNativeSession(matchingSessions)
+            ?? this.sessionCache.getOrCreateSession(
+                payload.tag,
+                payload.metadata,
+                payload.agentState ?? null,
+                payload.namespace
+            )
 
         let current = this.getSession(session.id) ?? session
         current = this.updateSessionMetadataIfNeeded(
             current,
-            this.mergeNativeSessionMetadata(current.metadata, payload.metadata)
+            this.mergeIncomingNativeMetadata(current, payload.metadata)
         )
         current = this.updateSessionAgentStateIfNeeded(
             current,
             this.mergeNativeSessionAgentState(current.agentState, payload.agentState)
         )
-        return current
+
+        for (const matchingSession of matchingSessions) {
+            if (matchingSession.id === current.id) {
+                continue
+            }
+            if (matchingSession.metadata?.source !== 'native') {
+                continue
+            }
+            this.dropSessionIfPresent(matchingSession.id, payload.namespace)
+        }
+
+        return this.getSession(current.id) ?? current
     }
 
     importNativeMessages(
@@ -267,14 +291,13 @@ export class SyncEngine {
             throw new Error('Session not found')
         }
 
-        // Hybrid sessions already stream live messages from the resumed HAPI process.
-        // Re-importing the same native log lines on the native-sync poll causes
-        // duplicated user/assistant messages, duplicate title-change events, and
-        // stale native timestamps to show up in the chat.
+        // HAPI/hybrid sessions already have an authoritative message stream.
+        // Re-importing native log lines into the same session creates a second
+        // native copy of the same conversation in chat/history.
         //
-        // We still let the native-sync caller advance its cursor/state; we only
-        // suppress DB insertion while the hybrid session is actively connected.
-        if (session.active && session.metadata?.source === 'hybrid') {
+        // We still let native-sync advance cursor/state; we only suppress DB
+        // insertion for sessions that are already represented by HAPI.
+        if (session.metadata?.source === 'hapi' || session.metadata?.source === 'hybrid') {
             return {
                 imported: 0,
                 session
@@ -314,7 +337,7 @@ export class SyncEngine {
             this.updateSessionMetadataIfNeeded(session, {
                 ...session.metadata,
                 nativeLastSyncedAt: payload.lastSyncedAt
-            })
+            }, { touchUpdatedAt: false })
         }
 
         return { ok: true, state }
@@ -347,7 +370,11 @@ export class SyncEngine {
         await this.messageService.sendMessage(sessionId, payload)
     }
 
-    private updateSessionMetadataIfNeeded(session: Session, metadata: unknown): Session {
+    private updateSessionMetadataIfNeeded(
+        session: Session,
+        metadata: unknown,
+        options?: { touchUpdatedAt?: boolean }
+    ): Session {
         if (JSON.stringify(session.metadata) === JSON.stringify(metadata)) {
             return session
         }
@@ -356,7 +383,8 @@ export class SyncEngine {
             session.id,
             metadata,
             session.metadataVersion,
-            session.namespace
+            session.namespace,
+            options
         )
 
         if (result.result === 'version-mismatch') {
@@ -369,7 +397,8 @@ export class SyncEngine {
                 session.id,
                 metadata,
                 refreshed.metadataVersion,
-                refreshed.namespace
+                refreshed.namespace,
+                options
             )
 
             if (retry.result === 'success') {
@@ -423,6 +452,102 @@ export class SyncEngine {
         }
 
         return this.getSession(session.id) ?? this.sessionCache.refreshSession(session.id) ?? session
+    }
+
+    private resolveNativeSessionIdentity(metadata: unknown): { provider: 'claude' | 'codex'; nativeSessionId: string } | null {
+        if (!isObject(metadata)) {
+            return null
+        }
+
+        const provider = metadata.nativeProvider
+        const nativeSessionId = metadata.nativeSessionId
+        if (
+            (provider === 'claude' || provider === 'codex')
+            && typeof nativeSessionId === 'string'
+            && nativeSessionId.length > 0
+        ) {
+            return { provider, nativeSessionId }
+        }
+
+        return null
+    }
+
+    private sessionMatchesNativeIdentity(
+        session: Session,
+        identity: { provider: 'claude' | 'codex'; nativeSessionId: string }
+    ): boolean {
+        const metadata = session.metadata
+        if (!metadata) {
+            return false
+        }
+
+        if (
+            metadata.nativeSessionId === identity.nativeSessionId
+            && (metadata.nativeProvider === undefined || metadata.nativeProvider === identity.provider)
+        ) {
+            return true
+        }
+
+        if (identity.provider === 'claude') {
+            return metadata.claudeSessionId === identity.nativeSessionId
+        }
+
+        return metadata.codexSessionId === identity.nativeSessionId
+    }
+
+    private pickCanonicalNativeSession(sessions: Session[]): Session | null {
+        if (sessions.length === 0) {
+            return null
+        }
+
+        const sourceRank = (session: Session): number => {
+            const source = session.metadata?.source
+            if (source === 'hybrid') return 0
+            if (source === 'native') return 2
+            return 1
+        }
+
+        const sorted = [...sessions].sort((left, right) => {
+            const leftSourceRank = sourceRank(left)
+            const rightSourceRank = sourceRank(right)
+            if (leftSourceRank !== rightSourceRank) {
+                return leftSourceRank - rightSourceRank
+            }
+            if (left.active !== right.active) {
+                return left.active ? -1 : 1
+            }
+            if (left.updatedAt !== right.updatedAt) {
+                return right.updatedAt - left.updatedAt
+            }
+            return right.createdAt - left.createdAt
+        })
+
+        return sorted[0] ?? null
+    }
+
+    private mergeIncomingNativeMetadata(session: Session, incomingMetadata: unknown): unknown {
+        if (
+            session.metadata
+            && session.metadata.source !== 'native'
+            && session.metadata.source !== 'hybrid'
+            && isObject(incomingMetadata)
+        ) {
+            return this.buildHybridSessionMetadata(
+                incomingMetadata as Session['metadata'],
+                session.metadata
+            )
+        }
+
+        return this.mergeNativeSessionMetadata(session.metadata, incomingMetadata)
+    }
+
+    private dropSessionIfPresent(sessionId: string, namespace: string): void {
+        const deleted = this.store.sessions.deleteSession(sessionId, namespace)
+        if (!deleted) {
+            return
+        }
+
+        this.sessionCache.refreshSession(sessionId)
     }
 
     private mergeNativeSessionMetadata(

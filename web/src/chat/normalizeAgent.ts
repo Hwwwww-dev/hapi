@@ -2,6 +2,8 @@ import type { AgentEvent, NormalizedAgentContent, NormalizedMessage, ToolResultP
 import { asNumber, asString, isObject, safeStringify } from '@hapi/protocol'
 
 const MAX_ASSISTANT_SOURCE_BLOCKS = 16
+const MAX_THINKING_PARSE_TEXT_LENGTH = 8 * 1024
+const MAX_THINKING_BLOCKS = 8
 
 function normalizeToolResultPermissions(value: unknown): ToolResultPermission | undefined {
     if (!isObject(value)) return undefined
@@ -41,6 +43,56 @@ function toTextContent(
     return [{ type: 'text', text, uuid, parentUUID }]
 }
 
+function normalizeThinkingTaggedText(
+    text: string,
+    uuid: string,
+    parentUUID: string | null
+): NormalizedAgentContent[] {
+    if (
+        text.length > MAX_THINKING_PARSE_TEXT_LENGTH
+        || !text.includes('<thinking>')
+        || !text.includes('</thinking>')
+    ) {
+        return toTextContent(text, uuid, parentUUID)
+    }
+
+    const blocks: NormalizedAgentContent[] = []
+    const pattern = /<thinking>([\s\S]*?)<\/thinking>/gi
+    let lastIndex = 0
+    let matchCount = 0
+
+    for (const match of text.matchAll(pattern)) {
+        matchCount += 1
+        if (matchCount > MAX_THINKING_BLOCKS) {
+            return toTextContent(text, uuid, parentUUID)
+        }
+
+        const index = match.index ?? 0
+        const before = text.slice(lastIndex, index).trim()
+        if (before.length > 0) {
+            blocks.push({ type: 'text', text: before, uuid, parentUUID })
+        }
+
+        const thinkingText = (match[1] ?? '').trim()
+        if (thinkingText.length > 0) {
+            blocks.push({ type: 'reasoning', text: thinkingText, uuid, parentUUID })
+        }
+
+        lastIndex = index + match[0].length
+    }
+
+    if (blocks.length === 0) {
+        return toTextContent(text, uuid, parentUUID)
+    }
+
+    const trailing = text.slice(lastIndex).trim()
+    if (trailing.length > 0) {
+        blocks.push({ type: 'text', text: trailing, uuid, parentUUID })
+    }
+
+    return blocks
+}
+
 function collapseAssistantContent(
     value: unknown,
     uuid: string,
@@ -51,6 +103,15 @@ function collapseAssistantContent(
         uuid,
         parentUUID
     )
+}
+
+function appendNormalizedTextBlocks(
+    target: NormalizedAgentContent[],
+    text: string,
+    uuid: string,
+    parentUUID: string | null
+): void {
+    target.push(...normalizeThinkingTaggedText(text, uuid, parentUUID))
 }
 
 function normalizeAssistantBlocks(
@@ -67,7 +128,7 @@ function normalizeAssistantBlocks(
     for (const block of blocks) {
         if (!isObject(block) || typeof block.type !== 'string') continue
         if (block.type === 'text' && typeof block.text === 'string') {
-            normalized.push({ type: 'text', text: block.text, uuid: fallbackUuid, parentUUID: fallbackParentUUID })
+            appendNormalizedTextBlocks(normalized, block.text, fallbackUuid, fallbackParentUUID)
             continue
         }
         if (block.type === 'thinking' && typeof block.thinking === 'string') {
@@ -115,7 +176,7 @@ function normalizeAssistantOutput(
     const blocks: NormalizedAgentContent[] = []
 
     if (typeof modelContent === 'string') {
-        blocks.push({ type: 'text', text: modelContent, uuid, parentUUID })
+        appendNormalizedTextBlocks(blocks, modelContent, uuid, parentUUID)
     } else if (Array.isArray(modelContent)) {
         if (modelContent.length > MAX_ASSISTANT_SOURCE_BLOCKS) {
             return {
@@ -132,7 +193,7 @@ function normalizeAssistantOutput(
         for (const block of modelContent) {
             if (!isObject(block) || typeof block.type !== 'string') continue
             if (block.type === 'text' && typeof block.text === 'string') {
-                blocks.push({ type: 'text', text: block.text, uuid, parentUUID })
+                appendNormalizedTextBlocks(blocks, block.text, uuid, parentUUID)
                 continue
             }
             if (block.type === 'thinking' && typeof block.thinking === 'string') {
@@ -274,7 +335,7 @@ export function normalizeAgentRecord(
             createdAt,
             role: 'agent',
             isSidechain: false,
-            content: toTextContent(content, messageId, null),
+            content: normalizeThinkingTaggedText(content, messageId, null),
             meta
         }
     }
@@ -411,7 +472,7 @@ export function normalizeAgentRecord(
                 createdAt,
                 role: 'agent',
                 isSidechain: false,
-                content: toTextContent(data.message, messageId, null),
+                content: normalizeThinkingTaggedText(data.message, messageId, null),
                 meta
             }
         }

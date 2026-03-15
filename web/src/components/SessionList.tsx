@@ -32,17 +32,23 @@ function getGroupDisplayName(directory: string): string {
     return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`
 }
 
-function sortSessionsInGroup(a: SessionSummary, b: SessionSummary): number {
-    const rankA = a.active ? (a.pendingRequestsCount > 0 ? 0 : 1) : 2
-    const rankB = b.active ? (b.pendingRequestsCount > 0 ? 0 : 1) : 2
-    if (rankA !== rankB) return rankA - rankB
-    return b.createdAt - a.createdAt
+function compareSessionRecency(left: Pick<SessionSummary, 'updatedAt' | 'createdAt'>, right: Pick<SessionSummary, 'updatedAt' | 'createdAt'>): number {
+    if (left.updatedAt !== right.updatedAt) {
+        return right.updatedAt - left.updatedAt
+    }
+    return right.createdAt - left.createdAt
 }
 
-function getGroupLatestCreatedAt(sessions: SessionSummary[]): number {
-    let latest = 0
-    for (const s of sessions) {
-        if (s.createdAt > latest) latest = s.createdAt
+function sortSessionsInGroup(a: SessionSummary, b: SessionSummary): number {
+    return compareSessionRecency(a, b)
+}
+
+function getGroupLatestSession(sessions: SessionSummary[]): SessionSummary | null {
+    let latest: SessionSummary | null = null
+    for (const session of sessions) {
+        if (!latest || sortSessionsInGroup(session, latest) < 0) {
+            latest = session
+        }
     }
     return latest
 }
@@ -62,7 +68,10 @@ function groupSessionsByDirectory(sessions: SessionSummary[]): SessionGroup[] {
         .sort(([leftDirectory, leftSessions], [rightDirectory, rightSessions]) => {
             if (leftDirectory === 'Other') return 1
             if (rightDirectory === 'Other') return -1
-            return getGroupLatestCreatedAt(rightSessions) - getGroupLatestCreatedAt(leftSessions)
+            const leftLatest = getGroupLatestSession(leftSessions)
+            const rightLatest = getGroupLatestSession(rightSessions)
+            if (!leftLatest || !rightLatest) return 0
+            return sortSessionsInGroup(leftLatest, rightLatest)
         })
         .map(([directory, groupSessions]) => {
             const sortedSessions = [...groupSessions]

@@ -109,7 +109,7 @@ describe('NativeSyncService', () => {
         await vi.advanceTimersByTimeAsync(0)
         expect(provider.discoverSessions).toHaveBeenCalledTimes(1)
 
-        await vi.advanceTimersByTimeAsync(10_000)
+        await vi.advanceTimersByTimeAsync(5_000)
         expect(provider.discoverSessions).toHaveBeenCalledTimes(2)
 
         service.stop()

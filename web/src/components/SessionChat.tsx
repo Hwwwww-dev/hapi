@@ -278,6 +278,14 @@ export function SessionChat(props: {
         }
     }, [archiveSession, props.onRefresh])
 
+    const handleConnectionToggle = useCallback(() => {
+        if (sessionInactive) {
+            void handleResume()
+            return
+        }
+        void handleDisconnect()
+    }, [handleDisconnect, handleResume, sessionInactive])
+
     const attachmentAdapter = useMemo(() => {
         if (!props.session.active) {
             return undefined
@@ -303,44 +311,19 @@ export function SessionChat(props: {
                 onViewFiles={props.session.metadata?.path ? handleViewFiles : undefined}
                 api={props.api}
                 onSessionDeleted={props.onBack}
+                onRefreshAction={() => { void handleRefresh() }}
+                onConnectionToggle={handleConnectionToggle}
+                statusActionPending={statusActionPending !== null}
             />
 
             {props.session.teamState && (
                 <TeamPanel teamState={props.session.teamState} />
             )}
 
-            {(sessionInactive || props.session.active) ? (
-                <div className="px-3 pt-3">
-                    <div className="mx-auto flex w-full max-w-content flex-col gap-3 rounded-md bg-[var(--app-subtle-bg)] p-3 text-sm text-[var(--app-hint)]">
-                        {sessionInactive ? (
-                            <div>
-                                {t('session.chat.inactive')}
-                            </div>
-                        ) : null}
-                        <div className="flex flex-wrap items-center gap-2">
-                            <button
-                                type="button"
-                                className="rounded-md border border-[var(--app-divider)] px-3 py-1.5 text-sm text-[var(--app-text)] disabled:cursor-not-allowed disabled:opacity-50"
-                                onClick={() => {
-                                    if (sessionInactive) {
-                                        void handleResume()
-                                        return
-                                    }
-                                    void handleDisconnect()
-                                }}
-                                disabled={statusActionPending !== null}
-                            >
-                                {sessionInactive ? t('session.chat.connect') : t('session.chat.disconnect')}
-                            </button>
-                            <button
-                                type="button"
-                                className="rounded-md border border-[var(--app-divider)] px-3 py-1.5 text-sm text-[var(--app-text)] disabled:cursor-not-allowed disabled:opacity-50"
-                                onClick={() => { void handleRefresh() }}
-                                disabled={statusActionPending !== null}
-                            >
-                                {t('session.chat.refresh')}
-                            </button>
-                        </div>
+            {sessionInactive ? (
+                <div className="border-b border-[var(--app-divider)] bg-[var(--app-bg)]">
+                    <div className="mx-auto w-full max-w-content px-3 py-2 text-xs text-[var(--app-hint)]">
+                        {t('session.chat.inactive')}
                     </div>
                 </div>
             ) : null}

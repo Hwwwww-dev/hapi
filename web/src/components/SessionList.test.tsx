@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 import type { SessionSummary } from '@/types/api'
 import { I18nProvider } from '@/lib/i18n-context'
@@ -123,5 +123,70 @@ describe('SessionList', () => {
         )
 
         expect(screen.getByText('创建 2 小时前 · 更新 1 小时前')).toBeInTheDocument()
+    })
+
+    it('filters sessions by selected agent tab', () => {
+        renderWithProviders(
+            <SessionList
+                sessions={[
+                    createSession({
+                        id: 'session-claude',
+                        metadata: {
+                            path: '/tmp/project',
+                            name: 'Claude Session',
+                            flavor: 'claude',
+                            source: 'native',
+                            nativeProvider: 'claude',
+                            nativeSessionId: 'claude-session-id'
+                        }
+                    }),
+                    createSession({
+                        id: 'session-codex',
+                        metadata: {
+                            path: '/tmp/project',
+                            name: 'Codex Session',
+                            flavor: 'codex',
+                            source: 'native',
+                            nativeProvider: 'codex',
+                            nativeSessionId: 'codex-session-id'
+                        }
+                    })
+                ]}
+                agentTab="codex"
+                onAgentTabChange={vi.fn()}
+                onSelect={vi.fn()}
+                onNewSession={vi.fn()}
+                onRefresh={vi.fn()}
+                isLoading={false}
+                renderHeader={false}
+                api={null}
+            />
+        )
+
+        expect(screen.getByRole('tab', { name: 'Codex' })).toHaveAttribute('aria-selected', 'true')
+        expect(screen.getByText('Codex Session')).toBeInTheDocument()
+        expect(screen.queryByText('Claude Session')).not.toBeInTheDocument()
+    })
+
+    it('emits agent tab changes', () => {
+        const onAgentTabChange = vi.fn()
+
+        renderWithProviders(
+            <SessionList
+                sessions={[createSession()]}
+                agentTab="all"
+                onAgentTabChange={onAgentTabChange}
+                onSelect={vi.fn()}
+                onNewSession={vi.fn()}
+                onRefresh={vi.fn()}
+                isLoading={false}
+                renderHeader={false}
+                api={null}
+            />
+        )
+
+        fireEvent.click(screen.getByRole('tab', { name: 'Codex' }))
+
+        expect(onAgentTabChange).toHaveBeenCalledWith('codex')
     })
 })

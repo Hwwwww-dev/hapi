@@ -13,6 +13,11 @@ type ClaudeCursor = {
     line: number
 }
 
+type CachedSummaryEntry = {
+    mtimeMs: number
+    summary: NativeSessionSummary | null
+}
+
 function getClaudeConfigDir(): string {
     return process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
 }
@@ -89,41 +94,82 @@ async function listSessionFiles(): Promise<string[]> {
 }
 
 export function createClaudeNativeProvider(): NativeSyncProvider {
+    const summaryCache = new Map<string, CachedSummaryEntry>()
+    const sessionFileCache = new Map<string, string>()
+
     return {
         name: 'claude',
         async discoverSessions(): Promise<NativeSessionSummary[]> {
             const sessionFiles = await listSessionFiles()
             const summaries: NativeSessionSummary[] = []
+            const activeFiles = new Set(sessionFiles)
+
+            for (const filePath of summaryCache.keys()) {
+                if (!activeFiles.has(filePath)) {
+                    const cached = summaryCache.get(filePath)
+                    if (cached?.summary) {
+                        sessionFileCache.delete(cached.summary.nativeSessionId)
+                    }
+                    summaryCache.delete(filePath)
+                }
+            }
 
             for (const filePath of sessionFiles) {
-                const { entries } = await readClaudeNativeLog(filePath, 0)
-                const firstEntryWithCwd = entries.find((entry) => entry.cwd)
-                if (!firstEntryWithCwd?.cwd) {
+                const fileStat = await stat(filePath)
+                const mtimeMs = Math.floor(fileStat.mtimeMs)
+                const cached = summaryCache.get(filePath)
+                if (cached && cached.mtimeMs === mtimeMs) {
+                    if (cached.summary) {
+                        summaries.push(cached.summary)
+                        sessionFileCache.set(cached.summary.nativeSessionId, filePath)
+                    }
                     continue
                 }
 
-                const fileStat = await stat(filePath)
+                const { entries } = await readClaudeNativeLog(filePath, 0)
+                const firstEntryWithCwd = entries.find((entry) => entry.cwd)
+                if (!firstEntryWithCwd?.cwd) {
+                    summaryCache.set(filePath, { mtimeMs, summary: null })
+                    continue
+                }
+
                 const lastEntry = entries[entries.length - 1]
-                summaries.push({
+                const summary: NativeSessionSummary = {
                     provider: 'claude',
                     nativeSessionId: basename(filePath, '.jsonl'),
                     projectPath: firstEntryWithCwd.cwd,
                     displayPath: firstEntryWithCwd.cwd,
                     flavor: 'claude',
                     discoveredAt: Math.floor(fileStat.birthtimeMs || fileStat.mtimeMs),
-                    lastActivityAt: lastEntry?.createdAt ?? Math.floor(fileStat.mtimeMs),
+                    lastActivityAt: Math.max(lastEntry?.createdAt ?? mtimeMs, mtimeMs),
                     title: extractTitle(entries.find((entry) => entry.event.type === 'user')?.event)
-                })
+                }
+                summaryCache.set(filePath, { mtimeMs, summary })
+                sessionFileCache.set(summary.nativeSessionId, filePath)
+                summaries.push(summary)
             }
 
             return summaries.sort((left, right) => right.lastActivityAt - left.lastActivityAt)
         },
 
         async readMessages(summary: NativeSessionSummary, state: NativeSyncState | null): Promise<NativeMessageBatch> {
-            const filePath = state?.filePath ?? join(getProjectPath(summary.projectPath), `${summary.nativeSessionId}.jsonl`)
+            const filePath = state?.filePath
+                ?? sessionFileCache.get(summary.nativeSessionId)
+                ?? join(getProjectPath(summary.projectPath), `${summary.nativeSessionId}.jsonl`)
+            const fileStat = await stat(filePath)
+            const mtimeMs = Math.floor(fileStat.mtimeMs)
+            if (state?.filePath === filePath && state.mtime === mtimeMs) {
+                return {
+                    messages: [],
+                    cursor: state.cursor,
+                    filePath,
+                    mtime: mtimeMs
+                }
+            }
+
             const startLine = parseCursor(state?.cursor, filePath)
             const { entries, totalLines } = await readClaudeNativeLog(filePath, startLine)
-            const fileStat = await stat(filePath)
+            sessionFileCache.set(summary.nativeSessionId, filePath)
 
             return {
                 messages: entries.map((entry) => ({
@@ -133,7 +179,7 @@ export function createClaudeNativeProvider(): NativeSyncProvider {
                 })),
                 cursor: buildCursor(filePath, totalLines),
                 filePath,
-                mtime: Math.floor(fileStat.mtimeMs)
+                mtime: mtimeMs
             }
         }
     }

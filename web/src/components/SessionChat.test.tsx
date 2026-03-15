@@ -28,7 +28,24 @@ vi.mock('@/components/AssistantChat/HappyThread', () => ({
 }))
 
 vi.mock('@/components/SessionHeader', () => ({
-    SessionHeader: () => null
+    SessionHeader: ({ session, onRefreshAction, onConnectionToggle }: {
+        session: Session
+        onRefreshAction?: () => void
+        onConnectionToggle?: () => void
+    }) => (
+        <div>
+            {onConnectionToggle ? (
+                <button type="button" onClick={() => onConnectionToggle()}>
+                    {session.active ? '取消连接' : '连接'}
+                </button>
+            ) : null}
+            {onRefreshAction ? (
+                <button type="button" onClick={() => onRefreshAction()}>
+                    刷新
+                </button>
+            ) : null}
+        </div>
+    )
 }))
 
 vi.mock('@/components/TeamPanel', () => ({

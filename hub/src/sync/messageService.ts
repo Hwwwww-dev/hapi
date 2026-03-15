@@ -7,7 +7,8 @@ export class MessageService {
     constructor(
         private readonly store: Store,
         private readonly io: Server,
-        private readonly publisher: EventPublisher
+        private readonly publisher: EventPublisher,
+        private readonly onSessionTouched: (sessionId: string) => void
     ) {
     }
 
@@ -75,14 +76,19 @@ export class MessageService {
     ): { imported: number; messages: DecryptedMessage[] } {
         let imported = 0
         const importedMessages: DecryptedMessage[] = []
+        let touchedSession = false
 
         for (const item of messages) {
             const result = this.store.messages.importNativeMessage(sessionId, item)
-            if (!result.inserted) {
+            if (!result.inserted && !result.updated) {
                 continue
             }
 
-            imported += 1
+            touchedSession = true
+            if (result.inserted) {
+                imported += 1
+            }
+
             const message: DecryptedMessage = {
                 id: result.message.id,
                 seq: result.message.seq,
@@ -90,8 +96,14 @@ export class MessageService {
                 content: result.message.content,
                 createdAt: result.message.createdAt
             }
-            importedMessages.push(message)
-            this.broadcastNewMessage(sessionId, message)
+            if (result.inserted) {
+                importedMessages.push(message)
+                this.broadcastNewMessage(sessionId, message)
+            }
+        }
+
+        if (touchedSession) {
+            this.broadcastSessionUpdated(sessionId)
         }
 
         return { imported, messages: importedMessages }
@@ -128,6 +140,7 @@ export class MessageService {
             content: msg.content,
             createdAt: msg.createdAt
         })
+        this.broadcastSessionUpdated(sessionId)
     }
 
     private broadcastNewMessage(sessionId: string, message: DecryptedMessage): void {
@@ -148,5 +161,9 @@ export class MessageService {
             sessionId,
             message
         })
+    }
+
+    private broadcastSessionUpdated(sessionId: string): void {
+        this.onSessionTouched(sessionId)
     }
 }

@@ -17,7 +17,7 @@ export class NativeSyncService {
     private static readonly MAX_IMPORT_BATCH_BYTES = 256 * 1024
     private static readonly ACTIVE_ACTIVITY_WINDOW_MS = 5 * 60_000
     private static readonly WARM_ACTIVITY_WINDOW_MS = 30 * 60_000
-    private static readonly ACTIVE_POLL_INTERVAL_MS = 10_000
+    private static readonly ACTIVE_POLL_INTERVAL_MS = 5_000
     private static readonly IDLE_POLL_INTERVAL_MS = 120_000
 
     private readonly api: NativeSyncApi
@@ -30,6 +30,7 @@ export class NativeSyncService {
     private syncInFlight: Promise<void> | null = null
     private running = false
     private nextPollDelayMs: number
+    private readonly lastSessionSyncAt: Map<string, number> = new Map()
 
     constructor(options: {
         api: NativeSyncApi
@@ -107,7 +108,9 @@ export class NativeSyncService {
     }
 
     private async runSyncOnce(): Promise<number> {
-        let latestActivityAt: number | null = null
+        const summariesToTrack: NativeSessionSummary[] = []
+        const seenSessionKeys = new Set<string>()
+        const startedAt = this.now()
 
         for (const provider of this.providers) {
             let summaries: NativeSessionSummary[]
@@ -118,21 +121,30 @@ export class NativeSyncService {
             }
 
             for (const summary of summaries) {
-                latestActivityAt = latestActivityAt === null
-                    ? summary.lastActivityAt
-                    : Math.max(latestActivityAt, summary.lastActivityAt)
-            }
+                const sessionKey = this.getSessionSyncKey(summary)
+                seenSessionKeys.add(sessionKey)
+                summariesToTrack.push(summary)
 
-            for (const summary of summaries) {
+                if (!this.shouldSyncSession(summary, startedAt)) {
+                    continue
+                }
+
                 try {
                     await this.syncSession(provider, summary)
                 } catch {
-                    continue
+                } finally {
+                    this.lastSessionSyncAt.set(sessionKey, this.now())
                 }
             }
         }
 
-        return this.resolveNextPollDelay(latestActivityAt)
+        for (const sessionKey of this.lastSessionSyncAt.keys()) {
+            if (!seenSessionKeys.has(sessionKey)) {
+                this.lastSessionSyncAt.delete(sessionKey)
+            }
+        }
+
+        return this.resolveNextPollDelay(summariesToTrack, this.now())
     }
 
     private async syncSession(provider: NativeSyncProvider, summary: NativeSessionSummary): Promise<void> {
@@ -238,12 +250,42 @@ export class NativeSyncService {
         return Buffer.byteLength(JSON.stringify(message), 'utf8') + 1
     }
 
-    private resolveNextPollDelay(latestActivityAt: number | null): number {
-        if (latestActivityAt === null) {
+    private getSessionSyncKey(summary: NativeSessionSummary): string {
+        return `${summary.provider}:${summary.nativeSessionId}`
+    }
+
+    private shouldSyncSession(summary: NativeSessionSummary, now: number): boolean {
+        const lastSyncAt = this.lastSessionSyncAt.get(this.getSessionSyncKey(summary))
+        if (lastSyncAt === undefined) {
+            return true
+        }
+
+        return now - lastSyncAt >= this.resolveSessionSyncInterval(summary.lastActivityAt, now)
+    }
+
+    private resolveNextPollDelay(summaries: NativeSessionSummary[], now: number): number {
+        if (summaries.length === 0) {
             return Math.max(this.pollIntervalMs, NativeSyncService.IDLE_POLL_INTERVAL_MS)
         }
 
-        const ageMs = Math.max(0, this.now() - latestActivityAt)
+        let nextDelayMs = Math.max(this.pollIntervalMs, NativeSyncService.IDLE_POLL_INTERVAL_MS)
+
+        for (const summary of summaries) {
+            const intervalMs = this.resolveSessionSyncInterval(summary.lastActivityAt, now)
+            const lastSyncAt = this.lastSessionSyncAt.get(this.getSessionSyncKey(summary))
+            if (lastSyncAt === undefined) {
+                return 0
+            }
+
+            const remainingMs = Math.max(0, intervalMs - (now - lastSyncAt))
+            nextDelayMs = Math.min(nextDelayMs, remainingMs === 0 ? intervalMs : remainingMs)
+        }
+
+        return nextDelayMs
+    }
+
+    private resolveSessionSyncInterval(latestActivityAt: number, now: number = this.now()): number {
+        const ageMs = Math.max(0, now - latestActivityAt)
         if (ageMs <= NativeSyncService.ACTIVE_ACTIVITY_WINDOW_MS) {
             return Math.min(this.pollIntervalMs, NativeSyncService.ACTIVE_POLL_INTERVAL_MS)
         }

@@ -66,6 +66,9 @@ export function SessionHeader(props: {
     onViewFiles?: () => void
     api: ApiClient | null
     onSessionDeleted?: () => void
+    onRefreshAction?: () => void
+    onConnectionToggle?: () => void
+    statusActionPending?: boolean
 }) {
     const { t } = useTranslation()
     const { session, api, onSessionDeleted } = props
@@ -188,11 +191,14 @@ export function SessionHeader(props: {
                 isOpen={menuOpen}
                 onClose={() => setMenuOpen(false)}
                 sessionActive={session.active}
+                onRefresh={props.onRefreshAction}
+                onConnectionToggle={props.onConnectionToggle}
                 onRename={() => setRenameOpen(true)}
                 onArchive={() => setArchiveOpen(true)}
                 onDelete={() => setDeleteOpen(true)}
                 anchorPoint={menuAnchorPoint}
                 menuId={menuId}
+                actionBusy={props.statusActionPending}
             />
 
             <RenameSessionDialog

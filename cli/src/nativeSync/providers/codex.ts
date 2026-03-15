@@ -16,6 +16,11 @@ type CodexCursor = {
 
 const CURSOR_RESCAN_OVERLAP_LINES = 512
 
+type CachedSummaryEntry = {
+    mtimeMs: number
+    summary: NativeSessionSummary | null
+}
+
 function getSessionsRoot(): string {
     const codexHomeDir = process.env.CODEX_HOME || join(homedir(), '.codex')
     return join(codexHomeDir, 'sessions')
@@ -68,7 +73,7 @@ function buildCursor(filePath: string, line: number): string {
     return JSON.stringify({ filePath, line })
 }
 
-function convertNativeCodexEvent(event: CodexSessionEvent): unknown | null {
+function convertNativeCodexEvent(event: CodexSessionEvent, sourceKey: string): unknown | null {
     const converted = convertCodexEvent(event)
     if (!converted) {
         return null
@@ -88,11 +93,33 @@ function convertNativeCodexEvent(event: CodexSessionEvent): unknown | null {
     }
 
     if (converted.message) {
+        const message = (() => {
+            if (converted.message.type === 'message' || converted.message.type === 'reasoning' || converted.message.type === 'token_count') {
+                return {
+                    ...converted.message,
+                    id: `native:${sourceKey}:${converted.message.type}`
+                }
+            }
+            if (converted.message.type === 'tool-call') {
+                return {
+                    ...converted.message,
+                    id: `native:${sourceKey}:tool-call:${converted.message.callId}`
+                }
+            }
+            if (converted.message.type === 'tool-call-result') {
+                return {
+                    ...converted.message,
+                    id: `native:${sourceKey}:tool-call-result:${converted.message.callId}`
+                }
+            }
+            return converted.message
+        })()
+
         return {
             role: 'agent',
             content: {
                 type: 'codex',
-                data: converted.message
+                data: message
             },
             meta: {
                 sentFrom: 'cli'
@@ -127,31 +154,59 @@ async function resolveSessionFile(nativeSessionId: string): Promise<string | nul
 }
 
 export function createCodexNativeProvider(): NativeSyncProvider {
+    const summaryCache = new Map<string, CachedSummaryEntry>()
+    const sessionFileCache = new Map<string, string>()
+
     return {
         name: 'codex',
         async discoverSessions(): Promise<NativeSessionSummary[]> {
             const sessionsRoot = getSessionsRoot()
             const files = await listSessionFiles(sessionsRoot)
             const summaries: NativeSessionSummary[] = []
+            const activeFiles = new Set(files)
+
+            for (const filePath of summaryCache.keys()) {
+                if (!activeFiles.has(filePath)) {
+                    const cached = summaryCache.get(filePath)
+                    if (cached?.summary) {
+                        sessionFileCache.delete(cached.summary.nativeSessionId)
+                    }
+                    summaryCache.delete(filePath)
+                }
+            }
 
             for (const filePath of files) {
-                const result = await readCodexNativeEventFile(filePath, 0, sessionsRoot)
-                if (!result.sessionId || !result.cwd) {
+                const fileStat = await stat(filePath)
+                const mtimeMs = Math.floor(fileStat.mtimeMs)
+                const cached = summaryCache.get(filePath)
+                if (cached && cached.mtimeMs === mtimeMs) {
+                    if (cached.summary) {
+                        summaries.push(cached.summary)
+                        sessionFileCache.set(cached.summary.nativeSessionId, filePath)
+                    }
                     continue
                 }
 
-                const fileStat = await stat(filePath)
+                const result = await readCodexNativeEventFile(filePath, 0, sessionsRoot)
+                if (!result.sessionId || !result.cwd) {
+                    summaryCache.set(filePath, { mtimeMs, summary: null })
+                    continue
+                }
+
                 const lastEntry = [...result.entries].reverse().find((entry) => entry.event.type !== 'session_meta')
-                summaries.push({
+                const summary: NativeSessionSummary = {
                     provider: 'codex',
                     nativeSessionId: result.sessionId,
                     projectPath: result.cwd,
                     displayPath: result.cwd,
                     flavor: 'codex',
                     discoveredAt: Math.floor(fileStat.birthtimeMs || fileStat.mtimeMs),
-                    lastActivityAt: lastEntry?.createdAt ?? result.sessionTimestamp ?? Math.floor(fileStat.mtimeMs),
+                    lastActivityAt: Math.max(lastEntry?.createdAt ?? result.sessionTimestamp ?? mtimeMs, mtimeMs),
                     title: extractTitle(result)
-                })
+                }
+                summaryCache.set(filePath, { mtimeMs, summary })
+                sessionFileCache.set(summary.nativeSessionId, filePath)
+                summaries.push(summary)
             }
 
             return summaries.sort((left, right) => right.lastActivityAt - left.lastActivityAt)
@@ -159,7 +214,9 @@ export function createCodexNativeProvider(): NativeSyncProvider {
 
         async readMessages(summary: NativeSessionSummary, state: NativeSyncState | null): Promise<NativeMessageBatch> {
             const sessionsRoot = getSessionsRoot()
-            const filePath = state?.filePath ?? await resolveSessionFile(summary.nativeSessionId)
+            const filePath = state?.filePath
+                ?? sessionFileCache.get(summary.nativeSessionId)
+                ?? await resolveSessionFile(summary.nativeSessionId)
             if (!filePath) {
                 return {
                     messages: [],
@@ -169,9 +226,21 @@ export function createCodexNativeProvider(): NativeSyncProvider {
                 }
             }
 
+            sessionFileCache.set(summary.nativeSessionId, filePath)
+
+            const fileStat = await stat(filePath)
+            const mtimeMs = Math.floor(fileStat.mtimeMs)
+            if (state?.filePath === filePath && state.mtime === mtimeMs) {
+                return {
+                    messages: [],
+                    cursor: state.cursor,
+                    filePath,
+                    mtime: mtimeMs
+                }
+            }
+
             const startLine = parseCursor(state?.cursor, filePath)
             const result = await readCodexNativeEventFile(filePath, startLine, sessionsRoot)
-            const fileStat = await stat(filePath)
 
             return {
                 messages: result.entries.flatMap((entry) => {
@@ -179,7 +248,7 @@ export function createCodexNativeProvider(): NativeSyncProvider {
                         return []
                     }
 
-                    const content = convertNativeCodexEvent(entry.event)
+                    const content = convertNativeCodexEvent(entry.event, entry.sourceKey)
                     if (!content) {
                         return []
                     }
@@ -192,7 +261,7 @@ export function createCodexNativeProvider(): NativeSyncProvider {
                 }),
                 cursor: buildCursor(filePath, result.totalLines),
                 filePath,
-                mtime: Math.floor(fileStat.mtimeMs)
+                mtime: mtimeMs
             }
         }
     }

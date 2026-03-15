@@ -38,6 +38,17 @@ export type NativeMessageImportPayload = {
     sourceKey: string
 }
 
+function touchSessionUpdatedAt(db: Database, sessionId: string, updatedAt: number): void {
+    db.prepare(`
+        UPDATE sessions
+        SET updated_at = CASE WHEN updated_at > @updated_at THEN updated_at ELSE @updated_at END
+        WHERE id = @session_id
+    `).run({
+        session_id: sessionId,
+        updated_at: updatedAt
+    })
+}
+
 export function addMessage(
     db: Database,
     sessionId: string,
@@ -77,6 +88,7 @@ export function addMessage(
         seq: msgSeq,
         local_id: localId ?? null
     })
+    touchSessionUpdatedAt(db, sessionId, now)
 
     const row = db.prepare('SELECT * FROM messages WHERE id = ?').get(id) as DbMessageRow | undefined
     if (!row) {
@@ -139,6 +151,7 @@ export function importNativeMessage(
             SET content = ?, created_at = ?
             WHERE id = ?
         `).run(nextContentJson, payload.createdAt, existing.id)
+        touchSessionUpdatedAt(db, sessionId, payload.createdAt)
 
         const updated = db.prepare('SELECT * FROM messages WHERE id = ?').get(existing.id) as DbMessageRow | undefined
         if (!updated) {
@@ -175,6 +188,7 @@ export function importNativeMessage(
         source_session_id: payload.sourceSessionId,
         source_key: payload.sourceKey
     })
+    touchSessionUpdatedAt(db, sessionId, payload.createdAt)
 
     const inserted = db.prepare('SELECT * FROM messages WHERE id = ?').get(id) as DbMessageRow | undefined
     if (!inserted) {

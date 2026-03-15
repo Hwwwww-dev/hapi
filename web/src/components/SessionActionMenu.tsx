@@ -13,11 +13,14 @@ type SessionActionMenuProps = {
     isOpen: boolean
     onClose: () => void
     sessionActive: boolean
+    onRefresh?: () => void
+    onConnectionToggle?: () => void
     onRename: () => void
     onArchive: () => void
     onDelete: () => void
     anchorPoint: { x: number; y: number }
     menuId?: string
+    actionBusy?: boolean
 }
 
 function EditIcon(props: { className?: string }) {
@@ -84,6 +87,69 @@ function TrashIcon(props: { className?: string }) {
     )
 }
 
+function RefreshIcon(props: { className?: string }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={props.className}
+        >
+            <path d="M21 2v6h-6" />
+            <path d="M3 22v-6h6" />
+            <path d="M20 11a8 8 0 0 0-14.9-3" />
+            <path d="M4 13a8 8 0 0 0 14.9 3" />
+        </svg>
+    )
+}
+
+function ConnectionIcon(props: { className?: string; active: boolean }) {
+    if (props.active) {
+        return (
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={props.className}
+            >
+                <path d="M10 13.5 8.5 12a3.5 3.5 0 0 1 0-5l2-2a3.5 3.5 0 0 1 5 5L14 11.5" />
+                <path d="M14 10.5 15.5 12a3.5 3.5 0 0 1 0 5l-2 2a3.5 3.5 0 0 1-5-5L10 12.5" />
+                <path d="m2 22 20-20" />
+            </svg>
+        )
+    }
+
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={props.className}
+        >
+            <path d="M10 13.5 8.5 12a3.5 3.5 0 0 1 0-5l2-2a3.5 3.5 0 0 1 5 5L14 11.5" />
+            <path d="M14 10.5 15.5 12a3.5 3.5 0 0 1 0 5l-2 2a3.5 3.5 0 0 1-5-5L10 12.5" />
+        </svg>
+    )
+}
+
 type MenuPosition = {
     top: number
     left: number
@@ -96,11 +162,14 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
         isOpen,
         onClose,
         sessionActive,
+        onRefresh,
+        onConnectionToggle,
         onRename,
         onArchive,
         onDelete,
         anchorPoint,
-        menuId
+        menuId,
+        actionBusy = false
     } = props
     const menuRef = useRef<HTMLDivElement | null>(null)
     const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null)
@@ -121,6 +190,18 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
     const handleDelete = () => {
         onClose()
         onDelete()
+    }
+
+    const handleRefresh = () => {
+        if (!onRefresh) return
+        onClose()
+        onRefresh()
+    }
+
+    const handleConnectionToggle = () => {
+        if (!onConnectionToggle) return
+        onClose()
+        onConnectionToggle()
     }
 
     const updatePosition = useCallback(() => {
@@ -210,6 +291,7 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
 
     const baseItemClassName =
         'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)]'
+    const disabledItemClassName = actionBusy ? ' cursor-not-allowed opacity-50' : ''
 
     return (
         <div
@@ -229,6 +311,32 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
                 aria-labelledby={headingId}
                 className="flex flex-col gap-1"
             >
+                {onRefresh ? (
+                    <button
+                        type="button"
+                        role="menuitem"
+                        className={`${baseItemClassName} hover:bg-[var(--app-subtle-bg)]${disabledItemClassName}`}
+                        onClick={handleRefresh}
+                        disabled={actionBusy}
+                    >
+                        <RefreshIcon className="text-[var(--app-hint)]" />
+                        {t('session.chat.refresh')}
+                    </button>
+                ) : null}
+
+                {onConnectionToggle ? (
+                    <button
+                        type="button"
+                        role="menuitem"
+                        className={`${baseItemClassName} hover:bg-[var(--app-subtle-bg)]${disabledItemClassName}`}
+                        onClick={handleConnectionToggle}
+                        disabled={actionBusy}
+                    >
+                        <ConnectionIcon active={sessionActive} className="text-[var(--app-hint)]" />
+                        {sessionActive ? t('session.chat.disconnect') : t('session.chat.connect')}
+                    </button>
+                ) : null}
+
                 <button
                     type="button"
                     role="menuitem"
@@ -239,7 +347,7 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
                     {t('session.action.rename')}
                 </button>
 
-                {sessionActive ? (
+                {sessionActive && !onConnectionToggle ? (
                     <button
                         type="button"
                         role="menuitem"
@@ -249,7 +357,9 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
                         <ArchiveIcon className="text-red-500" />
                         {t('session.action.archive')}
                     </button>
-                ) : (
+                ) : null}
+
+                {!sessionActive ? (
                     <button
                         type="button"
                         role="menuitem"
@@ -259,7 +369,7 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
                         <TrashIcon className="text-red-500" />
                         {t('session.action.delete')}
                     </button>
-                )}
+                ) : null}
             </div>
         </div>
     )

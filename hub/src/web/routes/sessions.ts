@@ -38,10 +38,6 @@ function estimateBase64Bytes(base64: string): number {
     return Math.floor((len * 3) / 4) - padding
 }
 
-function getPendingCount(session: Session): number {
-    return session.agentState?.requests ? Object.keys(session.agentState.requests).length : 0
-}
-
 function getSessionDirectory(session: Session): string {
     const worktreeBasePath = session.metadata?.worktree?.basePath?.trim()
     if (worktreeBasePath) {
@@ -57,20 +53,19 @@ function getSessionDirectory(session: Session): string {
 }
 
 function sortSessionsWithinDirectory(left: Session, right: Session): number {
-    const leftRank = left.active ? (getPendingCount(left) > 0 ? 0 : 1) : 2
-    const rightRank = right.active ? (getPendingCount(right) > 0 ? 0 : 1) : 2
-
-    if (leftRank !== rightRank) {
-        return leftRank - rightRank
+    if (left.updatedAt !== right.updatedAt) {
+        return right.updatedAt - left.updatedAt
     }
 
     return right.createdAt - left.createdAt
 }
 
-function getDirectoryLatestCreatedAt(sessions: Session[]): number {
-    let latest = 0
-    for (const s of sessions) {
-        if (s.createdAt > latest) latest = s.createdAt
+function getDirectoryLatestSession(sessions: Session[]): Session | null {
+    let latest: Session | null = null
+    for (const session of sessions) {
+        if (!latest || sortSessionsWithinDirectory(session, latest) < 0) {
+            latest = session
+        }
     }
     return latest
 }
@@ -92,7 +87,10 @@ function sortAndLimitSessionsByDirectory(sessions: Session[]): Session[] {
         .sort(([leftDir, leftSessions], [rightDir, rightSessions]) => {
             if (leftDir === 'Other') return 1
             if (rightDir === 'Other') return -1
-            return getDirectoryLatestCreatedAt(rightSessions) - getDirectoryLatestCreatedAt(leftSessions)
+            const leftLatest = getDirectoryLatestSession(leftSessions)
+            const rightLatest = getDirectoryLatestSession(rightSessions)
+            if (!leftLatest || !rightLatest) return 0
+            return sortSessionsWithinDirectory(leftLatest, rightLatest)
         })
         .flatMap(([, groupSessions]) => (
             groupSessions
