@@ -27,6 +27,7 @@
 
 import { spawn, SpawnOptions, type ChildProcess } from 'child_process';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { isBunCompiled, projectPath } from '@/projectPath';
 import { logger } from '@/ui/logger';
 import { existsSync } from 'node:fs';
@@ -108,6 +109,21 @@ export function spawnHappyCLI(args: string[], options: SpawnOptions = {}): Child
   // On Windows, detached processes allocate a new console window by default.
   // windowsHide: true suppresses this to prevent cmd windows from accumulating.
   const finalOptions: SpawnOptions = { ...options };
+  if (!isBunCompiled()) {
+    const requestedCwd = finalOptions.cwd ?? process.cwd();
+    const resolvedRequestedCwd = requestedCwd instanceof URL
+      ? fileURLToPath(requestedCwd)
+      : typeof requestedCwd === 'string'
+        ? requestedCwd
+        : undefined;
+
+    finalOptions.cwd = projectPath();
+    finalOptions.env = {
+      ...process.env,
+      ...finalOptions.env,
+      ...(resolvedRequestedCwd ? { HAPI_CLI_WORKDIR: resolvedRequestedCwd } : {})
+    };
+  }
   if (process.platform === 'win32' && options.detached) {
     finalOptions.windowsHide = true;
   }

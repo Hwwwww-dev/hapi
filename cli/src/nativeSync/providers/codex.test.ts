@@ -47,6 +47,13 @@ describe('Codex native provider', () => {
             JSON.stringify({
                 type: 'event_msg',
                 payload: {
+                    type: 'user_message',
+                    message: 'write a release note'
+                }
+            }),
+            JSON.stringify({
+                type: 'event_msg',
+                payload: {
                     type: 'agent_message',
                     message: 'hello'
                 }
@@ -62,9 +69,47 @@ describe('Codex native provider', () => {
             nativeSessionId: sessionId,
             projectPath: '/workspaces/codex-project',
             displayPath: '/workspaces/codex-project',
-            flavor: 'codex'
+            flavor: 'codex',
+            title: 'write a release note'
         }))
         expect(summaries[0].lastActivityAt).toBeGreaterThan(0)
+    })
+
+    it('derives a title from the first native Codex user message', async () => {
+        const sessionId = 'codex-session-title'
+        const sessionDir = join(tempDir, 'sessions', '2026', '01', '05')
+        const sessionFile = join(sessionDir, `codex-${sessionId}.jsonl`)
+
+        await mkdir(sessionDir, { recursive: true })
+        await writeFile(sessionFile, [
+            JSON.stringify({
+                type: 'session_meta',
+                payload: {
+                    id: sessionId,
+                    cwd: '/workspaces/codex-title',
+                    timestamp: '2026-01-05T00:00:00.000Z'
+                }
+            }),
+            JSON.stringify({
+                type: 'event_msg',
+                payload: {
+                    type: 'user_message',
+                    message: 'fix the failing test'
+                }
+            }),
+            JSON.stringify({
+                type: 'event_msg',
+                payload: {
+                    type: 'agent_message',
+                    message: 'working on it'
+                }
+            })
+        ].join('\n') + '\n')
+
+        const provider = createCodexNativeProvider()
+        const summaries = await provider.discoverSessions()
+
+        expect(summaries[0]?.title).toBe('fix the failing test')
     })
 
     it('imports full history in source order', async () => {
@@ -138,6 +183,45 @@ describe('Codex native provider', () => {
         ])
         expect(result.cursor).toBeTruthy()
         expect(result.filePath).toBe(sessionFile)
+    })
+
+    it('resolves rollout-style Codex session files when importing history', async () => {
+        const sessionId = '019ceb82-5e07-79c2-9b64-1a9903bbb578'
+        const sessionDir = join(tempDir, 'sessions', '2026', '03', '14')
+        const sessionFile = join(sessionDir, `rollout-2026-03-14T16-41-55-${sessionId}.jsonl`)
+
+        await mkdir(sessionDir, { recursive: true })
+        await writeFile(sessionFile, [
+            JSON.stringify({
+                type: 'session_meta',
+                payload: {
+                    id: sessionId,
+                    cwd: '/workspaces/codex-rollout',
+                    timestamp: '2026-03-14T16:41:55.000Z'
+                }
+            }),
+            JSON.stringify({
+                type: 'event_msg',
+                payload: {
+                    type: 'user_message',
+                    message: 'resume this rollout'
+                }
+            }),
+            JSON.stringify({
+                type: 'event_msg',
+                payload: {
+                    type: 'agent_message',
+                    message: 'history imported'
+                }
+            })
+        ].join('\n') + '\n')
+
+        const provider = createCodexNativeProvider()
+        const [summary] = await provider.discoverSessions()
+        const result = await provider.readMessages(summary, null)
+
+        expect(result.filePath).toBe(sessionFile)
+        expect(result.messages).toHaveLength(2)
     })
 
     it('tails only appended events after the persisted cursor', async () => {

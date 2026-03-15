@@ -16,6 +16,7 @@ import { SessionHeader } from '@/components/SessionHeader'
 import { TeamPanel } from '@/components/TeamPanel'
 import { usePlatform } from '@/hooks/usePlatform'
 import { useSessionActions } from '@/hooks/mutations/useSessionActions'
+import { useTranslation } from '@/lib/use-translation'
 import { useVoiceOptional } from '@/lib/voice-context'
 import { RealtimeVoiceSession, registerSessionStore, registerVoiceHooksStore, voiceHooks } from '@/realtime'
 
@@ -39,12 +40,14 @@ export function SessionChat(props: {
     onRetryMessage?: (localId: string) => void
     autocompleteSuggestions?: (query: string) => Promise<Suggestion[]>
 }) {
+    const { t } = useTranslation()
     const { haptic } = usePlatform()
     const navigate = useNavigate()
     const sessionInactive = !props.session.active
     const normalizedCacheRef = useRef<Map<string, { source: DecryptedMessage; normalized: NormalizedMessage | null }>>(new Map())
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
+    const [statusActionPending, setStatusActionPending] = useState<'resume' | 'stop' | 'refresh' | null>(null)
     const agentFlavor = props.session.metadata?.flavor ?? null
     const { abortSession, switchSession, setPermissionMode, setModelMode } = useSessionActions(
         props.api,
@@ -248,6 +251,39 @@ export function SessionChat(props: {
         setForceScrollToken((token) => token + 1)
     }, [props.onSend])
 
+    const handleResume = useCallback(async () => {
+        try {
+            setStatusActionPending('resume')
+            await props.api.resumeSession(props.session.id)
+            props.onRefresh()
+        } catch (error) {
+            console.error('Failed to resume session:', error)
+        } finally {
+            setStatusActionPending(null)
+        }
+    }, [props.api, props.onRefresh, props.session.id])
+
+    const handleRefresh = useCallback(async () => {
+        try {
+            setStatusActionPending('refresh')
+            await props.onRefresh()
+        } finally {
+            setStatusActionPending(null)
+        }
+    }, [props.onRefresh])
+
+    const handleStop = useCallback(async () => {
+        try {
+            setStatusActionPending('stop')
+            await abortSession()
+            props.onRefresh()
+        } catch (error) {
+            console.error('Failed to stop session:', error)
+        } finally {
+            setStatusActionPending(null)
+        }
+    }, [abortSession, props.onRefresh])
+
     const attachmentAdapter = useMemo(() => {
         if (!props.session.active) {
             return undefined
@@ -279,10 +315,40 @@ export function SessionChat(props: {
                 <TeamPanel teamState={props.session.teamState} />
             )}
 
-            {sessionInactive ? (
+            {(sessionInactive || props.session.active) ? (
                 <div className="px-3 pt-3">
-                    <div className="mx-auto w-full max-w-content rounded-md bg-[var(--app-subtle-bg)] p-3 text-sm text-[var(--app-hint)]">
-                        Session is inactive. Sending will resume it automatically.
+                    <div className="mx-auto flex w-full max-w-content flex-col gap-3 rounded-md bg-[var(--app-subtle-bg)] p-3 text-sm text-[var(--app-hint)]">
+                        {sessionInactive ? (
+                            <div>
+                                {t('session.chat.inactive')}
+                            </div>
+                        ) : null}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                type="button"
+                                className="rounded-md border border-[var(--app-divider)] px-3 py-1.5 text-sm text-[var(--app-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={() => { void handleResume() }}
+                                disabled={!sessionInactive || statusActionPending !== null}
+                            >
+                                {t('session.chat.connect')}
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-md border border-[var(--app-divider)] px-3 py-1.5 text-sm text-[var(--app-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={() => { void handleStop() }}
+                                disabled={sessionInactive || statusActionPending !== null}
+                            >
+                                {t('session.chat.stop')}
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-md border border-[var(--app-divider)] px-3 py-1.5 text-sm text-[var(--app-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={() => { void handleRefresh() }}
+                                disabled={statusActionPending !== null}
+                            >
+                                {t('session.chat.refresh')}
+                            </button>
+                        </div>
                     </div>
                 </div>
             ) : null}

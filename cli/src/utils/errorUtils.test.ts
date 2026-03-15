@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extractErrorInfo, apiValidationError } from './errorUtils'
+import { extractErrorInfo, apiValidationError, describeUnknownError } from './errorUtils'
 
 describe('extractErrorInfo', () => {
     it('extracts serverProtocolVersion from axios-style response header', () => {
@@ -83,5 +83,15 @@ describe('apiValidationError', () => {
         const info = extractErrorInfo(err)
         expect(info.serverProtocolVersion).toBe(2)
         expect(info.messageLower).toContain('invalid /cli/')
+    })
+})
+
+describe('describeUnknownError', () => {
+    it('returns the message from non-Error objects', () => {
+        expect(describeUnknownError({ message: 'Cannot find module x' })).toBe('Cannot find module x')
+    })
+
+    it('serializes plain objects instead of hiding them as Unknown error', () => {
+        expect(describeUnknownError({ code: 'E_FAIL' })).toBe('{"code":"E_FAIL"}')
     })
 })

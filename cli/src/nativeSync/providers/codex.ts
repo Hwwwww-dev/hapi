@@ -96,10 +96,26 @@ function convertNativeCodexEvent(event: CodexSessionEvent): unknown | null {
     return null
 }
 
+function extractTitle(result: Awaited<ReturnType<typeof readCodexNativeEventFile>>): string | undefined {
+    for (const entry of result.entries) {
+        const converted = convertCodexEvent(entry.event)
+        if (!converted?.userMessage) {
+            continue
+        }
+
+        const title = converted.userMessage.trim()
+        if (title) {
+            return title
+        }
+    }
+
+    return undefined
+}
+
 async function resolveSessionFile(nativeSessionId: string): Promise<string | null> {
     const sessionsRoot = getSessionsRoot()
     const files = await listSessionFiles(sessionsRoot)
-    const suffix = `codex-${nativeSessionId}.jsonl`
+    const suffix = `${nativeSessionId}.jsonl`
     return files.find((filePath) => filePath.endsWith(suffix)) ?? null
 }
 
@@ -126,7 +142,8 @@ export function createCodexNativeProvider(): NativeSyncProvider {
                     displayPath: result.cwd,
                     flavor: 'codex',
                     discoveredAt: Math.floor(fileStat.birthtimeMs || fileStat.mtimeMs),
-                    lastActivityAt: lastEntry?.createdAt ?? result.sessionTimestamp ?? Math.floor(fileStat.mtimeMs)
+                    lastActivityAt: lastEntry?.createdAt ?? result.sessionTimestamp ?? Math.floor(fileStat.mtimeMs),
+                    title: extractTitle(result)
                 })
             }
 

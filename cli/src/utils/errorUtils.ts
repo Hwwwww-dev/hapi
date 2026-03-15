@@ -78,6 +78,38 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
     }
 }
 
+export function describeUnknownError(error: unknown): string {
+    if (error instanceof Error) {
+        return error.message
+    }
+
+    if (typeof error === 'string') {
+        return error
+    }
+
+    if (error && typeof error === 'object') {
+        const record = error as Record<string, unknown>
+        if (typeof record.message === 'string' && record.message.trim()) {
+            return record.message
+        }
+
+        try {
+            const serialized = JSON.stringify(error)
+            if (serialized && serialized !== '{}') {
+                return serialized
+            }
+        } catch {
+        }
+
+        const fallback = String(error)
+        if (fallback && fallback !== '[object Object]') {
+            return fallback
+        }
+    }
+
+    return 'Unknown error'
+}
+
 /**
  * Check if an error is a retryable connection error
  *

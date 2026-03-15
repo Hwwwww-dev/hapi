@@ -11,6 +11,7 @@ const bearerSchema = z.string().regex(/^Bearer\s+(.+)$/i)
 
 const createOrLoadSessionSchema = z.object({
     tag: z.string().min(1),
+    existingSessionId: z.string().min(1).optional(),
     metadata: z.unknown(),
     agentState: z.unknown().nullable().optional()
 })
@@ -103,6 +104,15 @@ export function createCliRoutes(getSyncEngine: () => SyncEngine | null): Hono<Cl
         }
 
         const namespace = c.get('namespace')
+        if (parsed.data.existingSessionId) {
+            const resolved = resolveSessionForNamespace(engine, parsed.data.existingSessionId, namespace)
+            if (!resolved.ok) {
+                return c.json({ error: resolved.error }, resolved.status)
+            }
+
+            return c.json({ session: resolved.session })
+        }
+
         const session = engine.getOrCreateSession(parsed.data.tag, parsed.data.metadata, parsed.data.agentState ?? null, namespace)
         return c.json({ session })
     })

@@ -117,7 +117,8 @@ export class RpcGateway {
         yolo?: boolean,
         sessionType?: 'simple' | 'worktree',
         worktreeName?: string,
-        resumeSessionId?: string
+        resumeSessionId?: string,
+        sessionId?: string
     ): Promise<{ type: 'success'; sessionId: string } | { type: 'error'; message: string }> {
         try {
             const result = await this.machineRpc(
@@ -126,6 +127,7 @@ export class RpcGateway {
                 {
                     type: 'spawn-in-directory',
                     directory,
+                    sessionId,
                     agent,
                     model,
                     yolo,

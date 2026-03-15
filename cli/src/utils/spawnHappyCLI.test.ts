@@ -1,5 +1,6 @@
 import { beforeAll, afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SpawnOptions } from 'child_process';
+import { projectPath } from '@/projectPath';
 
 const spawnMock = vi.fn((..._args: any[]) => ({ pid: 12345 } as any));
 
@@ -87,5 +88,39 @@ describe('spawnHappyCLI windowsHide behavior', () => {
     const options = getSpawnOptionsOrThrow();
     expect(options.detached).toBe(true);
     expect('windowsHide' in options).toBe(false);
+  });
+
+  it('uses the CLI project root as cwd in dev mode and forwards requested cwd via env', async () => {
+    setPlatform('linux');
+    const { spawnHappyCLI } = await import('./spawnHappyCLI');
+
+    spawnHappyCLI(['runner', 'start-sync'], {
+      cwd: '/tmp/target-project',
+      env: {
+        TEST_FLAG: '1'
+      }
+    });
+
+    const options = getSpawnOptionsOrThrow();
+    expect(options.cwd).toBe(projectPath());
+    expect(options.env).toEqual(expect.objectContaining({
+      TEST_FLAG: '1',
+      HAPI_CLI_WORKDIR: '/tmp/target-project'
+    }));
+  });
+
+  it('forwards the current working directory when cwd is omitted in dev mode', async () => {
+    setPlatform('linux');
+    const { spawnHappyCLI } = await import('./spawnHappyCLI');
+
+    spawnHappyCLI(['runner', 'start-sync'], {
+      stdio: 'ignore'
+    });
+
+    const options = getSpawnOptionsOrThrow();
+    expect(options.cwd).toBe(projectPath());
+    expect(options.env).toEqual(expect.objectContaining({
+      HAPI_CLI_WORKDIR: process.cwd()
+    }));
   });
 });

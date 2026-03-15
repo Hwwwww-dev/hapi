@@ -116,6 +116,40 @@ describe('CLI native routes', () => {
         sseManager.stop()
     })
 
+    it('returns an existing session when existingSessionId is provided', async () => {
+        const { engine, sseManager } = createTestEngine()
+        const app = createCliRoutes(() => engine)
+        const existing = engine.getOrCreateSession('existing-tag', {
+            path: '/tmp/project',
+            host: 'local',
+            flavor: 'claude'
+        }, null, 'default')
+
+        const response = await app.request('http://localhost/sessions', {
+            method: 'POST',
+            headers: authHeaders(configuration.cliApiToken),
+            body: JSON.stringify({
+                tag: 'ignored-tag',
+                existingSessionId: existing.id,
+                metadata: {
+                    path: '/tmp/other-project',
+                    host: 'local'
+                },
+                agentState: null
+            })
+        })
+
+        expect(response.status).toBe(200)
+        expect(await response.json()).toEqual({
+            session: expect.objectContaining({
+                id: existing.id
+            })
+        })
+
+        engine.stop()
+        sseManager.stop()
+    })
+
     it('imports native messages idempotently', async () => {
         const { engine, sseManager } = createTestEngine()
         const app = createCliRoutes(() => engine)

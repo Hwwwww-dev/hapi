@@ -38,4 +38,34 @@ describe('toSessionSummary', () => {
             nativeSessionId: 'native-123'
         }))
     })
+
+    it('includes createdAt in the summary payload', () => {
+        const session: Session = {
+            id: 'session-2',
+            namespace: 'default',
+            seq: 1,
+            createdAt: 123,
+            updatedAt: 456,
+            active: true,
+            activeAt: 456,
+            metadata: {
+                path: '/tmp/project',
+                host: 'local'
+            },
+            metadataVersion: 1,
+            agentState: null,
+            agentStateVersion: 1,
+            thinking: false,
+            thinkingAt: 0,
+            todos: undefined,
+            teamState: undefined,
+            permissionMode: undefined,
+            modelMode: undefined
+        }
+
+        expect(toSessionSummary(session)).toEqual(expect.objectContaining({
+            createdAt: 123,
+            updatedAt: 456
+        }))
+    })
 })

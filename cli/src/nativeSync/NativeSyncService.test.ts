@@ -220,6 +220,40 @@ describe('NativeSyncService', () => {
         ])
     })
 
+    it('splits oversized native history imports into smaller chunks', async () => {
+        const summary = createSummary()
+        const largeText = 'x'.repeat(180_000)
+        const provider = createProvider({
+            summaries: [summary],
+            readResult: {
+                messages: [
+                    createMessage('line:1', 101, { role: 'assistant', content: largeText }),
+                    createMessage('line:2', 102, { role: 'assistant', content: largeText })
+                ],
+                cursor: 'line:2'
+            }
+        })
+        const api = createApi()
+        const service = new NativeSyncService({
+            api,
+            providers: [provider],
+            machineId: 'machine-1',
+            host: 'local',
+            now: () => 7100,
+            pollIntervalMs: 60_000
+        })
+
+        await service.syncOnce()
+
+        expect(api.importNativeMessages).toHaveBeenCalledTimes(2)
+        expect(api.importNativeMessages).toHaveBeenNthCalledWith(1, 'hapi-session-1', [
+            expect.objectContaining({ sourceKey: 'line:1' })
+        ])
+        expect(api.importNativeMessages).toHaveBeenNthCalledWith(2, 'hapi-session-1', [
+            expect.objectContaining({ sourceKey: 'line:2' })
+        ])
+    })
+
     it('resumes from persisted cursor after service restart', async () => {
         const summary = createSummary()
         const persistedState = createState({ cursor: 'line:5' })

@@ -57,6 +57,12 @@ export default {
   'session.time.minutesAgo': '{n}m ago',
   'session.time.hoursAgo': '{n}h ago',
   'session.time.daysAgo': '{n}d ago',
+  'session.time.createdLabel': 'created',
+  'session.time.updatedLabel': 'updated',
+  'session.chat.inactive': 'Session is inactive. Sending will resume it automatically.',
+  'session.chat.connect': 'Connect',
+  'session.chat.stop': 'Stop',
+  'session.chat.refresh': 'Refresh',
 
   // Session header
   'session.title': 'Files',

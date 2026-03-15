@@ -1,6 +1,8 @@
 import chalk from 'chalk'
 import { authAndSetupMachineIfNeeded } from '@/ui/auth'
 import { initializeToken } from '@/ui/tokenInit'
+import { applyForwardedCliWorkdir } from '@/utils/forwardedCliWorkdir'
+import { describeUnknownError } from '@/utils/errorUtils'
 import { maybeAutoStartServer } from '@/utils/autoStartServer'
 import type { CommandDefinition } from './types'
 import type { GeminiPermissionMode } from '@hapi/protocol/types'
@@ -44,9 +46,10 @@ export const geminiCommand: CommandDefinition = {
             await authAndSetupMachineIfNeeded()
 
             const { runGemini } = await import('@/gemini/runGemini')
+            applyForwardedCliWorkdir()
             await runGemini(options)
         } catch (error) {
-            console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+            console.error(chalk.red('Error:'), describeUnknownError(error))
             if (process.env.DEBUG) {
                 console.error(error)
             }

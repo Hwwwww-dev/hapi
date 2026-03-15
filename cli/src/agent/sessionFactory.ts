@@ -20,6 +20,7 @@ export type SessionBootstrapOptions = {
     startedBy?: SessionStartedBy
     workingDirectory?: string
     tag?: string
+    existingSessionId?: string
     agentState?: AgentState | null
 }
 
@@ -104,6 +105,10 @@ export async function bootstrapSession(options: SessionBootstrapOptions): Promis
     const workingDirectory = options.workingDirectory ?? process.cwd()
     const startedBy = options.startedBy ?? 'terminal'
     const sessionTag = options.tag ?? randomUUID()
+    const existingSessionId = options.existingSessionId ?? process.env.HAPI_EXISTING_SESSION_ID
+    if (options.existingSessionId === undefined) {
+        delete process.env.HAPI_EXISTING_SESSION_ID
+    }
     const agentState = options.agentState === undefined ? {} : options.agentState
 
     const api = await ApiClient.create()
@@ -123,6 +128,7 @@ export async function bootstrapSession(options: SessionBootstrapOptions): Promis
 
     const sessionInfo = await api.getOrCreateSession({
         tag: sessionTag,
+        existingSessionId,
         metadata,
         state: agentState
     })

@@ -340,6 +340,13 @@ export async function startRunner(): Promise<void> {
           };
         }
 
+        if (options.sessionId) {
+          extraEnv = {
+            ...extraEnv,
+            HAPI_EXISTING_SESSION_ID: options.sessionId
+          };
+        }
+
         // Construct arguments for the CLI
         const agentCommand = agent === 'codex'
           ? 'codex'

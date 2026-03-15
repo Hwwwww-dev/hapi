@@ -17,6 +17,7 @@ export type SessionSummary = {
     id: string
     active: boolean
     thinking: boolean
+    createdAt: number
     activeAt: number
     updatedAt: number
     metadata: SessionSummaryMetadata | null
@@ -49,6 +50,7 @@ export function toSessionSummary(session: Session): SessionSummary {
         id: session.id,
         active: session.active,
         thinking: session.thinking,
+        createdAt: session.createdAt,
         activeAt: session.activeAt,
         updatedAt: session.updatedAt,
         metadata,

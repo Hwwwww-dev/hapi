@@ -14,6 +14,8 @@ export type NativeSyncApi = {
 }
 
 export class NativeSyncService {
+    private static readonly MAX_IMPORT_BATCH_BYTES = 256 * 1024
+
     private readonly api: NativeSyncApi
     private readonly providers: NativeSyncProvider[]
     private readonly machineId: string
@@ -108,7 +110,7 @@ export class NativeSyncService {
             }))
 
             if (messages.length > 0) {
-                await this.api.importNativeMessages(session.id, messages)
+                await this.importMessagesInChunks(session.id, messages)
             }
 
             await this.api.updateNativeSyncState({
@@ -162,5 +164,35 @@ export class NativeSyncService {
         }
 
         return metadata
+    }
+
+    private async importMessagesInChunks(sessionId: string, messages: NativeMessageImport[]): Promise<void> {
+        let currentChunk: NativeMessageImport[] = []
+        let currentBytes = this.baseImportPayloadBytes()
+
+        for (const message of messages) {
+            const messageBytes = this.messageImportBytes(message)
+
+            if (currentChunk.length > 0 && currentBytes + messageBytes > NativeSyncService.MAX_IMPORT_BATCH_BYTES) {
+                await this.api.importNativeMessages(sessionId, currentChunk)
+                currentChunk = []
+                currentBytes = this.baseImportPayloadBytes()
+            }
+
+            currentChunk.push(message)
+            currentBytes += messageBytes
+        }
+
+        if (currentChunk.length > 0) {
+            await this.api.importNativeMessages(sessionId, currentChunk)
+        }
+    }
+
+    private baseImportPayloadBytes(): number {
+        return Buffer.byteLength('{"messages":[]}', 'utf8')
+    }
+
+    private messageImportBytes(message: NativeMessageImport): number {
+        return Buffer.byteLength(JSON.stringify(message), 'utf8') + 1
     }
 }

@@ -148,6 +148,17 @@ function getAgentLabel(session: SessionSummary): string {
     return 'unknown'
 }
 
+function getNativeOriginLabel(session: SessionSummary): string | null {
+    const source = session.metadata?.source
+    if (source !== 'native' && source !== 'hybrid') return null
+
+    const provider = session.metadata?.nativeProvider?.trim() || getAgentLabel(session)
+    const nativeSessionId = session.metadata?.nativeSessionId?.trim()
+    if (!nativeSessionId) return provider
+
+    return `${provider} · ${nativeSessionId.slice(0, 8)}`
+}
+
 function formatRelativeTime(value: number, t: (key: string, params?: Record<string, string | number>) => string): string | null {
     const ms = value < 1_000_000_000_000 ? value * 1000 : value
     if (!Number.isFinite(ms)) return null
@@ -160,6 +171,25 @@ function formatRelativeTime(value: number, t: (key: string, params?: Record<stri
     const days = Math.floor(hours / 24)
     if (days < 7) return t('session.time.daysAgo', { n: days })
     return new Date(ms).toLocaleDateString()
+}
+
+function formatSessionTimes(session: SessionSummary, t: (key: string, params?: Record<string, string | number>) => string): string | null {
+    const created = formatRelativeTime(session.createdAt, t)
+    const updated = formatRelativeTime(session.updatedAt, t)
+
+    if (created && updated) {
+        return `${t('session.time.createdLabel')} ${created} · ${t('session.time.updatedLabel')} ${updated}`
+    }
+
+    if (updated) {
+        return `${t('session.time.updatedLabel')} ${updated}`
+    }
+
+    if (created) {
+        return `${t('session.time.createdLabel')} ${created}`
+    }
+
+    return null
 }
 
 function SessionItem(props: {
@@ -199,6 +229,7 @@ function SessionItem(props: {
     })
 
     const sessionName = getSessionTitle(s)
+    const nativeOriginLabel = getNativeOriginLabel(s)
     const statusDotClass = s.active
         ? (s.thinking ? 'bg-[#007AFF]' : 'bg-[var(--app-badge-success-text)]')
         : 'bg-[var(--app-hint)]'
@@ -243,9 +274,11 @@ function SessionItem(props: {
                                 {t('session.item.pending')} {s.pendingRequestsCount}
                             </span>
                         ) : null}
-                        <span className="text-[var(--app-hint)]">
-                            {formatRelativeTime(s.updatedAt, t)}
-                        </span>
+                        {formatSessionTimes(s, t) ? (
+                            <span className="text-[var(--app-hint)]">
+                                {formatSessionTimes(s, t)}
+                            </span>
+                        ) : null}
                     </div>
                 </div>
                 {showPath ? (
@@ -258,7 +291,7 @@ function SessionItem(props: {
                         <span className="flex h-4 w-4 items-center justify-center" aria-hidden="true">
                             ❖
                         </span>
-                        {getAgentLabel(s)}
+                        {nativeOriginLabel ?? getAgentLabel(s)}
                     </span>
                     <SessionSourceBadge source={s.metadata?.source} />
                     <span>{t('session.item.modelMode')}: {s.modelMode || 'default'}</span>

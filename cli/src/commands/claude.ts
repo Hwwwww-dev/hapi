@@ -9,9 +9,10 @@ import { authAndSetupMachineIfNeeded } from '@/ui/auth'
 import { logger } from '@/ui/logger'
 import { initializeToken } from '@/ui/tokenInit'
 import { spawnHappyCLI } from '@/utils/spawnHappyCLI'
+import { applyForwardedCliWorkdir } from '@/utils/forwardedCliWorkdir'
 import { maybeAutoStartServer } from '@/utils/autoStartServer'
 import { withBunRuntimeEnv } from '@/utils/bunRuntime'
-import { extractErrorInfo } from '@/utils/errorUtils'
+import { describeUnknownError, extractErrorInfo } from '@/utils/errorUtils'
 import type { CommandDefinition } from './types'
 
 export const claudeCommand: CommandDefinition = {
@@ -136,9 +137,11 @@ ${chalk.bold.cyan('Claude Code Options (from `claude --help`):')}
 
         try {
             const { runClaude } = await import('@/claude/runClaude')
+            applyForwardedCliWorkdir()
             await runClaude(options)
         } catch (error) {
             const { message, messageLower, axiosCode, httpStatus, responseErrorText, serverProtocolVersion } = extractErrorInfo(error)
+            const displayMessage = describeUnknownError(error)
 
             if (
                 axiosCode === 'ECONNREFUSED' ||
@@ -166,10 +169,10 @@ ${chalk.bold.cyan('Claude Code Options (from `claude --help`):')}
                 messageLower.includes('unauthorized') ||
                 messageLower.includes('forbidden')
             ) {
-                console.error(chalk.red('Authentication error:'), message)
+                console.error(chalk.red('Authentication error:'), displayMessage)
                 console.error(chalk.gray('  Run: hapi auth login'))
             } else {
-                console.error(chalk.red('Error:'), message)
+                console.error(chalk.red('Error:'), displayMessage)
             }
 
             if (serverProtocolVersion !== undefined && serverProtocolVersion !== PROTOCOL_VERSION) {

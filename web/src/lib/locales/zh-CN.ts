@@ -57,6 +57,12 @@ export default {
   'session.time.minutesAgo': '{n} 分钟前',
   'session.time.hoursAgo': '{n} 小时前',
   'session.time.daysAgo': '{n} 天前',
+  'session.time.createdLabel': '创建',
+  'session.time.updatedLabel': '更新',
+  'session.chat.inactive': '会话当前未激活。发送消息会自动恢复连接。',
+  'session.chat.connect': '连接',
+  'session.chat.stop': '停止',
+  'session.chat.refresh': '刷新',
 
   // Session header
   'session.title': '文件',
