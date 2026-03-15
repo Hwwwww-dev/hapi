@@ -11,6 +11,9 @@ type DbMessageRow = {
     created_at: number
     seq: number
     local_id: string | null
+    source_provider: 'claude' | 'codex' | null
+    source_session_id: string | null
+    source_key: string | null
 }
 
 function toStoredMessage(row: DbMessageRow): StoredMessage {
@@ -20,8 +23,19 @@ function toStoredMessage(row: DbMessageRow): StoredMessage {
         content: safeJsonParse(row.content),
         createdAt: row.created_at,
         seq: row.seq,
-        localId: row.local_id
+        localId: row.local_id,
+        sourceProvider: row.source_provider,
+        sourceSessionId: row.source_session_id,
+        sourceKey: row.source_key
     }
+}
+
+export type NativeMessageImportPayload = {
+    content: unknown
+    createdAt: number
+    sourceProvider: 'claude' | 'codex'
+    sourceSessionId: string
+    sourceKey: string
 }
 
 export function addMessage(
@@ -90,6 +104,67 @@ export function getMessages(
     return rows.reverse().map(toStoredMessage)
 }
 
+export function importNativeMessage(
+    db: Database,
+    sessionId: string,
+    payload: NativeMessageImportPayload
+): { message: StoredMessage; inserted: boolean } {
+    const existing = db.prepare(`
+        SELECT * FROM messages
+        WHERE session_id = ?
+          AND source_provider = ?
+          AND source_session_id = ?
+          AND source_key = ?
+        LIMIT 1
+    `).get(
+        sessionId,
+        payload.sourceProvider,
+        payload.sourceSessionId,
+        payload.sourceKey
+    ) as DbMessageRow | undefined
+
+    if (existing) {
+        return {
+            message: toStoredMessage(existing),
+            inserted: false
+        }
+    }
+
+    const msgSeqRow = db.prepare(
+        'SELECT COALESCE(MAX(seq), 0) + 1 AS nextSeq FROM messages WHERE session_id = ?'
+    ).get(sessionId) as { nextSeq: number }
+    const id = randomUUID()
+
+    db.prepare(`
+        INSERT INTO messages (
+            id, session_id, content, created_at, seq, local_id,
+            source_provider, source_session_id, source_key
+        ) VALUES (
+            @id, @session_id, @content, @created_at, @seq, NULL,
+            @source_provider, @source_session_id, @source_key
+        )
+    `).run({
+        id,
+        session_id: sessionId,
+        content: JSON.stringify(payload.content),
+        created_at: payload.createdAt,
+        seq: msgSeqRow.nextSeq,
+        source_provider: payload.sourceProvider,
+        source_session_id: payload.sourceSessionId,
+        source_key: payload.sourceKey
+    })
+
+    const inserted = db.prepare('SELECT * FROM messages WHERE id = ?').get(id) as DbMessageRow | undefined
+    if (!inserted) {
+        throw new Error('Failed to import native message')
+    }
+
+    return {
+        message: toStoredMessage(inserted),
+        inserted: true
+    }
+}
+
 export function getMessagesAfter(
     db: Database,
     sessionId: string,
@@ -116,7 +191,10 @@ export function getMaxSeq(db: Database, sessionId: string): number {
 export function mergeSessionMessages(
     db: Database,
     fromSessionId: string,
-    toSessionId: string
+    toSessionId: string,
+    options?: {
+        strategy?: 'prepend-target' | 'append-source'
+    }
 ): { moved: number; oldMaxSeq: number; newMaxSeq: number } {
     if (fromSessionId === toSessionId) {
         return { moved: 0, oldMaxSeq: 0, newMaxSeq: 0 }
@@ -124,14 +202,21 @@ export function mergeSessionMessages(
 
     const oldMaxSeq = getMaxSeq(db, fromSessionId)
     const newMaxSeq = getMaxSeq(db, toSessionId)
+    const strategy = options?.strategy ?? 'prepend-target'
 
     try {
         db.exec('BEGIN')
 
-        if (newMaxSeq > 0 && oldMaxSeq > 0) {
+        if (strategy === 'prepend-target' && newMaxSeq > 0 && oldMaxSeq > 0) {
             db.prepare(
                 'UPDATE messages SET seq = seq + ? WHERE session_id = ?'
             ).run(oldMaxSeq, toSessionId)
+        }
+
+        if (strategy === 'append-source' && newMaxSeq > 0 && oldMaxSeq > 0) {
+            db.prepare(
+                'UPDATE messages SET seq = seq + ? WHERE session_id = ?'
+            ).run(newMaxSeq, fromSessionId)
         }
 
         const collisions = db.prepare(`

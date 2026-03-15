@@ -7,6 +7,9 @@ export type SessionSummaryMetadata = {
     machineId?: string
     summary?: { text: string }
     flavor?: string | null
+    source?: 'hapi' | 'native' | 'hybrid'
+    nativeProvider?: 'claude' | 'codex'
+    nativeSessionId?: string
     worktree?: WorktreeMetadata
 }
 
@@ -31,6 +34,9 @@ export function toSessionSummary(session: Session): SessionSummary {
         machineId: session.metadata.machineId ?? undefined,
         summary: session.metadata.summary ? { text: session.metadata.summary.text } : undefined,
         flavor: session.metadata.flavor ?? null,
+        source: session.metadata.source ?? undefined,
+        nativeProvider: session.metadata.nativeProvider ?? undefined,
+        nativeSessionId: session.metadata.nativeSessionId ?? undefined,
         worktree: session.metadata.worktree
     } : null
 

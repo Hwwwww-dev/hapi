@@ -4,6 +4,7 @@ import { useHappyChatContext } from '@/components/AssistantChat/context'
 import type { HappyChatMessageMetadata } from '@/lib/assistant-runtime'
 import { MessageStatusIndicator } from '@/components/AssistantChat/messages/MessageStatusIndicator'
 import { MessageAttachments } from '@/components/AssistantChat/messages/MessageAttachments'
+import { MessageTimestamp } from '@/components/AssistantChat/messages/MessageTimestamp'
 import { CliOutputBlock } from '@/components/CliOutputBlock'
 
 export function HappyUserMessage() {
@@ -37,6 +38,7 @@ export function HappyUserMessage() {
         if (custom?.kind !== 'cli-output') return ''
         return message.content.find((part) => part.type === 'text')?.text ?? ''
     })
+    const createdAt = useAssistantState(({ message }) => message.createdAt)
 
     if (role !== 'user') return null
     const canRetry = status === 'failed' && typeof localId === 'string' && Boolean(ctx.onRetryMessage)
@@ -49,6 +51,9 @@ export function HappyUserMessage() {
             <MessagePrimitive.Root className="px-1 min-w-0 max-w-full overflow-x-hidden">
                 <div className="ml-auto w-full max-w-[92%]">
                     <CliOutputBlock text={cliText} />
+                    <div className="mt-1 flex justify-end">
+                        <MessageTimestamp value={createdAt} />
+                    </div>
                 </div>
             </MessagePrimitive.Root>
         )
@@ -69,6 +74,9 @@ export function HappyUserMessage() {
                         <MessageStatusIndicator status={status} onRetry={onRetry} />
                     </div>
                 ) : null}
+            </div>
+            <div className="mt-1 flex justify-end">
+                <MessageTimestamp value={createdAt} />
             </div>
         </MessagePrimitive.Root>
     )

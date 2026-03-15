@@ -4,6 +4,7 @@ import { dirname } from 'node:path'
 
 import { MachineStore } from './machineStore'
 import { MessageStore } from './messageStore'
+import { NativeSyncStateStore } from './nativeSyncStateStore'
 import { PushStore } from './pushStore'
 import { SessionStore } from './sessionStore'
 import { UserStore } from './userStore'
@@ -11,6 +12,7 @@ import { UserStore } from './userStore'
 export type {
     StoredMachine,
     StoredMessage,
+    StoredNativeSyncState,
     StoredPushSubscription,
     StoredSession,
     StoredUser,
@@ -18,15 +20,17 @@ export type {
 } from './types'
 export { MachineStore } from './machineStore'
 export { MessageStore } from './messageStore'
+export { NativeSyncStateStore } from './nativeSyncStateStore'
 export { PushStore } from './pushStore'
 export { SessionStore } from './sessionStore'
 export { UserStore } from './userStore'
 
-const SCHEMA_VERSION: number = 4
+const SCHEMA_VERSION: number = 5
 const REQUIRED_TABLES = [
     'sessions',
     'machines',
     'messages',
+    'native_sync_state',
     'users',
     'push_subscriptions'
 ] as const
@@ -38,6 +42,7 @@ export class Store {
     readonly sessions: SessionStore
     readonly machines: MachineStore
     readonly messages: MessageStore
+    readonly nativeSyncState: NativeSyncStateStore
     readonly users: UserStore
     readonly push: PushStore
 
@@ -79,6 +84,7 @@ export class Store {
         this.sessions = new SessionStore(this.db)
         this.machines = new MachineStore(this.db)
         this.messages = new MessageStore(this.db)
+        this.nativeSyncState = new NativeSyncStateStore(this.db)
         this.users = new UserStore(this.db)
         this.push = new PushStore(this.db)
     }
@@ -112,6 +118,19 @@ export class Store {
 
         if (currentVersion === 3 && SCHEMA_VERSION === 4) {
             this.migrateFromV3ToV4()
+            this.setUserVersion(SCHEMA_VERSION)
+            return
+        }
+
+        if (currentVersion === 3 && SCHEMA_VERSION === 5) {
+            this.migrateFromV3ToV4()
+            this.migrateFromV4ToV5()
+            this.setUserVersion(SCHEMA_VERSION)
+            return
+        }
+
+        if (currentVersion === 4 && SCHEMA_VERSION === 5) {
+            this.migrateFromV4ToV5()
             this.setUserVersion(SCHEMA_VERSION)
             return
         }
@@ -169,10 +188,32 @@ export class Store {
                 created_at INTEGER NOT NULL,
                 seq INTEGER NOT NULL,
                 local_id TEXT,
+                source_provider TEXT,
+                source_session_id TEXT,
+                source_key TEXT,
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             );
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, seq);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_local_id ON messages(session_id, local_id) WHERE local_id IS NOT NULL;
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_native_source
+            ON messages(session_id, source_provider, source_session_id, source_key)
+            WHERE source_key IS NOT NULL;
+
+            CREATE TABLE IF NOT EXISTS native_sync_state (
+                session_id TEXT PRIMARY KEY,
+                provider TEXT NOT NULL,
+                native_session_id TEXT NOT NULL,
+                machine_id TEXT NOT NULL,
+                cursor TEXT,
+                file_path TEXT,
+                mtime INTEGER,
+                last_synced_at INTEGER,
+                sync_status TEXT NOT NULL,
+                last_error TEXT,
+                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_native_sync_state_machine_id
+            ON native_sync_state(machine_id, last_synced_at DESC);
 
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -298,6 +339,44 @@ export class Store {
         }
     }
 
+    private migrateFromV4ToV5(): void {
+        const columns = this.getMessageColumnNames()
+        if (!columns.has('source_provider')) {
+            this.db.exec('ALTER TABLE messages ADD COLUMN source_provider TEXT')
+        }
+        if (!columns.has('source_session_id')) {
+            this.db.exec('ALTER TABLE messages ADD COLUMN source_session_id TEXT')
+        }
+        if (!columns.has('source_key')) {
+            this.db.exec('ALTER TABLE messages ADD COLUMN source_key TEXT')
+        }
+
+        this.db.exec(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_native_source
+            ON messages(session_id, source_provider, source_session_id, source_key)
+            WHERE source_key IS NOT NULL
+        `)
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS native_sync_state (
+                session_id TEXT PRIMARY KEY,
+                provider TEXT NOT NULL,
+                native_session_id TEXT NOT NULL,
+                machine_id TEXT NOT NULL,
+                cursor TEXT,
+                file_path TEXT,
+                mtime INTEGER,
+                last_synced_at INTEGER,
+                sync_status TEXT NOT NULL,
+                last_error TEXT,
+                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+            )
+        `)
+        this.db.exec(`
+            CREATE INDEX IF NOT EXISTS idx_native_sync_state_machine_id
+            ON native_sync_state(machine_id, last_synced_at DESC)
+        `)
+    }
+
     private getSessionColumnNames(): Set<string> {
         const rows = this.db.prepare('PRAGMA table_info(sessions)').all() as Array<{ name: string }>
         return new Set(rows.map((row) => row.name))
@@ -305,6 +384,11 @@ export class Store {
 
     private getMachineColumnNames(): Set<string> {
         const rows = this.db.prepare('PRAGMA table_info(machines)').all() as Array<{ name: string }>
+        return new Set(rows.map((row) => row.name))
+    }
+
+    private getMessageColumnNames(): Set<string> {
+        const rows = this.db.prepare('PRAGMA table_info(messages)').all() as Array<{ name: string }>
         return new Set(rows.map((row) => row.name))
     }
 

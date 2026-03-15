@@ -1,9 +1,10 @@
 import { BaseSessionScanner, SessionFileScanEntry, SessionFileScanResult, SessionFileScanStats } from "@/modules/common/session/BaseSessionScanner";
 import { logger } from "@/ui/logger";
-import { join, relative, resolve, sep } from "node:path";
+import { join, relative, sep } from "node:path";
 import { homedir } from "node:os";
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import type { CodexSessionEvent } from "./codexEventConverter";
+import { asRecord, asString, normalizeCodexPath, parseCodexTimestamp, readCodexNativeEventFile } from "./nativeEventReader";
 
 interface CodexSessionScannerOptions {
     sessionId: string | null;
@@ -33,7 +34,7 @@ type Candidate = {
 const DEFAULT_SESSION_START_WINDOW_MS = 2 * 60 * 1000;
 
 export async function createCodexSessionScanner(opts: CodexSessionScannerOptions): Promise<CodexSessionScanner> {
-    const targetCwd = opts.cwd && opts.cwd.trim().length > 0 ? normalizePath(opts.cwd) : null;
+    const targetCwd = opts.cwd && opts.cwd.trim().length > 0 ? normalizeCodexPath(opts.cwd) : null;
 
     if (!targetCwd && !opts.sessionId) {
         const message = 'No cwd provided for Codex session matching; refusing to fallback.';
@@ -67,7 +68,6 @@ class CodexSessionScannerImpl extends BaseSessionScanner<CodexSessionEvent> {
     private readonly sessionCwdByFile = new Map<string, string>();
     private readonly sessionTimestampByFile = new Map<string, number>();
     private readonly pendingEventsByFile = new Map<string, PendingEvents>();
-    private readonly sessionMetaParsed = new Set<string>();
     private readonly fileEpochByPath = new Map<string, number>();
     private readonly targetCwd: string | null;
     private readonly referenceTimestampMs: number;
@@ -262,62 +262,27 @@ class CodexSessionScannerImpl extends BaseSessionScanner<CodexSessionEvent> {
     }
 
     private async readSessionFile(filePath: string, startLine: number): Promise<SessionFileScanResult<CodexSessionEvent>> {
-        let content: string;
-        try {
-            content = await readFile(filePath, 'utf-8');
-        } catch (error) {
-            return { events: [], nextCursor: startLine };
-        }
-
-        const events: SessionFileScanEntry<CodexSessionEvent>[] = [];
-        const lines = content.split('\n');
-        const hasTrailingEmpty = lines.length > 0 && lines[lines.length - 1] === '';
-        const totalLines = hasTrailingEmpty ? lines.length - 1 : lines.length;
-        let effectiveStartLine = startLine;
-        if (effectiveStartLine > totalLines) {
-            effectiveStartLine = 0;
+        const result = await readCodexNativeEventFile(filePath, startLine);
+        if (result.resetToStart) {
             const nextEpoch = (this.fileEpochByPath.get(filePath) ?? 0) + 1;
             this.fileEpochByPath.set(filePath, nextEpoch);
         }
-
-        const hasSessionMeta = this.sessionMetaParsed.has(filePath);
-        const parseFrom = hasSessionMeta ? effectiveStartLine : 0;
-
-        for (let index = parseFrom; index < lines.length; index += 1) {
-            const trimmed = lines[index].trim();
-            if (!trimmed) {
-                continue;
-            }
-            try {
-                const parsed = JSON.parse(trimmed) as CodexSessionEvent;
-                if (parsed?.type === 'session_meta') {
-                    const payload = asRecord(parsed.payload);
-                    const sessionId = payload ? asString(payload.id) : null;
-                    if (sessionId) {
-                        this.sessionIdByFile.set(filePath, sessionId);
-                    }
-                    const sessionCwd = payload ? asString(payload.cwd) : null;
-                    const normalizedCwd = sessionCwd ? normalizePath(sessionCwd) : null;
-                    if (normalizedCwd) {
-                        this.sessionCwdByFile.set(filePath, normalizedCwd);
-                    }
-                    const rawTimestamp = payload ? payload.timestamp : null;
-                    const sessionTimestamp = payload ? parseTimestamp(payload.timestamp) : null;
-                    if (sessionTimestamp !== null) {
-                        this.sessionTimestampByFile.set(filePath, sessionTimestamp);
-                    }
-                    logger.debug(`[CODEX_SESSION_SCANNER] Session meta: file=${filePath} cwd=${sessionCwd ?? 'none'} normalizedCwd=${normalizedCwd ?? 'none'} timestamp=${rawTimestamp ?? 'none'} parsedTs=${sessionTimestamp ?? 'none'}`);
-                    this.sessionMetaParsed.add(filePath);
-                }
-                if (index >= effectiveStartLine) {
-                    events.push({ event: parsed, lineIndex: index });
-                }
-            } catch (error) {
-                logger.debug(`[CODEX_SESSION_SCANNER] Failed to parse line: ${error}`);
-            }
+        if (result.sessionId) {
+            this.sessionIdByFile.set(filePath, result.sessionId);
         }
-
-        return { events, nextCursor: totalLines };
+        if (result.cwd) {
+            this.sessionCwdByFile.set(filePath, result.cwd);
+        }
+        if (result.sessionTimestamp !== null) {
+            this.sessionTimestampByFile.set(filePath, result.sessionTimestamp);
+        }
+        return {
+            events: result.entries.map((entry) => ({
+                event: entry.event,
+                lineIndex: entry.lineIndex
+            })),
+            nextCursor: result.totalLines
+        };
     }
 
     private getCandidateForFile(filePath: string): Candidate | null {
@@ -433,33 +398,6 @@ async function sortFilesByMtime(files: string[]): Promise<string[]> {
     return entries
         .sort((a, b) => b.mtimeMs - a.mtimeMs)
         .map((entry) => entry.file);
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-    if (!value || typeof value !== 'object') {
-        return null;
-    }
-    return value as Record<string, unknown>;
-}
-
-function asString(value: unknown): string | null {
-    return typeof value === 'string' && value.length > 0 ? value : null;
-}
-
-function parseTimestamp(value: unknown): number | null {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-        return value;
-    }
-    if (typeof value === 'string' && value.length > 0) {
-        const parsed = Date.parse(value);
-        return Number.isNaN(parsed) ? null : parsed;
-    }
-    return null;
-}
-
-function normalizePath(value: string): string {
-    const resolved = resolve(value);
-    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
 }
 
 function getSessionDatePrefixes(referenceTimestampMs: number, windowMs: number): Set<string> {

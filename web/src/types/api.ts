@@ -66,6 +66,7 @@ export type Machine = {
         platform: string
         happyCliVersion: string
         displayName?: string
+        homeDir?: string
     } | null
     runnerState?: RunnerState | null
 }
@@ -130,6 +131,12 @@ export type DirectoryEntry = {
 export type ListDirectoryResponse = {
     success: boolean
     entries?: DirectoryEntry[]
+    error?: string
+}
+
+export type CreateMachineDirectoryResponse = {
+    success: boolean
+    path?: string
     error?: string
 }
 

@@ -1,20 +1,9 @@
 import { RawJSONLines, RawJSONLinesSchema } from "../types";
 import { basename, join } from "node:path";
-import { readFile } from "node:fs/promises";
 import { logger } from "@/ui/logger";
 import { getProjectPath } from "./path";
 import { BaseSessionScanner, SessionFileScanEntry, SessionFileScanResult, SessionFileScanStats } from "@/modules/common/session/BaseSessionScanner";
-
-/**
- * Known internal Claude Code event types that should be silently skipped.
- * These are written to session JSONL files by Claude Code but are not 
- * actual conversation messages - they're internal state/tracking events.
- */
-const INTERNAL_CLAUDE_EVENT_TYPES = new Set([
-    'file-history-snapshot',
-    'change',
-    'queue-operation',
-]);
+import { readClaudeNativeLog } from "./nativeLogReader";
 
 export async function createSessionScanner(opts: {
     sessionId: string | null;
@@ -173,48 +162,14 @@ function messageKey(message: RawJSONLines): string {
  * Returns only valid conversation messages, silently skipping internal events.
  */
 async function readSessionLog(filePath: string, startLine: number): Promise<{ events: SessionFileScanEntry<RawJSONLines>[]; totalLines: number }> {
-    logger.debug(`[SESSION_SCANNER] Reading session file: ${filePath}`);
-    let file: string;
-    try {
-        file = await readFile(filePath, 'utf-8');
-    } catch (error) {
-        logger.debug(`[SESSION_SCANNER] Session file not found: ${filePath}`);
-        return { events: [], totalLines: startLine };
-    }
-    const lines = file.split('\n');
-    const hasTrailingEmpty = lines.length > 0 && lines[lines.length - 1] === '';
-    const totalLines = hasTrailingEmpty ? lines.length - 1 : lines.length;
-    let effectiveStartLine = startLine;
-    if (effectiveStartLine > totalLines) {
-        effectiveStartLine = 0;
-    }
-    const messages: SessionFileScanEntry<RawJSONLines>[] = [];
-    for (let index = effectiveStartLine; index < lines.length; index += 1) {
-        const l = lines[index];
-        try {
-            if (l.trim() === '') {
-                continue;
-            }
-            let message = JSON.parse(l);
-            
-            // Silently skip known internal Claude Code events
-            // These are state/tracking events, not conversation messages
-            if (message.type && INTERNAL_CLAUDE_EVENT_TYPES.has(message.type)) {
-                continue;
-            }
-            
-            let parsed = RawJSONLinesSchema.safeParse(message);
-            if (!parsed.success) {
-                // Unknown message types are silently skipped.
-                continue;
-            }
-            messages.push({ event: parsed.data, lineIndex: index });
-        } catch (e) {
-            logger.debug(`[SESSION_SCANNER] Error processing message: ${e}`);
-            continue;
-        }
-    }
-    return { events: messages, totalLines };
+    const { entries, totalLines } = await readClaudeNativeLog(filePath, startLine);
+    return {
+        events: entries.map((entry) => ({
+            event: entry.event,
+            lineIndex: entry.lineIndex
+        })),
+        totalLines
+    };
 }
 
 function sessionIdFromPath(filePath: string): string | null {

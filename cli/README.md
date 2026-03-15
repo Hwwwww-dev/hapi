@@ -52,6 +52,8 @@ See `src/commands/auth.ts`.
 - `hapi runner stop-session <sessionId>` - Terminate specific session.
 - `hapi runner logs` - Print path to latest runner log file.
 
+When runner is online, hapi can also discover supported native Claude Code / Codex sessions created outside hapi and mirror them into the hub for web viewing and later takeover.
+
 See `src/runner/run.ts`.
 
 ### Diagnostics

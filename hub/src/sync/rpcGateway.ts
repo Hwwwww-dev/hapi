@@ -40,6 +40,12 @@ export type RpcListDirectoryResponse = {
     error?: string
 }
 
+export type RpcCreateMachineDirectoryResponse = {
+    success: boolean
+    path?: string
+    error?: string
+}
+
 export type RpcPathExistsResponse = {
     exists: Record<string, boolean>
 }
@@ -117,7 +123,17 @@ export class RpcGateway {
             const result = await this.machineRpc(
                 machineId,
                 'spawn-happy-session',
-                { type: 'spawn-in-directory', directory, agent, model, yolo, sessionType, worktreeName, resumeSessionId }
+                {
+                    type: 'spawn-in-directory',
+                    directory,
+                    agent,
+                    model,
+                    yolo,
+                    sessionType,
+                    worktreeName,
+                    resumeSessionId,
+                    approvedNewDirectoryCreation: false
+                }
             )
             if (result && typeof result === 'object') {
                 const obj = result as Record<string, unknown>
@@ -188,6 +204,14 @@ export class RpcGateway {
 
     async listDirectory(sessionId: string, path: string): Promise<RpcListDirectoryResponse> {
         return await this.sessionRpc(sessionId, 'listDirectory', { path }) as RpcListDirectoryResponse
+    }
+
+    async listMachineDirectory(machineId: string, path: string): Promise<RpcListDirectoryResponse> {
+        return await this.machineRpc(machineId, 'listMachineDirectory', { path }) as RpcListDirectoryResponse
+    }
+
+    async createMachineDirectory(machineId: string, parentPath: string, name: string): Promise<RpcCreateMachineDirectoryResponse> {
+        return await this.machineRpc(machineId, 'createMachineDirectory', { parentPath, name }) as RpcCreateMachineDirectoryResponse
     }
 
     async uploadFile(sessionId: string, filename: string, content: string, mimeType: string): Promise<RpcUploadFileResponse> {

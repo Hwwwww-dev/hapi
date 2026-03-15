@@ -7,15 +7,17 @@
  * - No E2E encryption; data is stored as JSON in SQLite
  */
 
+import { isObject } from '@hapi/protocol'
 import type { DecryptedMessage, ModelMode, PermissionMode, Session, SyncEvent } from '@hapi/protocol/types'
 import type { Server } from 'socket.io'
-import type { Store } from '../store'
+import type { Store, StoredNativeSyncState } from '../store'
 import type { RpcRegistry } from '../socket/rpcRegistry'
 import type { SSEManager } from '../sse/sseManager'
 import { EventPublisher, type SyncEventListener } from './eventPublisher'
 import { MachineCache, type Machine } from './machineCache'
 import { MessageService } from './messageService'
 import {
+    type RpcCreateMachineDirectoryResponse,
     RpcGateway,
     type RpcCommandResponse,
     type RpcDeleteUploadResponse,
@@ -31,6 +33,7 @@ export type { Machine } from './machineCache'
 export type { SyncEventListener } from './eventPublisher'
 export type {
     RpcCommandResponse,
+    RpcCreateMachineDirectoryResponse,
     RpcDeleteUploadResponse,
     RpcListDirectoryResponse,
     RpcPathExistsResponse,
@@ -43,6 +46,7 @@ export type ResumeSessionResult =
     | { type: 'error'; message: string; code: 'session_not_found' | 'access_denied' | 'no_machine_online' | 'resume_unavailable' | 'resume_failed' }
 
 export class SyncEngine {
+    private readonly store: Store
     private readonly eventPublisher: EventPublisher
     private readonly sessionCache: SessionCache
     private readonly machineCache: MachineCache
@@ -56,6 +60,7 @@ export class SyncEngine {
         rpcRegistry: RpcRegistry,
         sseManager: SSEManager
     ) {
+        this.store = store
         this.eventPublisher = new EventPublisher(sseManager, (event) => this.resolveNamespace(event))
         this.sessionCache = new SessionCache(store, this.eventPublisher)
         this.machineCache = new MachineCache(store, this.eventPublisher)
@@ -190,6 +195,14 @@ export class SyncEngine {
         modelMode?: ModelMode
     }): void {
         this.sessionCache.handleSessionAlive(payload)
+
+        const session = this.getSession(payload.sid)
+        if (!session?.metadata || session.metadata.source !== 'native') {
+            return
+        }
+
+        const hybridMetadata = this.buildHybridSessionMetadata(session.metadata, session.metadata)
+        this.updateSessionMetadataIfNeeded(session, hybridMetadata)
     }
 
     handleSessionEnd(payload: { sid: string; time: number }): void {
@@ -214,6 +227,89 @@ export class SyncEngine {
         return this.sessionCache.getOrCreateSession(tag, metadata, agentState, namespace)
     }
 
+    upsertNativeSession(payload: {
+        tag: string
+        namespace: string
+        metadata: unknown
+        agentState?: unknown | null
+    }): Session {
+        const session = this.sessionCache.getOrCreateSession(
+            payload.tag,
+            payload.metadata,
+            payload.agentState ?? null,
+            payload.namespace
+        )
+
+        let current = this.getSession(session.id) ?? session
+        current = this.updateSessionMetadataIfNeeded(
+            current,
+            this.mergeNativeSessionMetadata(current.metadata, payload.metadata)
+        )
+        current = this.updateSessionAgentStateIfNeeded(
+            current,
+            this.mergeNativeSessionAgentState(current.agentState, payload.agentState)
+        )
+        return current
+    }
+
+    importNativeMessages(
+        sessionId: string,
+        payload: Array<{
+            content: unknown
+            createdAt: number
+            sourceProvider: 'claude' | 'codex'
+            sourceSessionId: string
+            sourceKey: string
+        }>
+    ): { imported: number; session: Session } {
+        const session = this.getSession(sessionId)
+        if (!session) {
+            throw new Error('Session not found')
+        }
+
+        const result = this.messageService.importNativeMessages(sessionId, payload)
+        return {
+            imported: result.imported,
+            session: this.getSession(sessionId) ?? session
+        }
+    }
+
+    getNativeSyncState(sessionId: string): StoredNativeSyncState | null {
+        return this.store.nativeSyncState.getBySessionId(sessionId)
+    }
+
+    updateNativeSyncState(payload: StoredNativeSyncState): (
+        | { ok: true; state: StoredNativeSyncState }
+        | { ok: false; status: 404 | 409; error: string }
+    ) {
+        const session = this.getSession(payload.sessionId)
+        if (!session?.metadata) {
+            return { ok: false, status: 404, error: 'Session not found' }
+        }
+
+        if (session.metadata.nativeProvider !== payload.provider) {
+            return { ok: false, status: 409, error: 'Native provider does not match session metadata' }
+        }
+
+        if (session.metadata.nativeSessionId !== payload.nativeSessionId) {
+            return { ok: false, status: 409, error: 'Native session ID does not match session metadata' }
+        }
+
+        const state = this.store.nativeSyncState.upsert(payload)
+        if (payload.syncStatus === 'healthy' && payload.lastSyncedAt !== null) {
+            this.updateSessionMetadataIfNeeded(session, {
+                ...session.metadata,
+                nativeLastSyncedAt: payload.lastSyncedAt
+            })
+        }
+
+        return { ok: true, state }
+    }
+
+    markNativeSyncError(sessionId: string, message: string, timestamp: number): StoredNativeSyncState | null {
+        return this.store.nativeSyncState.markError(sessionId, message, timestamp)
+    }
+
     getOrCreateMachine(id: string, metadata: unknown, runnerState: unknown, namespace: string): Machine {
         return this.machineCache.getOrCreateMachine(id, metadata, runnerState, namespace)
     }
@@ -235,6 +331,169 @@ export class SyncEngine {
         }
     ): Promise<void> {
         await this.messageService.sendMessage(sessionId, payload)
+    }
+
+    private updateSessionMetadataIfNeeded(session: Session, metadata: unknown): Session {
+        if (JSON.stringify(session.metadata) === JSON.stringify(metadata)) {
+            return session
+        }
+
+        const result = this.store.sessions.updateSessionMetadata(
+            session.id,
+            metadata,
+            session.metadataVersion,
+            session.namespace
+        )
+
+        if (result.result === 'version-mismatch') {
+            const refreshed = this.getSession(session.id) ?? this.sessionCache.refreshSession(session.id) ?? session
+            if (JSON.stringify(refreshed.metadata) === JSON.stringify(metadata)) {
+                return refreshed
+            }
+
+            const retry = this.store.sessions.updateSessionMetadata(
+                session.id,
+                metadata,
+                refreshed.metadataVersion,
+                refreshed.namespace
+            )
+
+            if (retry.result === 'success') {
+                return this.sessionCache.refreshSession(session.id) ?? refreshed
+            }
+
+            return this.getSession(session.id) ?? this.sessionCache.refreshSession(session.id) ?? refreshed
+        }
+
+        if (result.result === 'success') {
+            return this.sessionCache.refreshSession(session.id) ?? session
+        }
+
+        return this.getSession(session.id) ?? this.sessionCache.refreshSession(session.id) ?? session
+    }
+
+    private updateSessionAgentStateIfNeeded(session: Session, agentState: unknown): Session {
+        if (JSON.stringify(session.agentState ?? null) === JSON.stringify(agentState ?? null)) {
+            return session
+        }
+
+        const result = this.store.sessions.updateSessionAgentState(
+            session.id,
+            agentState ?? null,
+            session.agentStateVersion,
+            session.namespace
+        )
+
+        if (result.result === 'version-mismatch') {
+            const refreshed = this.getSession(session.id) ?? this.sessionCache.refreshSession(session.id) ?? session
+            if (JSON.stringify(refreshed.agentState ?? null) === JSON.stringify(agentState ?? null)) {
+                return refreshed
+            }
+
+            const retry = this.store.sessions.updateSessionAgentState(
+                session.id,
+                agentState ?? null,
+                refreshed.agentStateVersion,
+                refreshed.namespace
+            )
+
+            if (retry.result === 'success') {
+                return this.sessionCache.refreshSession(session.id) ?? refreshed
+            }
+
+            return this.getSession(session.id) ?? this.sessionCache.refreshSession(session.id) ?? refreshed
+        }
+
+        if (result.result === 'success') {
+            return this.sessionCache.refreshSession(session.id) ?? session
+        }
+
+        return this.getSession(session.id) ?? this.sessionCache.refreshSession(session.id) ?? session
+    }
+
+    private mergeNativeSessionMetadata(
+        existingMetadata: Session['metadata'],
+        incomingMetadata: unknown
+    ): unknown {
+        if (!isObject(incomingMetadata) || !isObject(existingMetadata)) {
+            return incomingMetadata
+        }
+
+        const existingSource = existingMetadata.source
+        const incomingSource = incomingMetadata.source
+        if (
+            existingSource !== 'native'
+            && existingSource !== 'hybrid'
+            && incomingSource !== 'native'
+            && incomingSource !== 'hybrid'
+        ) {
+            return incomingMetadata
+        }
+
+        const merged: Record<string, unknown> = { ...existingMetadata }
+        const nativeManagedKeys = [
+            'path',
+            'host',
+            'name',
+            'machineId',
+            'flavor',
+            'source',
+            'nativeProvider',
+            'nativeSessionId',
+            'nativeProjectPath',
+            'nativeDiscoveredAt',
+            'nativeLastSyncedAt',
+            'claudeSessionId',
+            'codexSessionId'
+        ] as const
+
+        for (const key of nativeManagedKeys) {
+            if (incomingMetadata[key] !== undefined) {
+                merged[key] = incomingMetadata[key]
+            }
+        }
+
+        if (existingSource === 'hybrid') {
+            merged.source = 'hybrid'
+        }
+
+        return merged
+    }
+
+    private mergeNativeSessionAgentState(
+        existingAgentState: Session['agentState'],
+        incomingAgentState: unknown | null | undefined
+    ): unknown | null {
+        if (incomingAgentState === null || incomingAgentState === undefined) {
+            return existingAgentState ?? null
+        }
+
+        return incomingAgentState
+    }
+
+    private buildHybridSessionMetadata(
+        canonicalMetadata: Session['metadata'],
+        resumedMetadata: Session['metadata']
+    ): Session['metadata'] {
+        if (!canonicalMetadata && !resumedMetadata) {
+            return null
+        }
+
+        const canonical = canonicalMetadata ?? { path: '', host: '' }
+        const resumed = resumedMetadata ?? { path: canonical.path, host: canonical.host }
+
+        return {
+            ...canonical,
+            ...resumed,
+            source: 'hybrid',
+            nativeProvider: canonical.nativeProvider ?? resumed.nativeProvider,
+            nativeSessionId: canonical.nativeSessionId ?? resumed.nativeSessionId,
+            nativeProjectPath: canonical.nativeProjectPath ?? resumed.nativeProjectPath,
+            nativeDiscoveredAt: canonical.nativeDiscoveredAt ?? resumed.nativeDiscoveredAt,
+            nativeLastSyncedAt: canonical.nativeLastSyncedAt ?? resumed.nativeLastSyncedAt,
+            claudeSessionId: canonical.claudeSessionId ?? resumed.claudeSessionId,
+            codexSessionId: canonical.codexSessionId ?? resumed.codexSessionId
+        }
     }
 
     async approvePermission(
@@ -388,16 +647,33 @@ export class SyncEngine {
             return { type: 'error', message: 'Session failed to become active', code: 'resume_failed' }
         }
 
+        const resumedSession = this.getSession(spawnResult.sessionId)
+        const hybridMetadata = this.buildHybridSessionMetadata(access.session.metadata, resumedSession?.metadata ?? null)
+
         if (spawnResult.sessionId !== access.sessionId) {
             try {
-                await this.sessionCache.mergeSessions(access.sessionId, spawnResult.sessionId, namespace)
+                await this.sessionCache.mergeSessions(
+                    spawnResult.sessionId,
+                    access.sessionId,
+                    namespace,
+                    {
+                        mergedMetadata: hybridMetadata,
+                        mergedAgentState: resumedSession?.agentState ?? access.session.agentState ?? null
+                    }
+                )
             } catch (error) {
                 const message = error instanceof Error ? error.message : 'Failed to merge resumed session'
                 return { type: 'error', message, code: 'resume_failed' }
             }
+
+            return { type: 'success', sessionId: access.sessionId }
         }
 
-        return { type: 'success', sessionId: spawnResult.sessionId }
+        const currentSession = this.getSession(access.sessionId) ?? access.session
+        this.updateSessionMetadataIfNeeded(currentSession, hybridMetadata)
+        this.sessionCache.refreshSession(access.sessionId)
+
+        return { type: 'success', sessionId: access.session.id }
     }
 
     async waitForSessionActive(sessionId: string, timeoutMs: number = 15_000): Promise<boolean> {
@@ -434,6 +710,14 @@ export class SyncEngine {
 
     async listDirectory(sessionId: string, path: string): Promise<RpcListDirectoryResponse> {
         return await this.rpcGateway.listDirectory(sessionId, path)
+    }
+
+    async listMachineDirectory(machineId: string, path: string): Promise<RpcListDirectoryResponse> {
+        return await this.rpcGateway.listMachineDirectory(machineId, path)
+    }
+
+    async createMachineDirectory(machineId: string, parentPath: string, name: string): Promise<RpcCreateMachineDirectoryResponse> {
+        return await this.rpcGateway.createMachineDirectory(machineId, parentPath, name)
     }
 
     async uploadFile(sessionId: string, filename: string, content: string, mimeType: string): Promise<RpcUploadFileResponse> {

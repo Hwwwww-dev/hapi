@@ -2,6 +2,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Suggestion } from '@/hooks/useActiveSuggestions'
 import { Autocomplete } from '@/components/ChatInput/Autocomplete'
 import { FloatingOverlay } from '@/components/ChatInput/FloatingOverlay'
+import { Button } from '@/components/ui/button'
 import { useTranslation } from '@/lib/use-translation'
 
 export function DirectorySection(props: {
@@ -9,12 +10,16 @@ export function DirectorySection(props: {
     suggestions: readonly Suggestion[]
     selectedIndex: number
     isDisabled: boolean
+    canBrowse: boolean
     recentPaths: string[]
+    showPathValidation: boolean
+    pathExists: boolean | null
     onDirectoryChange: (value: string) => void
     onDirectoryFocus: () => void
     onDirectoryBlur: () => void
     onDirectoryKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => void
     onSuggestionSelect: (index: number) => void
+    onBrowseClick: () => void
     onPathClick: (path: string) => void
 }) {
     const { t } = useTranslation()
@@ -25,17 +30,27 @@ export function DirectorySection(props: {
                 {t('newSession.directory')}
             </label>
             <div className="relative">
-                <input
-                    type="text"
-                    placeholder={t('newSession.placeholder')}
-                    value={props.directory}
-                    onChange={(event) => props.onDirectoryChange(event.target.value)}
-                    onKeyDown={props.onDirectoryKeyDown}
-                    onFocus={props.onDirectoryFocus}
-                    onBlur={props.onDirectoryBlur}
-                    disabled={props.isDisabled}
-                    className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] p-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-link)] disabled:opacity-50"
-                />
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        placeholder={t('newSession.placeholder')}
+                        value={props.directory}
+                        onChange={(event) => props.onDirectoryChange(event.target.value)}
+                        onKeyDown={props.onDirectoryKeyDown}
+                        onFocus={props.onDirectoryFocus}
+                        onBlur={props.onDirectoryBlur}
+                        disabled={props.isDisabled}
+                        className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] p-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-link)] disabled:opacity-50"
+                    />
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={props.onBrowseClick}
+                        disabled={!props.canBrowse || props.isDisabled}
+                    >
+                        {t('newSession.directoryPicker.browse')}
+                    </Button>
+                </div>
                 {props.suggestions.length > 0 && (
                     <div className="absolute top-full left-0 right-0 z-10 mt-1">
                         <FloatingOverlay maxHeight={200}>
@@ -48,6 +63,12 @@ export function DirectorySection(props: {
                     </div>
                 )}
             </div>
+
+            {props.showPathValidation && props.pathExists === false ? (
+                <div className="text-xs text-red-600">
+                    {t('newSession.directoryValidation.mustExist')}
+                </div>
+            ) : null}
 
             {props.recentPaths.length > 0 && (
                 <div className="flex flex-col gap-1 mt-1">

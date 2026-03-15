@@ -39,6 +39,22 @@ export type StoredMessage = {
     createdAt: number
     seq: number
     localId: string | null
+    sourceProvider: 'claude' | 'codex' | null
+    sourceSessionId: string | null
+    sourceKey: string | null
+}
+
+export type StoredNativeSyncState = {
+    sessionId: string
+    provider: 'claude' | 'codex'
+    nativeSessionId: string
+    machineId: string
+    cursor: string | null
+    filePath: string | null
+    mtime: number | null
+    lastSyncedAt: number | null
+    syncStatus: 'healthy' | 'error'
+    lastError: string | null
 }
 
 export type StoredUser = {

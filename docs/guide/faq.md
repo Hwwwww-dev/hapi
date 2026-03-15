@@ -82,6 +82,14 @@ Yes, with runner mode:
 2. Your machine appears in the "Machines" list in the web app
 3. Tap to spawn new sessions from anywhere
 
+### Can HAPI show Claude Code or Codex sessions that I started outside HAPI?
+
+Yes, as long as `hapi runner` is online on that machine.
+
+- HAPI discovers supported native Claude Code and Codex sessions for the current machine/project.
+- Newly discovered upstream sessions are shown with a **Native** badge.
+- If you later resume/take over that same thread through HAPI, the session is shown with a **Hybrid** badge.
+
 ### How do I see what files were changed?
 
 In the session view, tap the "Files" tab to:

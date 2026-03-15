@@ -3,6 +3,7 @@ import type {
     AuthResponse,
     DeleteUploadResponse,
     ListDirectoryResponse,
+    CreateMachineDirectoryResponse,
     FileReadResponse,
     FileSearchResponse,
     GitCommandResponse,
@@ -40,6 +41,25 @@ function parseErrorCode(bodyText: string): string | undefined {
     } catch {
         return undefined
     }
+}
+
+export function extractApiErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof ApiError) {
+        return parseErrorCode(error.body ?? '') ?? error.message
+    }
+
+    if (error instanceof Error) {
+        const bodyStart = error.message.indexOf('{')
+        if (bodyStart >= 0) {
+            const parsed = parseErrorCode(error.message.slice(bodyStart))
+            if (parsed) {
+                return parsed
+            }
+        }
+        return error.message
+    }
+
+    return fallback
 }
 
 export class ApiError extends Error {
@@ -116,7 +136,12 @@ export class ApiClient {
 
         if (!res.ok) {
             const body = await res.text().catch(() => '')
-            throw new Error(`HTTP ${res.status} ${res.statusText}: ${body}`)
+            throw new ApiError(
+                `HTTP ${res.status} ${res.statusText}: ${body}`,
+                res.status,
+                parseErrorCode(body),
+                body || undefined
+            )
         }
 
         return await res.json() as T
@@ -365,6 +390,30 @@ export class ApiClient {
             {
                 method: 'POST',
                 body: JSON.stringify({ paths })
+            }
+        )
+    }
+
+    async listMachineDirectory(
+        machineId: string,
+        path: string
+    ): Promise<ListDirectoryResponse> {
+        const params = new URLSearchParams({ path })
+        return await this.request<ListDirectoryResponse>(
+            `/api/machines/${encodeURIComponent(machineId)}/directory?${params.toString()}`
+        )
+    }
+
+    async createMachineDirectory(
+        machineId: string,
+        parentPath: string,
+        name: string
+    ): Promise<CreateMachineDirectoryResponse> {
+        return await this.request<CreateMachineDirectoryResponse>(
+            `/api/machines/${encodeURIComponent(machineId)}/directory`,
+            {
+                method: 'POST',
+                body: JSON.stringify({ parentPath, name })
             }
         )
     }

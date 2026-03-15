@@ -9,6 +9,7 @@ import {
 import type { ModelMode, PermissionMode } from '@hapi/protocol/types'
 import { z } from 'zod'
 import { UsageSchema } from '@/claude/types'
+import type { NativeSyncState } from '@/nativeSync/types'
 
 export type Usage = z.infer<typeof UsageSchema>
 
@@ -102,6 +103,38 @@ export const CreateSessionResponseSchema = z.object({
 })
 
 export type CreateSessionResponse = z.infer<typeof CreateSessionResponseSchema>
+
+export const NativeSyncStateSchema: z.ZodType<NativeSyncState> = z.object({
+    sessionId: z.string(),
+    provider: z.enum(['claude', 'codex']),
+    nativeSessionId: z.string(),
+    machineId: z.string(),
+    cursor: z.string().nullable(),
+    filePath: z.string().nullable(),
+    mtime: z.number().nullable(),
+    lastSyncedAt: z.number().nullable(),
+    syncStatus: z.enum(['healthy', 'error']),
+    lastError: z.string().nullable()
+})
+
+export const NativeSyncStateResponseSchema = z.object({
+    state: NativeSyncStateSchema.nullable()
+})
+
+export type NativeSyncStateResponse = z.infer<typeof NativeSyncStateResponseSchema>
+
+export const ImportNativeMessagesResponseSchema = z.object({
+    imported: z.number().int().min(0),
+    session: CreateSessionResponseSchema.shape.session
+})
+
+export type ImportNativeMessagesResponse = z.infer<typeof ImportNativeMessagesResponseSchema>
+
+export const UpdateNativeSyncStateResponseSchema = z.object({
+    state: NativeSyncStateSchema
+})
+
+export type UpdateNativeSyncStateResponse = z.infer<typeof UpdateNativeSyncStateResponseSchema>
 
 export const CreateMachineResponseSchema = z.object({
     machine: z.object({

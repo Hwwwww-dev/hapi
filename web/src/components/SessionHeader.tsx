@@ -4,6 +4,7 @@ import type { ApiClient } from '@/api/client'
 import { isTelegramApp } from '@/hooks/useTelegram'
 import { useSessionActions } from '@/hooks/mutations/useSessionActions'
 import { SessionActionMenu } from '@/components/SessionActionMenu'
+import { SessionSourceBadge } from '@/components/SessionSourceBadge'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useTranslation } from '@/lib/use-translation'
@@ -70,6 +71,9 @@ export function SessionHeader(props: {
     const { session, api, onSessionDeleted } = props
     const title = useMemo(() => getSessionTitle(session), [session])
     const worktreeBranch = session.metadata?.worktree?.branch
+    const nativeOrigin = session.metadata?.nativeProvider && session.metadata?.nativeSessionId
+        ? `${t('session.item.nativeSource')}: ${session.metadata.nativeProvider} · ${session.metadata.nativeSessionId}`
+        : null
 
     const [menuOpen, setMenuOpen] = useState(false)
     const [menuAnchorPoint, setMenuAnchorPoint] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
@@ -130,8 +134,11 @@ export function SessionHeader(props: {
 
                     {/* Session info - two lines: title and path */}
                     <div className="min-w-0 flex-1">
-                        <div className="truncate font-semibold">
-                            {title}
+                        <div className="flex items-center gap-2 min-w-0">
+                            <div className="truncate font-semibold">
+                                {title}
+                            </div>
+                            <SessionSourceBadge source={session.metadata?.source} className="shrink-0" />
                         </div>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[var(--app-hint)]">
                             <span className="inline-flex items-center gap-1">
@@ -143,6 +150,9 @@ export function SessionHeader(props: {
                             </span>
                             {worktreeBranch ? (
                                 <span>{t('session.item.worktree')}: {worktreeBranch}</span>
+                            ) : null}
+                            {nativeOrigin ? (
+                                <span>{nativeOrigin}</span>
                             ) : null}
                         </div>
                     </div>

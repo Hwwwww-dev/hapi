@@ -291,26 +291,41 @@ export class SessionCache {
         this.publisher.emit({ type: 'session-removed', sessionId, namespace: session.namespace })
     }
 
-    async mergeSessions(oldSessionId: string, newSessionId: string, namespace: string): Promise<void> {
-        if (oldSessionId === newSessionId) {
+    async mergeSessions(
+        sourceSessionId: string,
+        targetSessionId: string,
+        namespace: string,
+        options?: {
+            mergedMetadata?: unknown | null
+            mergedAgentState?: unknown | null
+        }
+    ): Promise<void> {
+        if (sourceSessionId === targetSessionId) {
             return
         }
 
-        const oldStored = this.store.sessions.getSessionByNamespace(oldSessionId, namespace)
-        const newStored = this.store.sessions.getSessionByNamespace(newSessionId, namespace)
-        if (!oldStored || !newStored) {
+        const sourceStored = this.store.sessions.getSessionByNamespace(sourceSessionId, namespace)
+        const targetStored = this.store.sessions.getSessionByNamespace(targetSessionId, namespace)
+        if (!sourceStored || !targetStored) {
             throw new Error('Session not found for merge')
         }
 
-        this.store.messages.mergeSessionMessages(oldSessionId, newSessionId)
+        const sourceSession = this.sessions.get(sourceSessionId) ?? this.refreshSession(sourceSessionId) ?? undefined
+        const targetSession = this.sessions.get(targetSessionId) ?? this.refreshSession(targetSessionId) ?? undefined
 
-        const mergedMetadata = this.mergeSessionMetadata(oldStored.metadata, newStored.metadata)
-        if (mergedMetadata !== null && mergedMetadata !== newStored.metadata) {
+        this.store.messages.mergeSessionMessages(sourceSessionId, targetSessionId, {
+            strategy: 'append-source'
+        })
+
+        const mergedMetadata = options?.mergedMetadata !== undefined
+            ? options.mergedMetadata
+            : this.mergeSessionMetadata(sourceStored.metadata, targetStored.metadata)
+        if (mergedMetadata !== null && mergedMetadata !== targetStored.metadata) {
             for (let attempt = 0; attempt < 2; attempt += 1) {
-                const latest = this.store.sessions.getSessionByNamespace(newSessionId, namespace)
+                const latest = this.store.sessions.getSessionByNamespace(targetSessionId, namespace)
                 if (!latest) break
                 const result = this.store.sessions.updateSessionMetadata(
-                    newSessionId,
+                    targetSessionId,
                     mergedMetadata,
                     latest.metadataVersion,
                     namespace,
@@ -325,37 +340,96 @@ export class SessionCache {
             }
         }
 
-        if (oldStored.todos !== null && oldStored.todosUpdatedAt !== null) {
+        const mergedAgentState = options?.mergedAgentState !== undefined
+            ? options.mergedAgentState
+            : (sourceStored.agentState ?? targetStored.agentState)
+        if (mergedAgentState !== undefined && mergedAgentState !== targetStored.agentState) {
+            for (let attempt = 0; attempt < 2; attempt += 1) {
+                const latest = this.store.sessions.getSessionByNamespace(targetSessionId, namespace)
+                if (!latest) break
+                const result = this.store.sessions.updateSessionAgentState(
+                    targetSessionId,
+                    mergedAgentState,
+                    latest.agentStateVersion,
+                    namespace
+                )
+                if (result.result === 'success' || result.result === 'error') {
+                    break
+                }
+            }
+        }
+
+        if (
+            sourceStored.todos !== null
+            && sourceStored.todosUpdatedAt !== null
+            && (targetStored.todosUpdatedAt === null || sourceStored.todosUpdatedAt > targetStored.todosUpdatedAt)
+        ) {
             this.store.sessions.setSessionTodos(
-                newSessionId,
-                oldStored.todos,
-                oldStored.todosUpdatedAt,
+                targetSessionId,
+                sourceStored.todos,
+                sourceStored.todosUpdatedAt,
                 namespace
             )
         }
 
-        if (oldStored.teamState !== null && oldStored.teamStateUpdatedAt !== null) {
+        if (
+            sourceStored.teamState !== null
+            && sourceStored.teamStateUpdatedAt !== null
+            && (targetStored.teamStateUpdatedAt === null || sourceStored.teamStateUpdatedAt > targetStored.teamStateUpdatedAt)
+        ) {
             this.store.sessions.setSessionTeamState(
-                newSessionId,
-                oldStored.teamState,
-                oldStored.teamStateUpdatedAt,
+                targetSessionId,
+                sourceStored.teamState,
+                sourceStored.teamStateUpdatedAt,
                 namespace
             )
         }
 
-        const deleted = this.store.sessions.deleteSession(oldSessionId, namespace)
+        const deleted = this.store.sessions.deleteSession(sourceSessionId, namespace)
         if (!deleted) {
-            throw new Error('Failed to delete old session during merge')
+            throw new Error('Failed to delete source session during merge')
         }
 
-        const existed = this.sessions.delete(oldSessionId)
+        const existed = this.sessions.delete(sourceSessionId)
         if (existed) {
-            this.publisher.emit({ type: 'session-removed', sessionId: oldSessionId, namespace })
+            this.publisher.emit({ type: 'session-removed', sessionId: sourceSessionId, namespace })
         }
-        this.lastBroadcastAtBySessionId.delete(oldSessionId)
-        this.todoBackfillAttemptedSessionIds.delete(oldSessionId)
+        this.lastBroadcastAtBySessionId.delete(sourceSessionId)
+        this.todoBackfillAttemptedSessionIds.delete(sourceSessionId)
 
-        this.refreshSession(newSessionId)
+        const refreshed = this.refreshSession(targetSessionId)
+        if (!refreshed) {
+            return
+        }
+
+        const runtimeSource = sourceSession
+        const runtimeTarget = targetSession
+        if (runtimeSource || runtimeTarget) {
+            refreshed.active = Boolean(runtimeSource?.active || runtimeTarget?.active || refreshed.active)
+            refreshed.activeAt = Math.max(
+                refreshed.activeAt,
+                runtimeSource?.activeAt ?? 0,
+                runtimeTarget?.activeAt ?? 0
+            )
+            refreshed.thinking = Boolean(runtimeSource?.thinking || runtimeTarget?.thinking || refreshed.thinking)
+            refreshed.thinkingAt = Math.max(
+                refreshed.thinkingAt,
+                runtimeSource?.thinkingAt ?? 0,
+                runtimeTarget?.thinkingAt ?? 0
+            )
+            if (runtimeSource?.permissionMode !== undefined) {
+                refreshed.permissionMode = runtimeSource.permissionMode
+            } else if (runtimeTarget?.permissionMode !== undefined) {
+                refreshed.permissionMode = runtimeTarget.permissionMode
+            }
+            if (runtimeSource?.modelMode !== undefined) {
+                refreshed.modelMode = runtimeSource.modelMode
+            } else if (runtimeTarget?.modelMode !== undefined) {
+                refreshed.modelMode = runtimeTarget.modelMode
+            }
+
+            this.publisher.emit({ type: 'session-updated', sessionId: targetSessionId, data: refreshed })
+        }
     }
 
     private mergeSessionMetadata(oldMetadata: unknown | null, newMetadata: unknown | null): unknown | null {

@@ -5,6 +5,7 @@ import { configuration } from '../../configuration'
 import { constantTimeEquals } from '../../utils/crypto'
 import { parseAccessToken } from '../../utils/accessToken'
 import type { Machine, Session, SyncEngine } from '../../sync/syncEngine'
+import { createCliNativeRoutes } from './cliNative'
 
 const bearerSchema = z.string().regex(/^Bearer\s+(.+)$/i)
 
@@ -87,6 +88,8 @@ export function createCliRoutes(getSyncEngine: () => SyncEngine | null): Hono<Cl
         c.set('namespace', parsedToken.namespace)
         return await next()
     })
+
+    app.route('/native', createCliNativeRoutes(getSyncEngine))
 
     app.post('/sessions', async (c) => {
         const engine = getSyncEngine()

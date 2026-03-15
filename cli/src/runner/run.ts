@@ -20,6 +20,9 @@ import { startRunnerControlServer } from './controlServer';
 import { createWorktree, removeWorktree, type WorktreeInfo } from './worktree';
 import { join } from 'path';
 import { buildMachineMetadata } from '@/agent/sessionFactory';
+import { NativeSyncService } from '@/nativeSync/NativeSyncService';
+import { createClaudeNativeProvider } from '@/nativeSync/providers/claude';
+import { createCodexNativeProvider } from '@/nativeSync/providers/codex';
 
 export async function startRunner(): Promise<void> {
   // We don't have cleanup function at the time of server construction
@@ -631,6 +634,8 @@ export async function startRunner(): Promise<void> {
     writeRunnerState(fileState);
     logger.debug('[RUNNER RUN] Runner state written');
 
+    const machineMetadata = buildMachineMetadata();
+
     // Prepare initial runner state
     const initialRunnerState: RunnerState = {
       status: 'offline',
@@ -646,7 +651,7 @@ export async function startRunner(): Promise<void> {
     const machine = await withRetry(
       () => api.getOrCreateMachine({
         machineId,
-        metadata: buildMachineMetadata(),
+        metadata: machineMetadata,
         runnerState: initialRunnerState
       }),
       {
@@ -674,6 +679,14 @@ export async function startRunner(): Promise<void> {
 
     // Connect to server
     apiMachine.connect();
+
+    const nativeSyncService = new NativeSyncService({
+      api,
+      providers: [createClaudeNativeProvider(), createCodexNativeProvider()],
+      machineId: machine.id,
+      host: machineMetadata.host
+    });
+    nativeSyncService.start();
 
     reportSpawnOutcomeToHub = (outcome) => {
       void apiMachine.updateRunnerState((state: RunnerState | null) => {
@@ -820,6 +833,7 @@ export async function startRunner(): Promise<void> {
       // Give time for metadata update to send
       await new Promise(resolve => setTimeout(resolve, 100));
 
+      nativeSyncService.stop();
       apiMachine.shutdown();
       await stopControlServer();
       await cleanupRunnerState();

@@ -63,6 +63,40 @@ export class MessageService {
         }))
     }
 
+    importNativeMessages(
+        sessionId: string,
+        messages: Array<{
+            content: unknown
+            createdAt: number
+            sourceProvider: 'claude' | 'codex'
+            sourceSessionId: string
+            sourceKey: string
+        }>
+    ): { imported: number; messages: DecryptedMessage[] } {
+        let imported = 0
+        const importedMessages: DecryptedMessage[] = []
+
+        for (const item of messages) {
+            const result = this.store.messages.importNativeMessage(sessionId, item)
+            if (!result.inserted) {
+                continue
+            }
+
+            imported += 1
+            const message: DecryptedMessage = {
+                id: result.message.id,
+                seq: result.message.seq,
+                localId: result.message.localId,
+                content: result.message.content,
+                createdAt: result.message.createdAt
+            }
+            importedMessages.push(message)
+            this.broadcastNewMessage(sessionId, message)
+        }
+
+        return { imported, messages: importedMessages }
+    }
+
     async sendMessage(
         sessionId: string,
         payload: {
@@ -87,21 +121,24 @@ export class MessageService {
         }
 
         const msg = this.store.messages.addMessage(sessionId, content, payload.localId ?? undefined)
-
-        const update = {
+        this.broadcastNewMessage(sessionId, {
             id: msg.id,
             seq: msg.seq,
-            createdAt: msg.createdAt,
+            localId: msg.localId,
+            content: msg.content,
+            createdAt: msg.createdAt
+        })
+    }
+
+    private broadcastNewMessage(sessionId: string, message: DecryptedMessage): void {
+        const update = {
+            id: message.id,
+            seq: message.seq,
+            createdAt: message.createdAt,
             body: {
                 t: 'new-message' as const,
                 sid: sessionId,
-                message: {
-                    id: msg.id,
-                    seq: msg.seq,
-                    createdAt: msg.createdAt,
-                    localId: msg.localId,
-                    content: msg.content
-                }
+                message
             }
         }
         this.io.of('/cli').to(`session:${sessionId}`).emit('update', update)
@@ -109,13 +146,7 @@ export class MessageService {
         this.publisher.emit({
             type: 'message-received',
             sessionId,
-            message: {
-                id: msg.id,
-                seq: msg.seq,
-                localId: msg.localId,
-                content: msg.content,
-                createdAt: msg.createdAt
-            }
+            message
         })
     }
 }

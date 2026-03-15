@@ -11,6 +11,7 @@ import type { AgentType, SessionType } from './types'
 import { ActionButtons } from './ActionButtons'
 import { AgentSelector } from './AgentSelector'
 import { DirectorySection } from './DirectorySection'
+import { DirectoryPickerDialog } from './DirectoryPickerDialog'
 import { MachineSelector } from './MachineSelector'
 import { ModelSelector } from './ModelSelector'
 import {
@@ -40,6 +41,7 @@ export function NewSession(props: {
     const [directory, setDirectory] = useState('')
     const [suppressSuggestions, setSuppressSuggestions] = useState(false)
     const [isDirectoryFocused, setIsDirectoryFocused] = useState(false)
+    const [isPickerOpen, setIsPickerOpen] = useState(false)
     const [pathExistence, setPathExistence] = useState<Record<string, boolean>>({})
     const [agent, setAgent] = useState<AgentType>(loadPreferredAgent)
     const [model, setModel] = useState('auto')
@@ -97,20 +99,24 @@ export function NewSession(props: {
         [getRecentPaths, machineId]
     )
 
+    const typedDirectory = directory.trim()
+
     const allPaths = useDirectorySuggestions(machineId, sessions, recentPaths)
 
     const pathsToCheck = useMemo(
-        () => Array.from(new Set(allPaths)).slice(0, 1000),
-        [allPaths]
+        () => Array.from(new Set([...(typedDirectory ? [typedDirectory] : []), ...allPaths])).slice(0, 1000),
+        [allPaths, typedDirectory]
     )
 
     useEffect(() => {
         let cancelled = false
 
         if (!machineId || pathsToCheck.length === 0) {
-            setPathExistence({})
+            setPathExistence((prev) => Object.keys(prev).length === 0 ? prev : {})
             return () => { cancelled = true }
         }
+
+        setPathExistence((prev) => Object.keys(prev).length === 0 ? prev : {})
 
         void props.api.checkMachinePathsExists(machineId, pathsToCheck)
             .then((result) => {
@@ -131,6 +137,10 @@ export function NewSession(props: {
         () => allPaths.filter((path) => pathExistence[path]),
         [allPaths, pathExistence]
     )
+
+    const typedPathExists = typedDirectory ? pathExistence[typedDirectory] ?? null : null
+    const pickerStartPath = selectedMachine?.metadata?.homeDir ?? null
+    const machinePlatform = selectedMachine?.metadata?.platform ?? null
 
     const getSuggestions = useCallback(async (query: string): Promise<Suggestion[]> => {
         const lowered = query.toLowerCase()
@@ -166,6 +176,10 @@ export function NewSession(props: {
         setDirectory(path)
     }, [])
 
+    const handleBrowseClick = useCallback(() => {
+        setIsPickerOpen(true)
+    }, [])
+
     const handleSuggestionSelect = useCallback((index: number) => {
         const suggestion = suggestions[index]
         if (suggestion) {
@@ -179,6 +193,13 @@ export function NewSession(props: {
         setSuppressSuggestions(false)
         setDirectory(value)
     }, [])
+
+    const handleDirectoryPicked = useCallback((path: string) => {
+        setDirectory(path)
+        setSuppressSuggestions(true)
+        clearSuggestions()
+        setIsPickerOpen(false)
+    }, [clearSuggestions])
 
     const handleDirectoryFocus = useCallback(() => {
         setSuppressSuggestions(false)
@@ -215,14 +236,14 @@ export function NewSession(props: {
     }, [suggestions, selectedIndex, moveUp, moveDown, clearSuggestions, handleSuggestionSelect])
 
     async function handleCreate() {
-        if (!machineId || !directory.trim()) return
+        if (!machineId || !typedDirectory || typedPathExists !== true) return
 
         setError(null)
         try {
             const resolvedModel = model !== 'auto' && agent !== 'opencode' ? model : undefined
             const result = await spawnSession({
                 machineId,
-                directory: directory.trim(),
+                directory: typedDirectory,
                 agent,
                 model: resolvedModel,
                 yolo: yoloMode,
@@ -233,7 +254,7 @@ export function NewSession(props: {
             if (result.type === 'success') {
                 haptic.notification('success')
                 setLastUsedMachineId(machineId)
-                addRecentPath(machineId, directory.trim())
+                addRecentPath(machineId, typedDirectory)
                 props.onSuccess(result.sessionId)
                 return
             }
@@ -246,7 +267,9 @@ export function NewSession(props: {
         }
     }
 
-    const canCreate = Boolean(machineId && directory.trim() && !isFormDisabled)
+    const canBrowse = Boolean(machineId && pickerStartPath)
+    const showPathValidation = Boolean(typedDirectory) && typedPathExists === false
+    const canCreate = Boolean(machineId && typedDirectory && typedPathExists === true && !isFormDisabled)
 
     return (
         <div className="flex flex-col divide-y divide-[var(--app-divider)]">
@@ -267,13 +290,26 @@ export function NewSession(props: {
                 suggestions={suggestions}
                 selectedIndex={selectedIndex}
                 isDisabled={isFormDisabled}
+                canBrowse={canBrowse}
                 recentPaths={recentPaths}
+                showPathValidation={showPathValidation}
+                pathExists={typedPathExists}
                 onDirectoryChange={handleDirectoryChange}
                 onDirectoryFocus={handleDirectoryFocus}
                 onDirectoryBlur={handleDirectoryBlur}
                 onDirectoryKeyDown={handleDirectoryKeyDown}
                 onSuggestionSelect={handleSuggestionSelect}
+                onBrowseClick={handleBrowseClick}
                 onPathClick={handlePathClick}
+            />
+            <DirectoryPickerDialog
+                api={props.api}
+                machineId={machineId}
+                machinePlatform={machinePlatform}
+                initialPath={pickerStartPath}
+                open={isPickerOpen}
+                onOpenChange={setIsPickerOpen}
+                onSelect={handleDirectoryPicked}
             />
             <SessionTypeSelector
                 sessionType={sessionType}
