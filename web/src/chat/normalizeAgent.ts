@@ -31,6 +31,46 @@ function normalizeAgentEvent(value: unknown): AgentEvent | null {
     return value as AgentEvent
 }
 
+function normalizeAssistantBlocks(
+    blocks: unknown[],
+    fallbackUuid: string,
+    fallbackParentUUID: string | null
+): NormalizedAgentContent[] {
+    const normalized: NormalizedAgentContent[] = []
+
+    for (const block of blocks) {
+        if (!isObject(block) || typeof block.type !== 'string') continue
+        if (block.type === 'text' && typeof block.text === 'string') {
+            normalized.push({ type: 'text', text: block.text, uuid: fallbackUuid, parentUUID: fallbackParentUUID })
+            continue
+        }
+        if (block.type === 'thinking' && typeof block.thinking === 'string') {
+            normalized.push({ type: 'reasoning', text: block.thinking, uuid: fallbackUuid, parentUUID: fallbackParentUUID })
+            continue
+        }
+        if (block.type === 'tool_use' && typeof block.id === 'string') {
+            const name = asString(block.name) ?? 'Tool'
+            const input = 'input' in block ? (block as Record<string, unknown>).input : undefined
+            const description = isObject(input) && typeof input.description === 'string' ? input.description : null
+            normalized.push({ type: 'tool-call', id: block.id, name, input, description, uuid: fallbackUuid, parentUUID: fallbackParentUUID })
+            continue
+        }
+        if (block.type === 'tool_result' && typeof block.tool_use_id === 'string') {
+            normalized.push({
+                type: 'tool-result',
+                tool_use_id: block.tool_use_id,
+                content: 'content' in block ? (block as Record<string, unknown>).content : undefined,
+                is_error: Boolean(block.is_error),
+                uuid: fallbackUuid,
+                parentUUID: fallbackParentUUID,
+                permissions: normalizeToolResultPermissions(block.permissions)
+            })
+        }
+    }
+
+    return normalized
+}
+
 function normalizeAssistantOutput(
     messageId: string,
     localId: string | null,
@@ -189,6 +229,32 @@ export function normalizeAgentRecord(
     content: unknown,
     meta?: unknown
 ): NormalizedMessage | null {
+    if (typeof content === 'string') {
+        return {
+            id: messageId,
+            localId,
+            createdAt,
+            role: 'agent',
+            isSidechain: false,
+            content: [{ type: 'text', text: content, uuid: messageId, parentUUID: null }],
+            meta
+        }
+    }
+
+    if (Array.isArray(content)) {
+        const blocks = normalizeAssistantBlocks(content, messageId, null)
+        if (blocks.length === 0) return null
+        return {
+            id: messageId,
+            localId,
+            createdAt,
+            role: 'agent',
+            isSidechain: false,
+            content: blocks,
+            meta
+        }
+    }
+
     if (!isObject(content) || typeof content.type !== 'string') return null
 
     if (content.type === 'output') {
