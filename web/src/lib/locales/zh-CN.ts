@@ -40,6 +40,14 @@ export default {
 
   // Sessions page
   'sessions.count': '{n} 个会话，{m} 个项目',
+  'sessions.tabsLabel': '会话类型',
+  'sessions.tab.all': '全部',
+  'sessions.tab.claude': 'Claude',
+  'sessions.tab.codex': 'Codex',
+  'sessions.tab.cursor': 'Cursor',
+  'sessions.tab.gemini': 'Gemini',
+  'sessions.tab.opencode': 'OpenCode',
+  'sessions.empty': '暂无会话',
   'sessions.new': '新建会话',
 
   // Session list

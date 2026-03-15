@@ -40,6 +40,14 @@ export default {
 
   // Sessions page
   'sessions.count': '{n} sessions in {m} projects',
+  'sessions.tabsLabel': 'Session types',
+  'sessions.tab.all': 'All',
+  'sessions.tab.claude': 'Claude',
+  'sessions.tab.codex': 'Codex',
+  'sessions.tab.cursor': 'Cursor',
+  'sessions.tab.gemini': 'Gemini',
+  'sessions.tab.opencode': 'OpenCode',
+  'sessions.empty': 'No sessions yet',
   'sessions.new': 'New Session',
 
   // Session list

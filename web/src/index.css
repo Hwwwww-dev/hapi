@@ -121,6 +121,15 @@ body {
     }
 }
 
+.scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+}
+
 /* Desktop-only: move the sidebar scrollbar to the left without flipping content. */
 @media (min-width: 1024px) {
     .desktop-scrollbar-left {
@@ -263,6 +272,27 @@ html[data-theme="dark"] .shiki span {
 
 .animate-bounce-in {
   animation: bounce-in 0.3s ease-out;
+}
+
+@keyframes session-list-swap {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-session-list-swap {
+  animation: session-list-swap 0.18s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-session-list-swap {
+    animation: none;
+  }
 }
 
 /* ReactQueryDevtools button - move to middle-right to avoid blocking UI */

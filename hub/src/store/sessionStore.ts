@@ -5,11 +5,13 @@ import {
     deleteSession,
     getOrCreateSession,
     getSession,
+    getSessionByNativeAlias,
     getSessionByNamespace,
     getSessions,
     getSessionsByNamespace,
     setSessionTeamState,
     setSessionTodos,
+    syncNativeAliasesForSessionMetadata,
     updateSessionAgentState,
     updateSessionMetadata
 } from './sessions'
@@ -60,6 +62,14 @@ export class SessionStore {
         return getSessionByNamespace(this.db, id, namespace)
     }
 
+    getSessionByNativeAlias(
+        namespace: string,
+        provider: 'claude' | 'codex',
+        nativeSessionId: string
+    ): StoredSession | null {
+        return getSessionByNativeAlias(this.db, namespace, provider, nativeSessionId)
+    }
+
     getSessions(): StoredSession[] {
         return getSessions(this.db)
     }
@@ -70,5 +80,9 @@ export class SessionStore {
 
     deleteSession(id: string, namespace: string): boolean {
         return deleteSession(this.db, id, namespace)
+    }
+
+    syncNativeAliasesForSessionMetadata(id: string, namespace: string, metadata: unknown): void {
+        syncNativeAliasesForSessionMetadata(this.db, id, namespace, metadata)
     }
 }

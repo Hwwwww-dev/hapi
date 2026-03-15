@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
     Navigate,
@@ -10,6 +10,7 @@ import {
     useMatchRoute,
     useNavigate,
     useParams,
+    useSearch,
 } from '@tanstack/react-router'
 import { App } from '@/App'
 import { SessionChat } from '@/components/SessionChat'
@@ -30,6 +31,7 @@ import { queryKeys } from '@/lib/query-keys'
 import { useToast } from '@/lib/toast-context'
 import { useTranslation } from '@/lib/use-translation'
 import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message-window-store'
+import { filterSessionsByAgentTab, normalizeSessionAgentTab, toSessionAgentSearch, type SessionAgentTab } from '@/lib/agentFlavorUtils'
 import FilesPage from '@/routes/sessions/files'
 import FilePage from '@/routes/sessions/file'
 import TerminalPage from '@/routes/sessions/terminal'
@@ -101,15 +103,37 @@ function SessionsPage() {
     const matchRoute = useMatchRoute()
     const { t } = useTranslation()
     const { sessions, isLoading, error, refetch } = useSessions(api)
+    const search = useSearch({ from: '/sessions' })
+    const agentTab = normalizeSessionAgentTab(search.agent)
 
     const handleRefresh = useCallback(() => {
         void refetch()
     }, [refetch])
 
-    const projectCount = new Set(sessions.map(s => s.metadata?.worktree?.basePath ?? s.metadata?.path ?? 'Other')).size
+    const filteredSessions = useMemo(
+        () => filterSessionsByAgentTab(sessions, agentTab),
+        [agentTab, sessions]
+    )
+    const projectCount = new Set(filteredSessions.map(s => s.metadata?.worktree?.basePath ?? s.metadata?.path ?? 'Other')).size
     const sessionMatch = matchRoute({ to: '/sessions/$sessionId', fuzzy: true })
     const selectedSessionId = sessionMatch && sessionMatch.sessionId !== 'new' ? sessionMatch.sessionId : null
     const isSessionsIndex = pathname === '/sessions' || pathname === '/sessions/'
+    const handleAgentTabChange = useCallback((nextTab: SessionAgentTab) => {
+        navigate({
+            to: pathname,
+            search: (prev) => {
+                const nextSearch = {
+                    ...(prev && typeof prev === 'object' ? prev : {})
+                } as Record<string, unknown>
+                delete nextSearch.agent
+                return {
+                    ...nextSearch,
+                    ...toSessionAgentSearch(nextTab)
+                }
+            },
+            replace: true,
+        })
+    }, [navigate, pathname])
 
     return (
         <div className="flex h-full min-h-0">
@@ -119,7 +143,7 @@ function SessionsPage() {
                 <div className="bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
                     <div className="mx-auto w-full max-w-content flex items-center justify-between px-3 py-2">
                         <div className="text-xs text-[var(--app-hint)]">
-                            {t('sessions.count', { n: sessions.length, m: projectCount })}
+                            {t('sessions.count', { n: filteredSessions.length, m: projectCount })}
                         </div>
                         <div className="flex items-center gap-2">
                             <button
@@ -150,10 +174,13 @@ function SessionsPage() {
                     ) : null}
                     <SessionList
                         sessions={sessions}
+                        agentTab={agentTab}
+                        onAgentTabChange={handleAgentTabChange}
                         selectedSessionId={selectedSessionId}
                         onSelect={(sessionId) => navigate({
                             to: '/sessions/$sessionId',
                             params: { sessionId },
+                            search: toSessionAgentSearch(agentTab),
                         })}
                         onNewSession={() => navigate({ to: '/sessions/new' })}
                         onRefresh={handleRefresh}
@@ -396,6 +423,11 @@ const indexRoute = createRoute({
 const sessionsRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/sessions',
+    validateSearch: (search: Record<string, unknown>): { agent?: Exclude<SessionAgentTab, 'all'> } => {
+        const agent = normalizeSessionAgentTab(typeof search.agent === 'string' ? search.agent : undefined)
+
+        return agent === 'all' ? {} : { agent }
+    },
     component: SessionsPage,
 })
 

@@ -159,6 +159,11 @@ export function registerSessionHandlers(socket: CliSocketWithData, deps: Session
             sessionAccess.value.namespace
         )
         if (result.result === 'success') {
+            store.sessions.syncNativeAliasesForSessionMetadata(
+                sid,
+                sessionAccess.value.namespace,
+                metadata
+            )
             cb({ result: 'success', version: result.version, metadata: result.value })
         } else if (result.result === 'version-mismatch') {
             cb({ result: 'version-mismatch', version: result.version, metadata: result.value })

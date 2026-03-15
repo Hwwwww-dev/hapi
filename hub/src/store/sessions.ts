@@ -25,6 +25,13 @@ type DbSessionRow = {
     seq: number
 }
 
+type NativeProvider = 'claude' | 'codex'
+
+type NativeSessionAlias = {
+    provider: NativeProvider
+    nativeSessionId: string
+}
+
 function toStoredSession(row: DbSessionRow): StoredSession {
     return {
         id: row.id,
@@ -44,6 +51,64 @@ function toStoredSession(row: DbSessionRow): StoredSession {
         active: row.active === 1,
         activeAt: row.active_at,
         seq: row.seq
+    }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null
+}
+
+function getTrimmedString(value: unknown): string | null {
+    if (typeof value !== 'string') {
+        return null
+    }
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : null
+}
+
+function collectNativeSessionAliases(metadata: unknown): {
+    hasAliasKeys: boolean
+    aliases: NativeSessionAlias[]
+} {
+    if (!isRecord(metadata)) {
+        return { hasAliasKeys: false, aliases: [] }
+    }
+
+    const hasAliasKeys = [
+        'nativeProvider',
+        'nativeSessionId',
+        'claudeSessionId',
+        'codexSessionId'
+    ].some((key) => key in metadata)
+
+    if (!hasAliasKeys) {
+        return { hasAliasKeys: false, aliases: [] }
+    }
+
+    const aliasByProvider = new Map<NativeProvider, string>()
+
+    const claudeSessionId = getTrimmedString(metadata.claudeSessionId)
+    if (claudeSessionId) {
+        aliasByProvider.set('claude', claudeSessionId)
+    }
+
+    const codexSessionId = getTrimmedString(metadata.codexSessionId)
+    if (codexSessionId) {
+        aliasByProvider.set('codex', codexSessionId)
+    }
+
+    const nativeProvider = metadata.nativeProvider
+    const nativeSessionId = getTrimmedString(metadata.nativeSessionId)
+    if ((nativeProvider === 'claude' || nativeProvider === 'codex') && nativeSessionId) {
+        aliasByProvider.set(nativeProvider, nativeSessionId)
+    }
+
+    return {
+        hasAliasKeys: true,
+        aliases: Array.from(aliasByProvider.entries()).map(([provider, sessionId]) => ({
+            provider,
+            nativeSessionId: sessionId
+        }))
     }
 }
 
@@ -247,6 +312,71 @@ export function getSessionsByNamespace(db: Database, namespace: string): StoredS
         'SELECT * FROM sessions WHERE namespace = ? ORDER BY updated_at DESC'
     ).all(namespace) as DbSessionRow[]
     return rows.map(toStoredSession)
+}
+
+export function getSessionByNativeAlias(
+    db: Database,
+    namespace: string,
+    provider: NativeProvider,
+    nativeSessionId: string
+): StoredSession | null {
+    const row = db.prepare(`
+        SELECT s.*
+        FROM session_native_aliases a
+        JOIN sessions s ON s.id = a.session_id
+        WHERE a.namespace = ?
+          AND a.provider = ?
+          AND a.native_session_id = ?
+        LIMIT 1
+    `).get(namespace, provider, nativeSessionId) as DbSessionRow | undefined
+
+    return row ? toStoredSession(row) : null
+}
+
+export function syncNativeAliasesForSessionMetadata(
+    db: Database,
+    sessionId: string,
+    namespace: string,
+    metadata: unknown
+): void {
+    const session = getSessionByNamespace(db, sessionId, namespace)
+    if (!session) {
+        return
+    }
+
+    const { hasAliasKeys, aliases } = collectNativeSessionAliases(metadata)
+    if (!hasAliasKeys) {
+        return
+    }
+
+    db.prepare(`
+        DELETE FROM session_native_aliases
+        WHERE session_id = ?
+          AND namespace = ?
+    `).run(sessionId, namespace)
+
+    if (aliases.length === 0) {
+        return
+    }
+
+    const now = Date.now()
+    const insertAlias = db.prepare(`
+        INSERT INTO session_native_aliases (
+            namespace,
+            provider,
+            native_session_id,
+            session_id,
+            created_at,
+            updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(namespace, provider, native_session_id) DO UPDATE SET
+            session_id = excluded.session_id,
+            updated_at = excluded.updated_at
+    `)
+
+    for (const alias of aliases) {
+        insertAlias.run(namespace, alias.provider, alias.nativeSessionId, sessionId, now, now)
+    }
 }
 
 export function deleteSession(db: Database, id: string, namespace: string): boolean {

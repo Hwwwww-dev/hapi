@@ -25,9 +25,10 @@ export { PushStore } from './pushStore'
 export { SessionStore } from './sessionStore'
 export { UserStore } from './userStore'
 
-const SCHEMA_VERSION: number = 5
+const SCHEMA_VERSION: number = 6
 const REQUIRED_TABLES = [
     'sessions',
+    'session_native_aliases',
     'machines',
     'messages',
     'native_sync_state',
@@ -135,6 +136,27 @@ export class Store {
             return
         }
 
+        if (currentVersion === 3 && SCHEMA_VERSION === 6) {
+            this.migrateFromV3ToV4()
+            this.migrateFromV4ToV5()
+            this.migrateFromV5ToV6()
+            this.setUserVersion(SCHEMA_VERSION)
+            return
+        }
+
+        if (currentVersion === 4 && SCHEMA_VERSION === 6) {
+            this.migrateFromV4ToV5()
+            this.migrateFromV5ToV6()
+            this.setUserVersion(SCHEMA_VERSION)
+            return
+        }
+
+        if (currentVersion === 5 && SCHEMA_VERSION === 6) {
+            this.migrateFromV5ToV6()
+            this.setUserVersion(SCHEMA_VERSION)
+            return
+        }
+
         if (currentVersion !== SCHEMA_VERSION) {
             throw this.buildSchemaMismatchError(currentVersion)
         }
@@ -165,6 +187,21 @@ export class Store {
             );
             CREATE INDEX IF NOT EXISTS idx_sessions_tag ON sessions(tag);
             CREATE INDEX IF NOT EXISTS idx_sessions_tag_namespace ON sessions(tag, namespace);
+
+            CREATE TABLE IF NOT EXISTS session_native_aliases (
+                namespace TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                native_session_id TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY (namespace, provider, native_session_id),
+                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_session_native_aliases_session_provider
+            ON session_native_aliases(session_id, provider);
+            CREATE INDEX IF NOT EXISTS idx_session_native_aliases_session_id
+            ON session_native_aliases(session_id);
 
             CREATE TABLE IF NOT EXISTS machines (
                 id TEXT PRIMARY KEY,
@@ -374,6 +411,29 @@ export class Store {
         this.db.exec(`
             CREATE INDEX IF NOT EXISTS idx_native_sync_state_machine_id
             ON native_sync_state(machine_id, last_synced_at DESC)
+        `)
+    }
+
+    private migrateFromV5ToV6(): void {
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS session_native_aliases (
+                namespace TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                native_session_id TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY (namespace, provider, native_session_id),
+                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+            )
+        `)
+        this.db.exec(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_session_native_aliases_session_provider
+            ON session_native_aliases(session_id, provider)
+        `)
+        this.db.exec(`
+            CREATE INDEX IF NOT EXISTS idx_session_native_aliases_session_id
+            ON session_native_aliases(session_id)
         `)
     }
 

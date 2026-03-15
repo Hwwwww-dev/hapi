@@ -8,6 +8,7 @@ import { SessionActionMenu } from '@/components/SessionActionMenu'
 import { SessionSourceBadge } from '@/components/SessionSourceBadge'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { SESSION_AGENT_TABS, filterSessionsByAgentTab, type SessionAgentTab } from '@/lib/agentFlavorUtils'
 import { useTranslation } from '@/lib/use-translation'
 
 type SessionGroup = {
@@ -88,6 +89,14 @@ function groupSessionsByDirectory(sessions: SessionSummary[]): SessionGroup[] {
                 hasActiveSession
             }
         })
+}
+
+function getSessionListContentAnimationKey(agentTab: SessionAgentTab, groups: SessionGroup[]): string {
+    const snapshot = groups
+        .map((group) => `${group.directory}:${group.sessions.map((session) => session.id).join(',')}`)
+        .join('|')
+
+    return `${agentTab}:${snapshot}`
 }
 
 function PlusIcon(props: { className?: string }) {
@@ -479,16 +488,26 @@ export function SessionList(props: {
     renderHeader?: boolean
     api: ApiClient | null
     selectedSessionId?: string | null
+    agentTab?: SessionAgentTab
+    onAgentTabChange?: (tab: SessionAgentTab) => void
 }) {
     const { t } = useTranslation()
-    const { renderHeader = true, api, selectedSessionId } = props
+    const { renderHeader = true, api, selectedSessionId, agentTab = 'all', onAgentTabChange } = props
+    const filteredSessions = useMemo(
+        () => filterSessionsByAgentTab(props.sessions, agentTab),
+        [agentTab, props.sessions]
+    )
     const groups = useMemo(
-        () => groupSessionsByDirectory(props.sessions),
-        [props.sessions]
+        () => groupSessionsByDirectory(filteredSessions),
+        [filteredSessions]
     )
     const visibleSessionCount = useMemo(
         () => groups.reduce((sum, group) => sum + group.sessions.length, 0),
         [groups]
+    )
+    const contentAnimationKey = useMemo(
+        () => getSessionListContentAnimationKey(agentTab, groups),
+        [agentTab, groups]
     )
     const [collapseOverrides, setCollapseOverrides] = useState<Map<string, boolean>>(
         () => new Map()
@@ -552,7 +571,39 @@ export function SessionList(props: {
                 </div>
             ) : null}
 
-            <div className="flex flex-col gap-2 px-2 pb-2">
+            <div className="border-b border-[var(--app-divider)] px-2 pb-2">
+                <div className="scrollbar-hidden overflow-x-auto" role="tablist" aria-label={t('sessions.tabsLabel')}>
+                    <div className="flex min-w-max items-center gap-1">
+                        {SESSION_AGENT_TABS.map((tab) => {
+                            const selected = tab === agentTab
+                            const label = t(`sessions.tab.${tab}`)
+                            return (
+                                <button
+                                    key={tab}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={selected}
+                                    onClick={() => onAgentTabChange?.(tab)}
+                                    className={`relative rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors ${selected ? 'bg-[var(--app-button)] text-[var(--app-button-text)]' : 'text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]'}`}
+                                >
+                                    {label}
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            <div
+                key={contentAnimationKey}
+                data-testid="session-list-content"
+                className="animate-session-list-swap flex flex-col gap-2 px-2 pb-2"
+            >
+                {groups.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-[var(--app-divider)] px-4 py-6 text-center text-sm text-[var(--app-hint)]">
+                        {t('sessions.empty')}
+                    </div>
+                ) : null}
                 {groups.map((group) => {
                     const isCollapsed = isGroupCollapsed(group)
                     const visibleCount = group.sessions.length

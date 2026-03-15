@@ -14,15 +14,15 @@ function renderWithProviders(ui: React.ReactElement) {
 }
 
 describe('SessionSourceBadge', () => {
-    it('renders Native badge for native sessions', () => {
+    it('does not render a source badge for native sessions', () => {
         renderWithProviders(<SessionSourceBadge source="native" />)
 
-        expect(screen.getByText('Native')).toBeInTheDocument()
+        expect(screen.queryByText('Native')).not.toBeInTheDocument()
     })
 
-    it('renders Hybrid badge for hybrid sessions', () => {
+    it('does not render a source badge for hybrid sessions', () => {
         renderWithProviders(<SessionSourceBadge source="hybrid" />)
 
-        expect(screen.getByText('Hybrid')).toBeInTheDocument()
+        expect(screen.queryByText('Hybrid')).not.toBeInTheDocument()
     })
 })

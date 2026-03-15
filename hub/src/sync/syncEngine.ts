@@ -241,9 +241,16 @@ export class SyncEngine {
         agentState?: unknown | null
     }): Session {
         const nativeIdentity = this.resolveNativeSessionIdentity(payload.metadata)
+        const aliasMatchedSession = nativeIdentity
+            ? this.resolveSessionByNativeAlias(payload.namespace, nativeIdentity.provider, nativeIdentity.nativeSessionId)
+            : null
         const matchingSessions = nativeIdentity
             ? this.getSessionsByNamespace(payload.namespace).filter((session) => this.sessionMatchesNativeIdentity(session, nativeIdentity))
             : []
+
+        if (aliasMatchedSession && !matchingSessions.some((session) => session.id === aliasMatchedSession.id)) {
+            matchingSessions.push(aliasMatchedSession)
+        }
 
         const session = this.pickCanonicalNativeSession(matchingSessions)
             ?? this.sessionCache.getOrCreateSession(
@@ -376,6 +383,7 @@ export class SyncEngine {
         options?: { touchUpdatedAt?: boolean }
     ): Session {
         if (JSON.stringify(session.metadata) === JSON.stringify(metadata)) {
+            this.store.sessions.syncNativeAliasesForSessionMetadata(session.id, session.namespace, metadata)
             return session
         }
 
@@ -402,14 +410,18 @@ export class SyncEngine {
             )
 
             if (retry.result === 'success') {
-                return this.sessionCache.refreshSession(session.id) ?? refreshed
+                const next = this.sessionCache.refreshSession(session.id) ?? refreshed
+                this.store.sessions.syncNativeAliasesForSessionMetadata(next.id, next.namespace, metadata)
+                return next
             }
 
             return this.getSession(session.id) ?? this.sessionCache.refreshSession(session.id) ?? refreshed
         }
 
         if (result.result === 'success') {
-            return this.sessionCache.refreshSession(session.id) ?? session
+            const next = this.sessionCache.refreshSession(session.id) ?? session
+            this.store.sessions.syncNativeAliasesForSessionMetadata(next.id, next.namespace, metadata)
+            return next
         }
 
         return this.getSession(session.id) ?? this.sessionCache.refreshSession(session.id) ?? session
@@ -470,6 +482,19 @@ export class SyncEngine {
         }
 
         return null
+    }
+
+    private resolveSessionByNativeAlias(
+        namespace: string,
+        provider: 'claude' | 'codex',
+        nativeSessionId: string
+    ): Session | null {
+        const stored = this.store.sessions.getSessionByNativeAlias(namespace, provider, nativeSessionId)
+        if (!stored) {
+            return null
+        }
+
+        return this.getSession(stored.id) ?? this.sessionCache.refreshSession(stored.id)
     }
 
     private sessionMatchesNativeIdentity(

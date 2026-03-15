@@ -99,7 +99,7 @@ describe('SessionList', () => {
                 />
             )
 
-            expect(screen.getByText('codex · 019cf0eb')).toBeInTheDocument()
+            expect(screen.getByText('codex 019cf0eb')).toBeInTheDocument()
         }
     )
 
@@ -163,6 +163,7 @@ describe('SessionList', () => {
             />
         )
 
+        expect(screen.getByRole('tablist', { name: '会话类型' })).toHaveClass('scrollbar-hidden')
         expect(screen.getByRole('tab', { name: 'Codex' })).toHaveAttribute('aria-selected', 'true')
         expect(screen.getByText('Codex Session')).toBeInTheDocument()
         expect(screen.queryByText('Claude Session')).not.toBeInTheDocument()
@@ -174,7 +175,7 @@ describe('SessionList', () => {
         renderWithProviders(
             <SessionList
                 sessions={[createSession()]}
-                agentTab="all"
+                agentTab="codex"
                 onAgentTabChange={onAgentTabChange}
                 onSelect={vi.fn()}
                 onNewSession={vi.fn()}
@@ -185,8 +186,77 @@ describe('SessionList', () => {
             />
         )
 
-        fireEvent.click(screen.getByRole('tab', { name: 'Codex' }))
+        const codexTab = screen.getByRole('tab', { name: 'Codex' })
+
+        expect(codexTab).not.toHaveClass('text-white')
+        expect(codexTab).toHaveClass('text-[var(--app-button-text)]')
+
+        fireEvent.click(codexTab)
 
         expect(onAgentTabChange).toHaveBeenCalledWith('codex')
+    })
+
+    it('remounts the list content when filtered sessions change for transition animation', () => {
+        const sessions = [
+            createSession({
+                id: 'session-claude',
+                metadata: {
+                    path: '/tmp/project',
+                    name: 'Claude Session',
+                    flavor: 'claude',
+                    source: 'native',
+                    nativeProvider: 'claude',
+                    nativeSessionId: 'claude-session-id'
+                }
+            }),
+            createSession({
+                id: 'session-codex',
+                metadata: {
+                    path: '/tmp/project',
+                    name: 'Codex Session',
+                    flavor: 'codex',
+                    source: 'native',
+                    nativeProvider: 'codex',
+                    nativeSessionId: 'codex-session-id'
+                }
+            })
+        ]
+
+        const view = renderWithProviders(
+            <SessionList
+                sessions={sessions}
+                agentTab="all"
+                onAgentTabChange={vi.fn()}
+                onSelect={vi.fn()}
+                onNewSession={vi.fn()}
+                onRefresh={vi.fn()}
+                isLoading={false}
+                renderHeader={false}
+                api={null}
+            />
+        )
+
+        const before = screen.getByTestId('session-list-content')
+        expect(before).toHaveClass('animate-session-list-swap')
+
+        view.rerender(
+            <I18nProvider>
+                <SessionList
+                    sessions={sessions}
+                    agentTab="codex"
+                    onAgentTabChange={vi.fn()}
+                    onSelect={vi.fn()}
+                    onNewSession={vi.fn()}
+                    onRefresh={vi.fn()}
+                    isLoading={false}
+                    renderHeader={false}
+                    api={null}
+                />
+            </I18nProvider>
+        )
+
+        const after = screen.getByTestId('session-list-content')
+        expect(after).toHaveClass('animate-session-list-swap')
+        expect(after).not.toBe(before)
     })
 })
