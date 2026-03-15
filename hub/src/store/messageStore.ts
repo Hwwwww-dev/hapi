@@ -14,7 +14,10 @@ export class MessageStore {
         return addMessage(this.db, sessionId, content, localId)
     }
 
-    importNativeMessage(sessionId: string, payload: NativeMessageImportPayload): { message: StoredMessage; inserted: boolean } {
+    importNativeMessage(
+        sessionId: string,
+        payload: NativeMessageImportPayload
+    ): { message: StoredMessage; inserted: boolean; updated: boolean } {
         return importNativeMessage(this.db, sessionId, payload)
     }
 

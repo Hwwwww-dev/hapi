@@ -66,4 +66,72 @@ describe('MessageStore native import', () => {
         expect(messages.map((message) => message.seq)).toEqual([1, 2])
         expect(messages.map((message) => message.createdAt)).toEqual([10, 20])
     })
+
+    it('updates an existing native message when the parser recovers a better timestamp', () => {
+        const store = new Store(':memory:')
+        const session = store.sessions.getOrCreateSession(
+            'native-import-update-created-at-session',
+            { path: '/tmp/project', host: 'local' },
+            null,
+            'default'
+        )
+
+        const first = store.messages.importNativeMessage(session.id, {
+            content: { role: 'assistant', content: 'hello' },
+            createdAt: 100,
+            sourceProvider: 'codex',
+            sourceSessionId: 'native-3',
+            sourceKey: 'line:9'
+        })
+        const second = store.messages.importNativeMessage(session.id, {
+            content: { role: 'assistant', content: 'hello' },
+            createdAt: 200,
+            sourceProvider: 'codex',
+            sourceSessionId: 'native-3',
+            sourceKey: 'line:9'
+        })
+
+        const [message] = store.messages.getMessages(session.id)
+
+        expect(first.inserted).toBe(true)
+        expect(first.updated).toBe(false)
+        expect(second.inserted).toBe(false)
+        expect(second.updated).toBe(true)
+        expect(second.message.id).toBe(first.message.id)
+        expect(second.message.seq).toBe(first.message.seq)
+        expect(message?.createdAt).toBe(200)
+    })
+
+    it('updates an existing native message when normalized content changes', () => {
+        const store = new Store(':memory:')
+        const session = store.sessions.getOrCreateSession(
+            'native-import-update-content-session',
+            { path: '/tmp/project', host: 'local' },
+            null,
+            'default'
+        )
+
+        const first = store.messages.importNativeMessage(session.id, {
+            content: { role: 'assistant', content: 'stale' },
+            createdAt: 100,
+            sourceProvider: 'claude',
+            sourceSessionId: 'native-4',
+            sourceKey: 'line:12'
+        })
+        const second = store.messages.importNativeMessage(session.id, {
+            content: { role: 'assistant', content: 'fresh' },
+            createdAt: 100,
+            sourceProvider: 'claude',
+            sourceSessionId: 'native-4',
+            sourceKey: 'line:12'
+        })
+
+        const [message] = store.messages.getMessages(session.id)
+
+        expect(second.inserted).toBe(false)
+        expect(second.updated).toBe(true)
+        expect(second.message.id).toBe(first.message.id)
+        expect(second.message.seq).toBe(first.message.seq)
+        expect(message?.content).toEqual({ role: 'assistant', content: 'fresh' })
+    })
 })

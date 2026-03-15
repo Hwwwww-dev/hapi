@@ -47,9 +47,9 @@ export function SessionChat(props: {
     const normalizedCacheRef = useRef<Map<string, { source: DecryptedMessage; normalized: NormalizedMessage | null }>>(new Map())
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
-    const [statusActionPending, setStatusActionPending] = useState<'resume' | 'stop' | 'refresh' | null>(null)
+    const [statusActionPending, setStatusActionPending] = useState<'resume' | 'disconnect' | 'refresh' | null>(null)
     const agentFlavor = props.session.metadata?.flavor ?? null
-    const { abortSession, switchSession, setPermissionMode, setModelMode } = useSessionActions(
+    const { abortSession, archiveSession, switchSession, setPermissionMode, setModelMode } = useSessionActions(
         props.api,
         props.session.id,
         agentFlavor
@@ -81,8 +81,6 @@ export function SessionChat(props: {
         )
     }, [props.session, props.messages])
 
-    // Track and report new messages to voice assistant
-    // Note: voiceHooks internally checks isVoiceSessionStarted() so we don't need to check voice.status here
     const prevMessagesRef = useRef<DecryptedMessage[]>([])
 
     useEffect(() => {
@@ -96,8 +94,6 @@ export function SessionChat(props: {
         prevMessagesRef.current = props.messages
     }, [props.messages, props.session.id])
 
-    // Report ready event when thinking stops
-    // Note: voiceHooks internally checks isVoiceSessionStarted() so we don't need to check voice.status here
     const prevThinkingRef = useRef(props.session.thinking)
 
     useEffect(() => {
@@ -109,8 +105,6 @@ export function SessionChat(props: {
         prevThinkingRef.current = props.session.thinking
     }, [props.session.thinking, props.session.id])
 
-    // Report permission requests to voice assistant
-    // Note: voiceHooks internally checks isVoiceSessionStarted() so we don't need to check voice.status here
     const prevRequestIdsRef = useRef<Set<string>>(new Set())
 
     useEffect(() => {
@@ -272,17 +266,17 @@ export function SessionChat(props: {
         }
     }, [props.onRefresh])
 
-    const handleStop = useCallback(async () => {
+    const handleDisconnect = useCallback(async () => {
         try {
-            setStatusActionPending('stop')
-            await abortSession()
+            setStatusActionPending('disconnect')
+            await archiveSession()
             props.onRefresh()
         } catch (error) {
-            console.error('Failed to stop session:', error)
+            console.error('Failed to disconnect session:', error)
         } finally {
             setStatusActionPending(null)
         }
-    }, [abortSession, props.onRefresh])
+    }, [archiveSession, props.onRefresh])
 
     const attachmentAdapter = useMemo(() => {
         if (!props.session.active) {
@@ -327,18 +321,16 @@ export function SessionChat(props: {
                             <button
                                 type="button"
                                 className="rounded-md border border-[var(--app-divider)] px-3 py-1.5 text-sm text-[var(--app-text)] disabled:cursor-not-allowed disabled:opacity-50"
-                                onClick={() => { void handleResume() }}
-                                disabled={!sessionInactive || statusActionPending !== null}
+                                onClick={() => {
+                                    if (sessionInactive) {
+                                        void handleResume()
+                                        return
+                                    }
+                                    void handleDisconnect()
+                                }}
+                                disabled={statusActionPending !== null}
                             >
-                                {t('session.chat.connect')}
-                            </button>
-                            <button
-                                type="button"
-                                className="rounded-md border border-[var(--app-divider)] px-3 py-1.5 text-sm text-[var(--app-text)] disabled:cursor-not-allowed disabled:opacity-50"
-                                onClick={() => { void handleStop() }}
-                                disabled={sessionInactive || statusActionPending !== null}
-                            >
-                                {t('session.chat.stop')}
+                                {sessionInactive ? t('session.chat.connect') : t('session.chat.disconnect')}
                             </button>
                             <button
                                 type="button"

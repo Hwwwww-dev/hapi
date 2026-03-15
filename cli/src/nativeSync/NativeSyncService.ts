@@ -15,6 +15,10 @@ export type NativeSyncApi = {
 
 export class NativeSyncService {
     private static readonly MAX_IMPORT_BATCH_BYTES = 256 * 1024
+    private static readonly ACTIVE_ACTIVITY_WINDOW_MS = 5 * 60_000
+    private static readonly WARM_ACTIVITY_WINDOW_MS = 30 * 60_000
+    private static readonly ACTIVE_POLL_INTERVAL_MS = 10_000
+    private static readonly IDLE_POLL_INTERVAL_MS = 120_000
 
     private readonly api: NativeSyncApi
     private readonly providers: NativeSyncProvider[]
@@ -24,6 +28,8 @@ export class NativeSyncService {
     private readonly now: () => number
     private timer: NodeJS.Timeout | null = null
     private syncInFlight: Promise<void> | null = null
+    private running = false
+    private nextPollDelayMs: number
 
     constructor(options: {
         api: NativeSyncApi
@@ -39,48 +45,82 @@ export class NativeSyncService {
         this.host = options.host
         this.pollIntervalMs = options.pollIntervalMs ?? 30_000
         this.now = options.now ?? (() => Date.now())
+        this.nextPollDelayMs = this.pollIntervalMs
     }
 
     start(): void {
-        if (this.timer) {
+        if (this.running) {
             return
         }
 
-        void this.syncOnce().catch(() => undefined)
-        this.timer = setInterval(() => {
-            void this.syncOnce().catch(() => undefined)
-        }, this.pollIntervalMs)
+        this.running = true
+        this.scheduleNextSync(0)
     }
 
     stop(): void {
-        if (!this.timer) {
-            return
+        this.running = false
+        if (this.timer) {
+            clearTimeout(this.timer)
+            this.timer = null
         }
-
-        clearInterval(this.timer)
-        this.timer = null
     }
 
     async syncOnce(): Promise<void> {
+        if (this.running && this.timer) {
+            clearTimeout(this.timer)
+            this.timer = null
+        }
+
         if (this.syncInFlight) {
             await this.syncInFlight
             return
         }
 
-        this.syncInFlight = this.runSyncOnce().finally(() => {
-            this.syncInFlight = null
-        })
+        this.syncInFlight = this.runSyncOnce()
+            .then((nextPollDelayMs) => {
+                this.nextPollDelayMs = nextPollDelayMs
+            })
+            .finally(() => {
+                this.syncInFlight = null
+                if (this.running && !this.timer) {
+                    this.scheduleNextSync(this.nextPollDelayMs)
+                }
+            })
 
         await this.syncInFlight
     }
 
-    private async runSyncOnce(): Promise<void> {
+    private scheduleNextSync(delayMs: number): void {
+        if (!this.running) {
+            return
+        }
+
+        if (this.timer) {
+            clearTimeout(this.timer)
+        }
+
+        this.timer = setTimeout(() => {
+            this.timer = null
+            void this.syncOnce().catch(() => undefined)
+        }, Math.max(0, delayMs))
+        this.timer.unref?.()
+    }
+
+    private async runSyncOnce(): Promise<number> {
+        let latestActivityAt: number | null = null
+
         for (const provider of this.providers) {
             let summaries: NativeSessionSummary[]
             try {
                 summaries = await provider.discoverSessions()
             } catch {
                 continue
+            }
+
+            for (const summary of summaries) {
+                latestActivityAt = latestActivityAt === null
+                    ? summary.lastActivityAt
+                    : Math.max(latestActivityAt, summary.lastActivityAt)
             }
 
             for (const summary of summaries) {
@@ -91,6 +131,8 @@ export class NativeSyncService {
                 }
             }
         }
+
+        return this.resolveNextPollDelay(latestActivityAt)
     }
 
     private async syncSession(provider: NativeSyncProvider, summary: NativeSessionSummary): Promise<void> {
@@ -194,5 +236,20 @@ export class NativeSyncService {
 
     private messageImportBytes(message: NativeMessageImport): number {
         return Buffer.byteLength(JSON.stringify(message), 'utf8') + 1
+    }
+
+    private resolveNextPollDelay(latestActivityAt: number | null): number {
+        if (latestActivityAt === null) {
+            return Math.max(this.pollIntervalMs, NativeSyncService.IDLE_POLL_INTERVAL_MS)
+        }
+
+        const ageMs = Math.max(0, this.now() - latestActivityAt)
+        if (ageMs <= NativeSyncService.ACTIVE_ACTIVITY_WINDOW_MS) {
+            return Math.min(this.pollIntervalMs, NativeSyncService.ACTIVE_POLL_INTERVAL_MS)
+        }
+        if (ageMs <= NativeSyncService.WARM_ACTIVITY_WINDOW_MS) {
+            return this.pollIntervalMs
+        }
+        return Math.max(this.pollIntervalMs, NativeSyncService.IDLE_POLL_INTERVAL_MS)
     }
 }

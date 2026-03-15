@@ -61,7 +61,7 @@ export default {
   'session.time.updatedLabel': 'updated',
   'session.chat.inactive': 'Session is inactive. Sending will resume it automatically.',
   'session.chat.connect': 'Connect',
-  'session.chat.stop': 'Stop',
+  'session.chat.disconnect': 'Disconnect',
   'session.chat.refresh': 'Refresh',
 
   // Session header

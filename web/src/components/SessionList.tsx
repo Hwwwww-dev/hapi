@@ -14,8 +14,14 @@ type SessionGroup = {
     directory: string
     displayName: string
     sessions: SessionSummary[]
-    latestUpdatedAt: number
+    totalSessions: number
     hasActiveSession: boolean
+}
+
+const MAX_SESSIONS_PER_DIRECTORY = 50
+
+function getSessionDirectory(session: SessionSummary): string {
+    return session.metadata?.worktree?.basePath ?? session.metadata?.path ?? 'Other'
 }
 
 function getGroupDisplayName(directory: string): string {
@@ -26,11 +32,26 @@ function getGroupDisplayName(directory: string): string {
     return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`
 }
 
+function sortSessionsInGroup(a: SessionSummary, b: SessionSummary): number {
+    const rankA = a.active ? (a.pendingRequestsCount > 0 ? 0 : 1) : 2
+    const rankB = b.active ? (b.pendingRequestsCount > 0 ? 0 : 1) : 2
+    if (rankA !== rankB) return rankA - rankB
+    return b.createdAt - a.createdAt
+}
+
+function getGroupLatestCreatedAt(sessions: SessionSummary[]): number {
+    let latest = 0
+    for (const s of sessions) {
+        if (s.createdAt > latest) latest = s.createdAt
+    }
+    return latest
+}
+
 function groupSessionsByDirectory(sessions: SessionSummary[]): SessionGroup[] {
     const groups = new Map<string, SessionSummary[]>()
 
     sessions.forEach(session => {
-        const path = session.metadata?.worktree?.basePath ?? session.metadata?.path ?? 'Other'
+        const path = getSessionDirectory(session)
         if (!groups.has(path)) {
             groups.set(path, [])
         }
@@ -38,27 +59,25 @@ function groupSessionsByDirectory(sessions: SessionSummary[]): SessionGroup[] {
     })
 
     return Array.from(groups.entries())
+        .sort(([leftDirectory, leftSessions], [rightDirectory, rightSessions]) => {
+            if (leftDirectory === 'Other') return 1
+            if (rightDirectory === 'Other') return -1
+            return getGroupLatestCreatedAt(rightSessions) - getGroupLatestCreatedAt(leftSessions)
+        })
         .map(([directory, groupSessions]) => {
-            const sortedSessions = [...groupSessions].sort((a, b) => {
-                const rankA = a.active ? (a.pendingRequestsCount > 0 ? 0 : 1) : 2
-                const rankB = b.active ? (b.pendingRequestsCount > 0 ? 0 : 1) : 2
-                if (rankA !== rankB) return rankA - rankB
-                return b.updatedAt - a.updatedAt
-            })
-            const latestUpdatedAt = groupSessions.reduce(
-                (max, s) => (s.updatedAt > max ? s.updatedAt : max),
-                -Infinity
-            )
+            const sortedSessions = [...groupSessions]
+                .sort(sortSessionsInGroup)
+                .slice(0, MAX_SESSIONS_PER_DIRECTORY)
             const hasActiveSession = groupSessions.some(s => s.active)
             const displayName = getGroupDisplayName(directory)
 
-            return { directory, displayName, sessions: sortedSessions, latestUpdatedAt, hasActiveSession }
-        })
-        .sort((a, b) => {
-            if (a.hasActiveSession !== b.hasActiveSession) {
-                return a.hasActiveSession ? -1 : 1
+            return {
+                directory,
+                displayName,
+                sessions: sortedSessions,
+                totalSessions: groupSessions.length,
+                hasActiveSession
             }
-            return b.latestUpdatedAt - a.latestUpdatedAt
         })
 }
 
@@ -122,12 +141,58 @@ function ChevronIcon(props: { className?: string; collapsed?: boolean }) {
     )
 }
 
+function FolderIcon(props: { className?: string }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={props.className}
+        >
+            <path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+        </svg>
+    )
+}
+
+function RefreshIcon(props: { className?: string }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={props.className}
+        >
+            <path d="M21 2v6h-6" />
+            <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+            <path d="M3 22v-6h6" />
+            <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+        </svg>
+    )
+}
+
 function getSessionTitle(session: SessionSummary): string {
     if (session.metadata?.name) {
         return session.metadata.name
     }
     if (session.metadata?.summary?.text) {
         return session.metadata.summary.text
+    }
+    const nativeSessionId = session.metadata?.nativeSessionId?.trim()
+    if (nativeSessionId) {
+        const provider = session.metadata?.nativeProvider?.trim()
+        return provider ? `${provider} ${nativeSessionId.slice(0, 8)}` : nativeSessionId.slice(0, 8)
     }
     if (session.metadata?.path) {
         const parts = session.metadata.path.split('/').filter(Boolean)
@@ -157,6 +222,20 @@ function getNativeOriginLabel(session: SessionSummary): string | null {
     if (!nativeSessionId) return provider
 
     return `${provider} · ${nativeSessionId.slice(0, 8)}`
+}
+
+function getNativeSessionProviderLabel(session: SessionSummary): string | null {
+    const nativeProvider = session.metadata?.nativeProvider?.trim()
+    if (nativeProvider) {
+        return nativeProvider
+    }
+
+    const source = session.metadata?.source
+    if (source === 'native' || source === 'hybrid') {
+        return getAgentLabel(session)
+    }
+
+    return null
 }
 
 function formatRelativeTime(value: number, t: (key: string, params?: Record<string, string | number>) => string): string | null {
@@ -192,15 +271,34 @@ function formatSessionTimes(session: SessionSummary, t: (key: string, params?: R
     return null
 }
 
+function getRelativeSessionPath(session: SessionSummary, groupDirectory: string): string | null {
+    const sessionPath = session.metadata?.path?.trim()
+    if (!sessionPath || groupDirectory === 'Other') {
+        return null
+    }
+
+    const normalizedGroup = groupDirectory.replace(/[\\/]+$/, '')
+    if (sessionPath === normalizedGroup) {
+        return null
+    }
+
+    if (sessionPath.startsWith(normalizedGroup)) {
+        const remainder = sessionPath.slice(normalizedGroup.length).replace(/^[\\/]+/, '')
+        return remainder.length > 0 ? remainder : null
+    }
+
+    return sessionPath
+}
+
 function SessionItem(props: {
     session: SessionSummary
     onSelect: (sessionId: string) => void
-    showPath?: boolean
+    groupDirectory: string
     api: ApiClient | null
     selected?: boolean
 }) {
     const { t } = useTranslation()
-    const { session: s, onSelect, showPath = true, api, selected = false } = props
+    const { session: s, onSelect, groupDirectory, api, selected = false } = props
     const { haptic } = usePlatform()
     const [menuOpen, setMenuOpen] = useState(false)
     const [menuAnchorPoint, setMenuAnchorPoint] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
@@ -229,7 +327,10 @@ function SessionItem(props: {
     })
 
     const sessionName = getSessionTitle(s)
-    const nativeOriginLabel = getNativeOriginLabel(s)
+    const nativeSessionProviderLabel = getNativeSessionProviderLabel(s)
+    const nativeSessionId = s.metadata?.nativeSessionId?.trim() || null
+    const relativeSessionPath = getRelativeSessionPath(s, groupDirectory)
+    const sessionTimes = formatSessionTimes(s, t)
     const statusDotClass = s.active
         ? (s.thinking ? 'bg-[#007AFF]' : 'bg-[var(--app-badge-success-text)]')
         : 'bg-[var(--app-hint)]'
@@ -238,67 +339,81 @@ function SessionItem(props: {
             <button
                 type="button"
                 {...longPressHandlers}
-                className={`session-list-item flex w-full flex-col gap-1.5 px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] select-none ${selected ? 'bg-[var(--app-secondary-bg)]' : ''}`}
+                className={`session-list-item flex w-full flex-col gap-2 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] select-none ${selected ? 'border-[var(--app-link)] bg-[var(--app-secondary-bg)]' : 'border-[var(--app-divider)] bg-[var(--app-bg)] hover:bg-[var(--app-secondary-bg)]'}`}
                 style={{ WebkitTouchCallout: 'none' }}
                 aria-current={selected ? 'page' : undefined}
             >
-                <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
                         <span className="flex h-4 w-4 items-center justify-center" aria-hidden="true">
                             <span
                                 className={`h-2 w-2 rounded-full ${statusDotClass}`}
                             />
                         </span>
-                        <div className="truncate text-base font-medium">
+                        <div className="truncate text-sm font-medium sm:text-base">
                             {sessionName}
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 text-xs">
-                        {s.thinking ? (
-                            <span className="text-[#007AFF] animate-pulse">
-                                {t('session.item.thinking')}
-                            </span>
-                        ) : null}
-                        {(() => {
-                            const progress = getTodoProgress(s)
-                            if (!progress) return null
-                            return (
-                                <span className="flex items-center gap-1 text-[var(--app-hint)]">
-                                    <BulbIcon className="h-3 w-3" />
-                                    {progress.completed}/{progress.total}
+                    <div className="flex shrink-0 flex-col items-end gap-1 text-[11px]">
+                        <SessionSourceBadge source={s.metadata?.source} className="shrink-0" />
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            {s.thinking ? (
+                                <span className="rounded-full bg-[#007AFF]/10 px-2 py-0.5 text-[#007AFF] animate-pulse">
+                                    {t('session.item.thinking')}
                                 </span>
-                            )
-                        })()}
-                        {s.pendingRequestsCount > 0 ? (
-                            <span className="text-[var(--app-badge-warning-text)]">
-                                {t('session.item.pending')} {s.pendingRequestsCount}
-                            </span>
-                        ) : null}
-                        {formatSessionTimes(s, t) ? (
-                            <span className="text-[var(--app-hint)]">
-                                {formatSessionTimes(s, t)}
-                            </span>
-                        ) : null}
+                            ) : null}
+                            {(() => {
+                                const progress = getTodoProgress(s)
+                                if (!progress) return null
+                                return (
+                                    <span className="flex items-center gap-1 rounded-full bg-[var(--app-secondary-bg)] px-2 py-0.5 text-[var(--app-hint)]">
+                                        <BulbIcon className="h-3 w-3" />
+                                        {progress.completed}/{progress.total}
+                                    </span>
+                                )
+                            })()}
+                            {s.pendingRequestsCount > 0 ? (
+                                <span className="rounded-full bg-[var(--app-badge-warning-bg)] px-2 py-0.5 text-[var(--app-badge-warning-text)]">
+                                    {t('session.item.pending')} {s.pendingRequestsCount}
+                                </span>
+                            ) : null}
+                        </div>
                     </div>
                 </div>
-                {showPath ? (
-                    <div className="truncate text-xs text-[var(--app-hint)]">
-                        {s.metadata?.path ?? s.id}
+                <div className="space-y-1 pl-6 text-[10px] leading-4 text-[var(--app-hint)]">
+                    <div className="break-all font-mono">
+                        <span className="mr-2 font-semibold text-[var(--app-fg)]">HAPI</span>
+                        <span>{s.id}</span>
+                    </div>
+                    {nativeSessionId && nativeSessionProviderLabel ? (
+                        <div className="break-all font-mono">
+                            <span className="mr-2 font-semibold text-[var(--app-fg)]">{nativeSessionProviderLabel}</span>
+                            <span>{nativeSessionId}</span>
+                        </div>
+                    ) : null}
+                </div>
+                {relativeSessionPath ? (
+                    <div className="break-all pl-6 text-[11px] leading-4 text-[var(--app-hint)]">
+                        {relativeSessionPath}
                     </div>
                 ) : null}
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--app-hint)]">
-                    <span className="inline-flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 pl-6 text-[11px] text-[var(--app-hint)]">
+                    <span className="inline-flex items-center gap-1.5">
                         <span className="flex h-4 w-4 items-center justify-center" aria-hidden="true">
                             ❖
                         </span>
-                        {nativeOriginLabel ?? getAgentLabel(s)}
+                        {getAgentLabel(s)}
                     </span>
-                    <SessionSourceBadge source={s.metadata?.source} />
                     <span>{t('session.item.modelMode')}: {s.modelMode || 'default'}</span>
                     {s.metadata?.worktree?.branch ? (
                         <span>{t('session.item.worktree')}: {s.metadata.worktree.branch}</span>
                     ) : null}
                 </div>
+                {sessionTimes ? (
+                    <div className="pl-6 text-[11px] leading-4 text-[var(--app-hint)]">
+                        {sessionTimes}
+                    </div>
+                ) : null}
             </button>
 
             <SessionActionMenu
@@ -362,6 +477,10 @@ export function SessionList(props: {
         () => groupSessionsByDirectory(props.sessions),
         [props.sessions]
     )
+    const visibleSessionCount = useMemo(
+        () => groups.reduce((sum, group) => sum + group.sessions.length, 0),
+        [groups]
+    )
     const [collapseOverrides, setCollapseOverrides] = useState<Map<string, boolean>>(
         () => new Map()
     )
@@ -398,56 +517,83 @@ export function SessionList(props: {
     return (
         <div className="mx-auto w-full max-w-content flex flex-col">
             {renderHeader ? (
-                <div className="flex items-center justify-between px-3 py-1">
+                <div className="flex items-center justify-between px-3 py-2">
                     <div className="text-xs text-[var(--app-hint)]">
-                        {t('sessions.count', { n: props.sessions.length, m: groups.length })}
+                        {t('sessions.count', { n: visibleSessionCount, m: groups.length })}
                     </div>
-                    <button
-                        type="button"
-                        onClick={props.onNewSession}
-                        className="session-list-new-button p-1.5 rounded-full text-[var(--app-link)] transition-colors"
-                        title={t('sessions.new')}
-                    >
-                        <PlusIcon className="h-5 w-5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={props.onRefresh}
+                            className="rounded-full p-1.5 text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
+                            title={t('session.chat.refresh')}
+                            aria-busy={props.isLoading}
+                        >
+                            <RefreshIcon className={`h-4 w-4 ${props.isLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={props.onNewSession}
+                            className="session-list-new-button rounded-full p-1.5 text-[var(--app-link)] transition-colors"
+                            title={t('sessions.new')}
+                        >
+                            <PlusIcon className="h-5 w-5" />
+                        </button>
+                    </div>
                 </div>
             ) : null}
 
-            <div className="flex flex-col">
+            <div className="flex flex-col gap-2 px-2 pb-2">
                 {groups.map((group) => {
                     const isCollapsed = isGroupCollapsed(group)
+                    const visibleCount = group.sessions.length
+                    const countLabel = group.totalSessions > visibleCount
+                        ? `${visibleCount}/${group.totalSessions}`
+                        : `${visibleCount}`
                     return (
-                        <div key={group.directory}>
+                        <div key={group.directory} className="overflow-hidden rounded-2xl border border-[var(--app-divider)] bg-[var(--app-bg)]">
                             <button
                                 type="button"
                                 onClick={() => toggleGroup(group.directory, isCollapsed)}
-                                className="sticky top-0 z-10 flex w-full items-center gap-2 px-3 py-2 text-left bg-[var(--app-bg)] border-b border-[var(--app-divider)] transition-colors hover:bg-[var(--app-secondary-bg)]"
+                                className="sticky top-0 z-10 flex w-full items-center gap-3 border-b border-[var(--app-divider)] bg-[var(--app-bg)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--app-secondary-bg)]"
                             >
                                 <ChevronIcon
                                     className="h-4 w-4 text-[var(--app-hint)]"
                                     collapsed={isCollapsed}
                                 />
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <span className="font-medium text-base break-words" title={group.directory}>
-                                        {group.displayName}
-                                    </span>
-                                    <span className="shrink-0 text-xs text-[var(--app-hint)]">
-                                        ({group.sessions.length})
-                                    </span>
+                                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${group.hasActiveSession ? 'bg-[var(--app-secondary-bg)] text-[var(--app-link)]' : 'bg-[var(--app-secondary-bg)] text-[var(--app-hint)]'}`}>
+                                    <FolderIcon className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <span className="truncate font-medium text-sm sm:text-base" title={group.directory}>
+                                            {group.displayName}
+                                        </span>
+                                        <span className="shrink-0 rounded-full bg-[var(--app-secondary-bg)] px-2 py-0.5 text-[11px] text-[var(--app-hint)]">
+                                            {countLabel}
+                                        </span>
+                                    </div>
+                                    {group.directory !== 'Other' ? (
+                                        <div className="truncate text-[11px] text-[var(--app-hint)]">
+                                            {group.directory}
+                                        </div>
+                                    ) : null}
                                 </div>
                             </button>
                             {!isCollapsed ? (
-                                <div className="flex flex-col divide-y divide-[var(--app-divider)] border-b border-[var(--app-divider)]">
+                                <div className="bg-[var(--app-secondary-bg)] p-2">
+                                    <div className="flex flex-col gap-2 border-l border-dashed border-[var(--app-divider)] pl-3">
                                     {group.sessions.map((s) => (
                                         <SessionItem
                                             key={s.id}
                                             session={s}
                                             onSelect={props.onSelect}
-                                            showPath={false}
+                                            groupDirectory={group.directory}
                                             api={api}
                                             selected={s.id === selectedSessionId}
                                         />
                                     ))}
+                                    </div>
                                 </div>
                             ) : null}
                         </div>

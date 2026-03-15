@@ -61,7 +61,7 @@ export default {
   'session.time.updatedLabel': '更新',
   'session.chat.inactive': '会话当前未激活。发送消息会自动恢复连接。',
   'session.chat.connect': '连接',
-  'session.chat.stop': '停止',
+  'session.chat.disconnect': '取消连接',
   'session.chat.refresh': '刷新',
 
   // Session header

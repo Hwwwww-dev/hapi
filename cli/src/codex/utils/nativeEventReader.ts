@@ -94,11 +94,12 @@ export async function readCodexNativeEventFile(
         try {
             const parsed = JSON.parse(trimmed) as CodexSessionEvent
             const payload = asRecord(parsed.payload)
+            const topLevelTimestamp = parseCodexTimestamp(asRecord(parsed)?.timestamp ?? null)
 
             if (parsed.type === 'session_meta') {
                 const nextSessionId = payload ? asString(payload.id) : null
                 const nextCwd = payload ? asString(payload.cwd) : null
-                const nextTimestamp = payload ? parseCodexTimestamp(payload.timestamp) : null
+                const nextTimestamp = (payload ? parseCodexTimestamp(payload.timestamp) : null) ?? topLevelTimestamp
 
                 if (nextSessionId) {
                     sessionId = nextSessionId
@@ -117,6 +118,7 @@ export async function readCodexNativeEventFile(
             }
 
             const createdAt = (payload ? parseCodexTimestamp(payload.timestamp) : null)
+                ?? topLevelTimestamp
                 ?? (lastCreatedAt || sessionTimestamp || index)
             lastCreatedAt = createdAt
 

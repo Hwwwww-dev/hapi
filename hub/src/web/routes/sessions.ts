@@ -29,12 +29,77 @@ const uploadDeleteSchema = z.object({
 })
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+const MAX_SESSIONS_PER_DIRECTORY = 50
 
 function estimateBase64Bytes(base64: string): number {
     const len = base64.length
     if (len === 0) return 0
     const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0
     return Math.floor((len * 3) / 4) - padding
+}
+
+function getPendingCount(session: Session): number {
+    return session.agentState?.requests ? Object.keys(session.agentState.requests).length : 0
+}
+
+function getSessionDirectory(session: Session): string {
+    const worktreeBasePath = session.metadata?.worktree?.basePath?.trim()
+    if (worktreeBasePath) {
+        return worktreeBasePath
+    }
+
+    const sessionPath = session.metadata?.path?.trim()
+    if (sessionPath) {
+        return sessionPath
+    }
+
+    return 'Other'
+}
+
+function sortSessionsWithinDirectory(left: Session, right: Session): number {
+    const leftRank = left.active ? (getPendingCount(left) > 0 ? 0 : 1) : 2
+    const rightRank = right.active ? (getPendingCount(right) > 0 ? 0 : 1) : 2
+
+    if (leftRank !== rightRank) {
+        return leftRank - rightRank
+    }
+
+    return right.createdAt - left.createdAt
+}
+
+function getDirectoryLatestCreatedAt(sessions: Session[]): number {
+    let latest = 0
+    for (const s of sessions) {
+        if (s.createdAt > latest) latest = s.createdAt
+    }
+    return latest
+}
+
+function sortAndLimitSessionsByDirectory(sessions: Session[]): Session[] {
+    const groups = new Map<string, Session[]>()
+
+    for (const session of sessions) {
+        const directory = getSessionDirectory(session)
+        const group = groups.get(directory)
+        if (group) {
+            group.push(session)
+            continue
+        }
+        groups.set(directory, [session])
+    }
+
+    return Array.from(groups.entries())
+        .sort(([leftDir, leftSessions], [rightDir, rightSessions]) => {
+            if (leftDir === 'Other') return 1
+            if (rightDir === 'Other') return -1
+            return getDirectoryLatestCreatedAt(rightSessions) - getDirectoryLatestCreatedAt(leftSessions)
+        })
+        .flatMap(([, groupSessions]) => (
+            groupSessions
+                .slice()
+                .sort(sortSessionsWithinDirectory)
+                .slice(0, MAX_SESSIONS_PER_DIRECTORY)
+        ))
 }
 
 export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Hono<WebAppEnv> {
@@ -46,24 +111,8 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
             return engine
         }
 
-        const getPendingCount = (s: Session) => s.agentState?.requests ? Object.keys(s.agentState.requests).length : 0
-
         const namespace = c.get('namespace')
-        const sessions = engine.getSessionsByNamespace(namespace)
-            .sort((a, b) => {
-                // Active sessions first
-                if (a.active !== b.active) {
-                    return a.active ? -1 : 1
-                }
-                // Within active sessions, sort by pending requests count
-                const aPending = getPendingCount(a)
-                const bPending = getPendingCount(b)
-                if (a.active && aPending !== bPending) {
-                    return bPending - aPending
-                }
-                // Then by updatedAt
-                return b.updatedAt - a.updatedAt
-            })
+        const sessions = sortAndLimitSessionsByDirectory(engine.getSessionsByNamespace(namespace))
             .map(toSessionSummary)
 
         return c.json({ sessions })

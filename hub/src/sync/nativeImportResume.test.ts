@@ -24,6 +24,55 @@ function createEngine() {
 }
 
 describe('native import resume takeover', () => {
+    it('suppresses native re-import while a hybrid session is active', () => {
+        const { engine, sseManager } = createEngine()
+        const namespace = 'default'
+
+        engine.getOrCreateMachine('machine-1', {
+            host: 'local',
+            platform: 'linux',
+            happyCliVersion: '0.1.0'
+        }, null, namespace)
+        engine.handleMachineAlive({ machineId: 'machine-1', time: Date.now() })
+
+        const imported = engine.upsertNativeSession({
+            tag: 'native:claude:project:native-active',
+            namespace,
+            metadata: {
+                path: '/tmp/project',
+                host: 'local',
+                flavor: 'claude',
+                machineId: 'machine-1',
+                source: 'native',
+                nativeProvider: 'claude',
+                nativeSessionId: 'native-active',
+                nativeProjectPath: '/tmp/project',
+                nativeDiscoveredAt: 1,
+                claudeSessionId: 'native-active'
+            },
+            agentState: null
+        })
+
+        engine.handleSessionAlive({ sid: imported.id, time: Date.now(), thinking: true })
+
+        const result = engine.importNativeMessages(imported.id, [{
+            content: { role: 'assistant', content: 'native-tail' },
+            createdAt: 1,
+            sourceProvider: 'claude',
+            sourceSessionId: 'native-active',
+            sourceKey: 'line:1'
+        }])
+
+        expect(result.imported).toBe(0)
+        expect(engine.getSession(imported.id)?.metadata).toEqual(expect.objectContaining({
+            source: 'hybrid'
+        }))
+        expect(engine.getMessagesAfter(imported.id, { afterSeq: 0, limit: 10 })).toEqual([])
+
+        engine.stop()
+        sseManager.stop()
+    })
+
     it('merges resumed HAPI session back into the imported canonical thread and marks it hybrid', async () => {
         const { store, engine, sseManager } = createEngine()
         const namespace = 'default'

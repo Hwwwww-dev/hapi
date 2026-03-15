@@ -1,5 +1,7 @@
 import type { AgentEvent, NormalizedAgentContent, NormalizedMessage, ToolResultPermission } from '@/chat/types'
-import { asNumber, asString, isObject } from '@hapi/protocol'
+import { asNumber, asString, isObject, safeStringify } from '@hapi/protocol'
+
+const MAX_ASSISTANT_SOURCE_BLOCKS = 16
 
 function normalizeToolResultPermissions(value: unknown): ToolResultPermission | undefined {
     if (!isObject(value)) return undefined
@@ -31,11 +33,35 @@ function normalizeAgentEvent(value: unknown): AgentEvent | null {
     return value as AgentEvent
 }
 
+function toTextContent(
+    text: string,
+    uuid: string,
+    parentUUID: string | null
+): NormalizedAgentContent[] {
+    return [{ type: 'text', text, uuid, parentUUID }]
+}
+
+function collapseAssistantContent(
+    value: unknown,
+    uuid: string,
+    parentUUID: string | null
+): NormalizedAgentContent[] {
+    return toTextContent(
+        typeof value === 'string' ? value : safeStringify(value),
+        uuid,
+        parentUUID
+    )
+}
+
 function normalizeAssistantBlocks(
     blocks: unknown[],
     fallbackUuid: string,
     fallbackParentUUID: string | null
 ): NormalizedAgentContent[] {
+    if (blocks.length > MAX_ASSISTANT_SOURCE_BLOCKS) {
+        return collapseAssistantContent(blocks, fallbackUuid, fallbackParentUUID)
+    }
+
     const normalized: NormalizedAgentContent[] = []
 
     for (const block of blocks) {
@@ -91,6 +117,18 @@ function normalizeAssistantOutput(
     if (typeof modelContent === 'string') {
         blocks.push({ type: 'text', text: modelContent, uuid, parentUUID })
     } else if (Array.isArray(modelContent)) {
+        if (modelContent.length > MAX_ASSISTANT_SOURCE_BLOCKS) {
+            return {
+                id: messageId,
+                localId,
+                createdAt,
+                role: 'agent',
+                isSidechain,
+                content: collapseAssistantContent(modelContent, uuid, parentUUID),
+                meta
+            }
+        }
+
         for (const block of modelContent) {
             if (!isObject(block) || typeof block.type !== 'string') continue
             if (block.type === 'text' && typeof block.text === 'string') {
@@ -236,7 +274,7 @@ export function normalizeAgentRecord(
             createdAt,
             role: 'agent',
             isSidechain: false,
-            content: [{ type: 'text', text: content, uuid: messageId, parentUUID: null }],
+            content: toTextContent(content, messageId, null),
             meta
         }
     }
@@ -373,7 +411,7 @@ export function normalizeAgentRecord(
                 createdAt,
                 role: 'agent',
                 isSidechain: false,
-                content: [{ type: 'text', text: data.message, uuid: messageId, parentUUID: null }],
+                content: toTextContent(data.message, messageId, null),
                 meta
             }
         }

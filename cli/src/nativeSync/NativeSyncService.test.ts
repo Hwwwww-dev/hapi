@@ -88,6 +88,65 @@ describe('buildStableNativeTag', () => {
 })
 
 describe('NativeSyncService', () => {
+    it('polls recently active native sessions more aggressively', async () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2026-03-15T12:00:00.000Z'))
+
+        const summary = createSummary({ lastActivityAt: Date.now() })
+        const provider = createProvider({ summaries: [summary] })
+        const api = createApi()
+        const service = new NativeSyncService({
+            api,
+            providers: [provider],
+            machineId: 'machine-1',
+            host: 'local',
+            now: () => Date.now(),
+            pollIntervalMs: 60_000
+        })
+
+        service.start()
+
+        await vi.advanceTimersByTimeAsync(0)
+        expect(provider.discoverSessions).toHaveBeenCalledTimes(1)
+
+        await vi.advanceTimersByTimeAsync(10_000)
+        expect(provider.discoverSessions).toHaveBeenCalledTimes(2)
+
+        service.stop()
+        vi.useRealTimers()
+    })
+
+    it('polls inactive native sessions less frequently', async () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2026-03-15T12:00:00.000Z'))
+
+        const summary = createSummary({ lastActivityAt: Date.now() - (2 * 60 * 60_000) })
+        const provider = createProvider({ summaries: [summary] })
+        const api = createApi()
+        const service = new NativeSyncService({
+            api,
+            providers: [provider],
+            machineId: 'machine-1',
+            host: 'local',
+            now: () => Date.now(),
+            pollIntervalMs: 30_000
+        })
+
+        service.start()
+
+        await vi.advanceTimersByTimeAsync(0)
+        expect(provider.discoverSessions).toHaveBeenCalledTimes(1)
+
+        await vi.advanceTimersByTimeAsync(30_000)
+        expect(provider.discoverSessions).toHaveBeenCalledTimes(1)
+
+        await vi.advanceTimersByTimeAsync(90_000)
+        expect(provider.discoverSessions).toHaveBeenCalledTimes(2)
+
+        service.stop()
+        vi.useRealTimers()
+    })
+
     it('maps a new native session to one canonical HAPI session', async () => {
         const summary = createSummary()
         const messages = [

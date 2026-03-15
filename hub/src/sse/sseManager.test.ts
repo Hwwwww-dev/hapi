@@ -65,6 +65,36 @@ describe('SSEManager namespace filtering', () => {
         expect(received.map((entry) => entry.id).sort()).toEqual(['alpha', 'beta'])
     })
 
+    it('delivers message-received to all-subscriptions in the same namespace', () => {
+        const manager = new SSEManager(0, new VisibilityTracker())
+        const received: SyncEvent[] = []
+
+        manager.subscribe({
+            id: 'alpha-all',
+            namespace: 'alpha',
+            all: true,
+            send: (event) => {
+                received.push(event)
+            },
+            sendHeartbeat: () => {}
+        })
+
+        manager.broadcast({
+            type: 'message-received',
+            namespace: 'alpha',
+            sessionId: 'session-1',
+            message: {
+                id: 'msg-1',
+                seq: 1,
+                localId: null,
+                content: { type: 'text', text: 'hello' },
+                createdAt: Date.now()
+            }
+        })
+
+        expect(received).toHaveLength(1)
+    })
+
     it('sends toast only to visible connections in a namespace', async () => {
         const manager = new SSEManager(0, new VisibilityTracker())
         const received: Array<{ id: string; event: SyncEvent }> = []

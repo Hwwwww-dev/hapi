@@ -224,7 +224,7 @@ describe('Codex native provider', () => {
         expect(result.messages).toHaveLength(2)
     })
 
-    it('tails only appended events after the persisted cursor', async () => {
+    it('re-reads a small overlap near the persisted cursor so recent native messages can self-heal', async () => {
         const sessionId = 'codex-session-3'
         const sessionDir = join(tempDir, 'sessions', '2026', '01', '03')
         const sessionFile = join(sessionDir, `codex-${sessionId}.jsonl`)
@@ -251,6 +251,21 @@ describe('Codex native provider', () => {
         const provider = createCodexNativeProvider()
         const [summary] = await provider.discoverSessions()
         const initial = await provider.readMessages(summary, null)
+        const replay = await provider.readMessages(summary, {
+            sessionId: 'hapi-session-1',
+            provider: 'codex',
+            nativeSessionId: sessionId,
+            machineId: 'machine-1',
+            cursor: initial.cursor,
+            filePath: initial.filePath ?? null,
+            mtime: initial.mtime ?? null,
+            lastSyncedAt: 1,
+            syncStatus: 'healthy',
+            lastError: null
+        })
+
+        expect(replay.messages).toHaveLength(1)
+        expect(replay.messages[0].sourceKey).toBe('file:2026/01/03/codex-codex-session-3.jsonl:line:1')
 
         await appendFile(sessionFile, JSON.stringify({
             type: 'response_item',
@@ -276,9 +291,10 @@ describe('Codex native provider', () => {
             lastError: null
         })
 
-        expect(tail.messages).toHaveLength(1)
-        expect(tail.messages[0].sourceKey).toBe('file:2026/01/03/codex-codex-session-3.jsonl:line:2')
-        expect(tail.messages[0].content).toEqual({
+        expect(tail.messages).toHaveLength(2)
+        expect(tail.messages[0].sourceKey).toBe('file:2026/01/03/codex-codex-session-3.jsonl:line:1')
+        expect(tail.messages[1].sourceKey).toBe('file:2026/01/03/codex-codex-session-3.jsonl:line:2')
+        expect(tail.messages[1].content).toEqual({
             role: 'agent',
             content: expect.objectContaining({
                 type: 'codex',
@@ -356,5 +372,39 @@ describe('Codex native provider', () => {
                 sentFrom: 'cli'
             }
         })
+    })
+
+    it('uses top-level native timestamps for Codex messages that lack payload timestamps', async () => {
+        const sessionId = 'codex-session-top-level-ts'
+        const sessionDir = join(tempDir, 'sessions', '2026', '03', '15')
+        const sessionFile = join(sessionDir, `rollout-2026-03-15T03-04-32-${sessionId}.jsonl`)
+
+        await mkdir(sessionDir, { recursive: true })
+        await writeFile(sessionFile, [
+            JSON.stringify({
+                timestamp: '2026-03-14T19:04:33.901Z',
+                type: 'session_meta',
+                payload: {
+                    id: sessionId,
+                    cwd: '/workspaces/codex-timestamps',
+                    timestamp: '2026-03-14T19:04:32.306Z'
+                }
+            }),
+            JSON.stringify({
+                timestamp: '2026-03-15T14:20:42.770Z',
+                type: 'event_msg',
+                payload: {
+                    type: 'user_message',
+                    message: '我同意'
+                }
+            })
+        ].join('\n') + '\n')
+
+        const provider = createCodexNativeProvider()
+        const [summary] = await provider.discoverSessions()
+        const result = await provider.readMessages(summary, null)
+
+        expect(result.messages).toHaveLength(1)
+        expect(result.messages[0]?.createdAt).toBe(Date.parse('2026-03-15T14:20:42.770Z'))
     })
 })

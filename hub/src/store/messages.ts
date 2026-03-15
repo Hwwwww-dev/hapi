@@ -108,7 +108,8 @@ export function importNativeMessage(
     db: Database,
     sessionId: string,
     payload: NativeMessageImportPayload
-): { message: StoredMessage; inserted: boolean } {
+): { message: StoredMessage; inserted: boolean; updated: boolean } {
+    const nextContentJson = JSON.stringify(payload.content)
     const existing = db.prepare(`
         SELECT * FROM messages
         WHERE session_id = ?
@@ -124,9 +125,30 @@ export function importNativeMessage(
     ) as DbMessageRow | undefined
 
     if (existing) {
+        const needsUpdate = existing.created_at !== payload.createdAt || existing.content !== nextContentJson
+        if (!needsUpdate) {
+            return {
+                message: toStoredMessage(existing),
+                inserted: false,
+                updated: false
+            }
+        }
+
+        db.prepare(`
+            UPDATE messages
+            SET content = ?, created_at = ?
+            WHERE id = ?
+        `).run(nextContentJson, payload.createdAt, existing.id)
+
+        const updated = db.prepare('SELECT * FROM messages WHERE id = ?').get(existing.id) as DbMessageRow | undefined
+        if (!updated) {
+            throw new Error('Failed to update imported native message')
+        }
+
         return {
-            message: toStoredMessage(existing),
-            inserted: false
+            message: toStoredMessage(updated),
+            inserted: false,
+            updated: true
         }
     }
 
@@ -146,7 +168,7 @@ export function importNativeMessage(
     `).run({
         id,
         session_id: sessionId,
-        content: JSON.stringify(payload.content),
+        content: nextContentJson,
         created_at: payload.createdAt,
         seq: msgSeqRow.nextSeq,
         source_provider: payload.sourceProvider,
@@ -161,7 +183,8 @@ export function importNativeMessage(
 
     return {
         message: toStoredMessage(inserted),
-        inserted: true
+        inserted: true,
+        updated: false
     }
 }
 

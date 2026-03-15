@@ -6,6 +6,7 @@ import { I18nProvider } from '@/lib/i18n-context'
 import { SessionChat } from './SessionChat'
 
 const abortSessionMock = vi.fn(async () => undefined)
+const archiveSessionMock = vi.fn(async () => undefined)
 const switchSessionMock = vi.fn(async () => undefined)
 const setPermissionModeMock = vi.fn(async () => undefined)
 const setModelModeMock = vi.fn(async () => undefined)
@@ -47,6 +48,7 @@ vi.mock('@/hooks/usePlatform', () => ({
 vi.mock('@/hooks/mutations/useSessionActions', () => ({
     useSessionActions: () => ({
         abortSession: abortSessionMock,
+        archiveSession: archiveSessionMock,
         switchSession: switchSessionMock,
         setPermissionMode: setPermissionModeMock,
         setModelMode: setModelModeMock
@@ -179,11 +181,11 @@ describe('SessionChat connection controls', () => {
         expect(onRefresh).toHaveBeenCalledTimes(2)
     })
 
-    it('lets users stop an active session from the status actions', async () => {
+    it('lets users disconnect an active session from the status actions', async () => {
         renderChat(createSession({ active: true }))
 
-        fireEvent.click(screen.getByRole('button', { name: '停止' }))
+        fireEvent.click(screen.getByRole('button', { name: '取消连接' }))
 
-        await waitFor(() => expect(abortSessionMock).toHaveBeenCalled())
+        await waitFor(() => expect(archiveSessionMock).toHaveBeenCalled())
     })
 })

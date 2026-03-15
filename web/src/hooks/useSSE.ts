@@ -39,7 +39,7 @@ function sortSessionSummaries(left: SessionSummary, right: SessionSummary): numb
     if (left.active && left.pendingRequestsCount !== right.pendingRequestsCount) {
         return right.pendingRequestsCount - left.pendingRequestsCount
     }
-    return right.updatedAt - left.updatedAt
+    return right.createdAt - left.createdAt
 }
 
 function hasRecordShape(value: unknown): value is Record<string, unknown> {

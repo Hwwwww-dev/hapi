@@ -14,6 +14,8 @@ type CodexCursor = {
     line: number
 }
 
+const CURSOR_RESCAN_OVERLAP_LINES = 512
+
 function getSessionsRoot(): string {
     const codexHomeDir = process.env.CODEX_HOME || join(homedir(), '.codex')
     return join(codexHomeDir, 'sessions')
@@ -51,7 +53,12 @@ function parseCursor(cursor: string | null | undefined, filePath: string): numbe
         if (parsed.filePath !== filePath) {
             return 0
         }
-        return Number.isInteger(parsed.line) && parsed.line >= 0 ? parsed.line : 0
+        if (!Number.isInteger(parsed.line) || parsed.line < 0) {
+            return 0
+        }
+        // Keep a small overlap so parser fixes can self-heal recent imported rows
+        // without resetting the whole native-sync cursor.
+        return Math.max(0, parsed.line - CURSOR_RESCAN_OVERLAP_LINES)
     } catch {
         return 0
     }

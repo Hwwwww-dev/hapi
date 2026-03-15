@@ -267,6 +267,20 @@ export class SyncEngine {
             throw new Error('Session not found')
         }
 
+        // Hybrid sessions already stream live messages from the resumed HAPI process.
+        // Re-importing the same native log lines on the native-sync poll causes
+        // duplicated user/assistant messages, duplicate title-change events, and
+        // stale native timestamps to show up in the chat.
+        //
+        // We still let the native-sync caller advance its cursor/state; we only
+        // suppress DB insertion while the hybrid session is actively connected.
+        if (session.active && session.metadata?.source === 'hybrid') {
+            return {
+                imported: 0,
+                session
+            }
+        }
+
         const result = this.messageService.importNativeMessages(sessionId, payload)
         return {
             imported: result.imported,

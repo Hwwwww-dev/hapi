@@ -66,6 +66,24 @@ describe('normalizeDecryptedMessage', () => {
         }))
     })
 
+    it('parses thinking tags embedded in assistant text into reasoning blocks', () => {
+        const normalized = normalizeDecryptedMessage(createMessage({
+            type: 'assistant',
+            message: {
+                role: 'assistant',
+                content: '<thinking>先检查 shouldSend</thinking>\n结论：需要先判断 all=true'
+            }
+        }))
+
+        expect(normalized).toEqual(expect.objectContaining({
+            role: 'agent',
+            content: [
+                expect.objectContaining({ type: 'reasoning', text: '先检查 shouldSend' }),
+                expect.objectContaining({ type: 'text', text: '结论：需要先判断 all=true' })
+            ]
+        }))
+    })
+
     it('keeps Claude native user text block arrays as user text', () => {
         const normalized = normalizeDecryptedMessage(createMessage({
             type: 'user',
