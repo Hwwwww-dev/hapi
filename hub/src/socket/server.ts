@@ -2,6 +2,7 @@ import { Server as Engine } from '@socket.io/bun-engine'
 import { Server, type DefaultEventsMap } from 'socket.io'
 import { jwtVerify } from 'jose'
 import { z } from 'zod'
+import type { RawEventEnvelope } from '@hapi/protocol'
 import type { Store } from '../store'
 import { configuration } from '../configuration'
 import { constantTimeEquals } from '../utils/crypto'
@@ -35,6 +36,7 @@ export type SocketServerDeps = {
     jwtSecret: Uint8Array
     corsOrigins?: string[]
     getSession?: (sessionId: string) => { active: boolean; namespace: string } | null
+    ingestRawEvents?: (sessionId: string, events: RawEventEnvelope[]) => Promise<{ imported: number } | void>
     onWebappEvent?: (event: SyncEvent) => void
     onSessionAlive?: (payload: { sid: string; time: number; thinking?: boolean; mode?: 'local' | 'remote' }) => void
     onSessionEnd?: (payload: { sid: string; time: number }) => void
@@ -110,6 +112,7 @@ export function createSocketServer(deps: SocketServerDeps): {
         store: deps.store,
         rpcRegistry,
         terminalRegistry,
+        ingestRawEvents: deps.ingestRawEvents,
         onSessionAlive: deps.onSessionAlive,
         onSessionEnd: deps.onSessionEnd,
         onMachineAlive: deps.onMachineAlive,

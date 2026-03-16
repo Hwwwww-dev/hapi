@@ -34,22 +34,32 @@ function createSession(engine: SyncEngine, sessionId: string) {
 }
 
 function createClaudeRawEvent(overrides: Partial<RawEventEnvelope> & Pick<RawEventEnvelope, 'id' | 'sessionId' | 'sourceKey' | 'occurredAt' | 'rawType' | 'payload'>): RawEventEnvelope {
+    const {
+        id,
+        sessionId,
+        sourceKey,
+        occurredAt,
+        rawType,
+        payload,
+        ...rest
+    } = overrides
+
     return {
-        id: overrides.id,
-        sessionId: overrides.sessionId,
+        ...rest,
+        id,
+        sessionId,
         provider: 'claude',
         source: 'runtime',
-        sourceSessionId: overrides.sessionId,
-        sourceKey: overrides.sourceKey,
+        sourceSessionId: sessionId,
+        sourceKey,
         observationKey: null,
         channel: 'runtime:session',
         sourceOrder: 0,
-        occurredAt: overrides.occurredAt,
-        ingestedAt: overrides.occurredAt + 1,
-        rawType: overrides.rawType,
-        payload: overrides.payload,
-        ingestSchemaVersion: 1,
-        ...overrides
+        occurredAt,
+        ingestedAt: occurredAt + 1,
+        rawType,
+        payload,
+        ingestSchemaVersion: 1
     }
 }
 

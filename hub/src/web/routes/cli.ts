@@ -149,7 +149,10 @@ export function createCliRoutes(getSyncEngine: () => SyncEngine | null): Hono<Cl
         }
 
         const limit = parsed.data.limit ?? 200
-        const messages = engine.getMessagesAfter(resolved.sessionId, { afterSeq: parsed.data.afterSeq, limit })
+        const messages = engine.getCliBackfillMessagesAfter(resolved.sessionId, {
+            afterSeq: parsed.data.afterSeq,
+            limit
+        })
         return c.json({ messages })
     })
 

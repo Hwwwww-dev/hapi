@@ -1,4 +1,5 @@
 import type { ModelMode, PermissionMode } from '@hapi/protocol/types'
+import type { RawEventEnvelope } from '@hapi/protocol'
 import type { Store, StoredMachine, StoredSession } from '../../../store'
 import type { RpcRegistry } from '../../rpcRegistry'
 import type { SyncEvent } from '../../../sync/syncEngine'
@@ -34,6 +35,7 @@ export type CliHandlersDeps = {
     store: Store
     rpcRegistry: RpcRegistry
     terminalRegistry: TerminalRegistry
+    ingestRawEvents?: (sessionId: string, events: RawEventEnvelope[]) => Promise<{ imported: number } | void>
     onSessionAlive?: (payload: SessionAlivePayload) => void
     onSessionEnd?: (payload: SessionEndPayload) => void
     onMachineAlive?: (payload: MachineAlivePayload) => void
@@ -98,6 +100,7 @@ export function registerCliHandlers(socket: CliSocketWithData, deps: CliHandlers
         store,
         resolveSessionAccess,
         emitAccessError,
+        ingestRawEvents: deps.ingestRawEvents,
         onSessionAlive,
         onSessionEnd,
         onWebappEvent

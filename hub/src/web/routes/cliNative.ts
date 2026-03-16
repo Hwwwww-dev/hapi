@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { RawEventEnvelopeSchema } from '@hapi/protocol'
 import { z } from 'zod'
 
 import type { SyncEngine } from '../../sync/syncEngine'
@@ -30,6 +31,10 @@ const nativeMessageSchema = z.object({
 
 const nativeMessageImportSchema = z.object({
     messages: z.array(nativeMessageSchema)
+})
+
+const nativeRawEventImportSchema = z.object({
+    events: z.array(RawEventEnvelopeSchema)
 })
 
 const nativeSyncStateSchema = z.object({
@@ -87,6 +92,42 @@ export function createCliNativeRoutes(getSyncEngine: () => SyncEngine | null): H
         return c.json({ session })
     })
 
+    app.post('/sessions/:id/raw-events/import', async (c) => {
+        const engine = getSyncEngine()
+        if (!engine) {
+            return c.json({ error: 'Not ready' }, 503)
+        }
+
+        const namespace = c.get('namespace')
+        const resolved = resolveSessionForNamespace(engine, c.req.param('id'), namespace)
+        if (!resolved.ok) {
+            return c.json({ error: resolved.error }, resolved.status)
+        }
+
+        const json = await c.req.json().catch(() => null)
+        const parsed = nativeRawEventImportSchema.safeParse(json)
+        if (!parsed.success) {
+            return c.json({ error: 'Invalid body' }, 400)
+        }
+
+        const result = await engine.ingestRawEvents(
+            resolved.sessionId,
+            parsed.data.events.map((event) => ({
+                ...event,
+                sessionId: resolved.sessionId
+            }))
+        )
+        const session = engine.getSession(resolved.sessionId)
+        if (!session) {
+            return c.json({ error: 'Session not found' }, 404)
+        }
+
+        return c.json({
+            imported: result.imported,
+            session
+        })
+    })
+
     app.post('/sessions/:id/messages/import', async (c) => {
         const engine = getSyncEngine()
         if (!engine) {
@@ -105,8 +146,8 @@ export function createCliNativeRoutes(getSyncEngine: () => SyncEngine | null): H
             return c.json({ error: 'Invalid body' }, 400)
         }
 
-        const result = engine.importNativeMessages(resolved.sessionId, parsed.data.messages)
-        return c.json(result)
+        const legacyResult = engine.importNativeMessages(resolved.sessionId, parsed.data.messages)
+        return c.json(legacyResult)
     })
 
     app.get('/sessions/:id/sync-state', (c) => {

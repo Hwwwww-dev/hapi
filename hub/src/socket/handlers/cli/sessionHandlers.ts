@@ -1,9 +1,11 @@
-import type { ClientToServerEvents } from '@hapi/protocol'
+import type { ClientToServerEvents, RawEventEnvelope } from '@hapi/protocol'
+import { RuntimeRawEventPayloadSchema } from '@hapi/protocol'
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import type { ModelMode, PermissionMode } from '@hapi/protocol/types'
 import type { Store, StoredSession } from '../../../store'
 import type { SyncEvent } from '../../../sync/syncEngine'
+import { ingestRawEventsIntoCanonicalStore } from '../../../sync/messageService'
 import { extractTodoWriteTodosFromMessageContent } from '../../../sync/todos'
 import { extractTeamStateFromMessageContent, applyTeamStateDelta } from '../../../sync/teams'
 import { maybeApplyFirstMessageSessionTitle } from '../../../sync/sessionTitle'
@@ -30,6 +32,7 @@ type EmitAccessError = (scope: 'session' | 'machine', id: string, reason: Access
 
 type UpdateMetadataHandler = ClientToServerEvents['update-metadata']
 type UpdateStateHandler = ClientToServerEvents['update-state']
+type IngestRawEventsHandler = (sessionId: string, events: RawEventEnvelope[]) => Promise<{ imported: number } | void>
 
 const messageSchema = z.object({
     sid: z.string(),
@@ -53,13 +56,14 @@ export type SessionHandlersDeps = {
     store: Store
     resolveSessionAccess: ResolveSessionAccess
     emitAccessError: EmitAccessError
+    ingestRawEvents?: IngestRawEventsHandler
     onSessionAlive?: (payload: SessionAlivePayload) => void
     onSessionEnd?: (payload: SessionEndPayload) => void
     onWebappEvent?: (event: SyncEvent) => void
 }
 
 export function registerSessionHandlers(socket: CliSocketWithData, deps: SessionHandlersDeps): void {
-    const { store, resolveSessionAccess, emitAccessError, onSessionAlive, onSessionEnd, onWebappEvent } = deps
+    const { store, resolveSessionAccess, emitAccessError, ingestRawEvents, onSessionAlive, onSessionEnd, onWebappEvent } = deps
 
     socket.on('message', (data: unknown) => {
         const parsed = messageSchema.safeParse(data)
@@ -140,6 +144,36 @@ export function registerSessionHandlers(socket: CliSocketWithData, deps: Session
         })
 
         if (sessionTitleUpdated) {
+            onWebappEvent?.({ type: 'session-updated', sessionId: sid, data: { sid } })
+        }
+    })
+
+    socket.on('runtime-event', async (data: unknown) => {
+        const parsed = RuntimeRawEventPayloadSchema.safeParse(data)
+        if (!parsed.success) {
+            return
+        }
+
+        const { sid, event } = parsed.data
+        const sessionAccess = resolveSessionAccess(sid)
+        if (!sessionAccess.ok) {
+            emitAccessError('session', sid, sessionAccess.reason)
+            return
+        }
+
+        const events: RawEventEnvelope[] = [{
+            ...event,
+            sessionId: sid
+        }]
+
+        if (ingestRawEvents) {
+            await ingestRawEvents(sid, events)
+            return
+        }
+
+        const result = await ingestRawEventsIntoCanonicalStore(store, sid, events)
+
+        if (result.result.imported > 0) {
             onWebappEvent?.({ type: 'session-updated', sessionId: sid, data: { sid } })
         }
     })

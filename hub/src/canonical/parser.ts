@@ -102,7 +102,62 @@ function rootPayloadTitle(payload: Record<string, unknown>): string | null {
         ?? null
 }
 
+function parseGenericUserRawEvent(event: ParserRawEvent): ProviderParseResult | null {
+    if (event.rawType !== 'user' || !isObject(event.payload)) {
+        return null
+    }
+
+    if (event.payload.isSidechain === true || event.payload.isMeta === true) {
+        return null
+    }
+
+    let text: string | null = null
+
+    if (event.payload.role === 'user' && isObject(event.payload.content)) {
+        const content = event.payload.content
+        if (content.type === 'text' && typeof content.text === 'string' && content.text.trim().length > 0) {
+            text = content.text.trim()
+        }
+    }
+
+    if (!text && isObject(event.payload.message) && typeof event.payload.message.content === 'string') {
+        const content = event.payload.message.content.trim()
+        if (content.length > 0) {
+            text = content
+        }
+    }
+
+    if (!text) {
+        return null
+    }
+
+    return {
+        seeds: [{
+            rawEventId: event.id,
+            provider: event.provider,
+            source: event.source,
+            sourceSessionId: event.sourceSessionId,
+            sourceKey: event.sourceKey,
+            channel: event.channel,
+            occurredAt: event.occurredAt,
+            observationKey: event.observationKey ?? null,
+            kind: 'user-text',
+            text,
+            scopeKey: `${event.channel}:user`,
+            partKey: `${event.id}:user`,
+            mode: 'one-shot',
+            state: 'completed'
+        }],
+        explicitChildLinks: []
+    }
+}
+
 function parseProviderRawEvent(event: ParserRawEvent): ProviderParseResult {
+    const genericUser = parseGenericUserRawEvent(event)
+    if (genericUser) {
+        return genericUser
+    }
+
     if (event.provider === 'claude') {
         return parseClaudeRawEvent(event)
     }

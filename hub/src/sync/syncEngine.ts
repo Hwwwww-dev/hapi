@@ -174,6 +174,10 @@ export class SyncEngine {
         return this.messageService.getMessagesAfter(sessionId, options)
     }
 
+    getCliBackfillMessagesAfter(sessionId: string, options: { afterSeq: number; limit: number }): DecryptedMessage[] {
+        return this.messageService.getCliBackfillMessagesAfter(sessionId, options)
+    }
+
     getCanonicalMessagesPage(sessionId: string, options: {
         generation: number | null
         beforeTimelineSeq: number | null

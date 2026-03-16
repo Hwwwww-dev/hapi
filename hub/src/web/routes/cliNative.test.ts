@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { Server } from 'socket.io'
+import type { RawEventEnvelope } from '@hapi/protocol'
 
 import { Store } from '../../store'
 import { RpcRegistry } from '../../socket/rpcRegistry'
@@ -40,6 +41,37 @@ function authHeaders(token?: string): Record<string, string> {
     return {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json'
+    }
+}
+
+function createClaudeNativeRawEvent(overrides: Partial<RawEventEnvelope> & Pick<RawEventEnvelope, 'id' | 'sessionId' | 'sourceKey' | 'sourceOrder' | 'occurredAt' | 'rawType' | 'payload'>): RawEventEnvelope {
+    const {
+        id,
+        sessionId,
+        sourceKey,
+        sourceOrder,
+        occurredAt,
+        rawType,
+        payload,
+        ...rest
+    } = overrides
+
+    return {
+        ...rest,
+        id,
+        sessionId,
+        provider: 'claude',
+        source: 'native',
+        sourceSessionId: 'native-session',
+        sourceKey,
+        observationKey: null,
+        channel: 'claude:file:/tmp/native-session.jsonl',
+        sourceOrder,
+        occurredAt,
+        ingestedAt: occurredAt + 1,
+        rawType,
+        payload,
+        ingestSchemaVersion: 1
     }
 }
 
@@ -154,7 +186,7 @@ describe('CLI native routes', () => {
         sseManager.stop()
     })
 
-    it('imports native messages idempotently', async () => {
+    it('imports native raw events idempotently via canonical ingest', async () => {
         const { engine, sseManager } = createTestEngine()
         const app = createCliRoutes(() => engine)
 
@@ -162,15 +194,15 @@ describe('CLI native routes', () => {
             method: 'POST',
             headers: authHeaders(configuration.cliApiToken),
             body: JSON.stringify({
-                tag: 'native:codex:project:native-2',
+                tag: 'native:claude:project:native-2',
                 createdAt: 10,
                 lastActivityAt: 10,
                 metadata: {
                     path: '/tmp/project',
                     host: 'local',
-                    flavor: 'codex',
+                    flavor: 'claude',
                     source: 'native',
-                    nativeProvider: 'codex',
+                    nativeProvider: 'claude',
                     nativeSessionId: 'native-2',
                     nativeProjectPath: '/tmp/project',
                     nativeDiscoveredAt: 2
@@ -181,23 +213,35 @@ describe('CLI native routes', () => {
         const sessionJson = await sessionResponse.json() as { session: { id: string } }
 
         const payload = {
-            messages: [
-                {
-                    content: { role: 'assistant', content: 'hello' },
-                    createdAt: 10,
-                    sourceProvider: 'codex',
+            events: [
+                createClaudeNativeRawEvent({
+                    id: 'raw-native-2-assistant-1',
+                    sessionId: sessionJson.session.id,
                     sourceSessionId: 'native-2',
-                    sourceKey: 'line:1'
-                }
+                    sourceKey: 'line:1',
+                    sourceOrder: 1,
+                    occurredAt: 10,
+                    rawType: 'assistant',
+                    payload: {
+                        type: 'assistant',
+                        sessionId: 'native-2',
+                        cwd: '/tmp/project',
+                        timestamp: '2026-03-17T00:00:00.010Z',
+                        message: {
+                            role: 'assistant',
+                            content: 'hello canonical native'
+                        }
+                    }
+                })
             ]
         }
 
-        const firstImport = await app.request(`http://localhost/native/sessions/${sessionJson.session.id}/messages/import`, {
+        const firstImport = await app.request(`http://localhost/native/sessions/${sessionJson.session.id}/raw-events/import`, {
             method: 'POST',
             headers: authHeaders(configuration.cliApiToken),
             body: JSON.stringify(payload)
         })
-        const secondImport = await app.request(`http://localhost/native/sessions/${sessionJson.session.id}/messages/import`, {
+        const secondImport = await app.request(`http://localhost/native/sessions/${sessionJson.session.id}/raw-events/import`, {
             method: 'POST',
             headers: authHeaders(configuration.cliApiToken),
             body: JSON.stringify(payload)
@@ -205,9 +249,37 @@ describe('CLI native routes', () => {
 
         expect(firstImport.status).toBe(200)
         expect(secondImport.status).toBe(200)
-        expect(await firstImport.json()).toEqual(expect.objectContaining({ imported: 1 }))
-        expect(await secondImport.json()).toEqual(expect.objectContaining({ imported: 0 }))
-        expect(engine.getMessagesAfter(sessionJson.session.id, { afterSeq: 0, limit: 10 })).toHaveLength(1)
+        expect(await firstImport.json()).toEqual(expect.objectContaining({
+            imported: 1,
+            session: expect.objectContaining({
+                id: sessionJson.session.id
+            })
+        }))
+        expect(await secondImport.json()).toEqual(expect.objectContaining({
+            imported: 0,
+            session: expect.objectContaining({
+                id: sessionJson.session.id
+            })
+        }))
+        expect(engine.getMessagesAfter(sessionJson.session.id, { afterSeq: 0, limit: 10 })).toHaveLength(0)
+        expect(engine.getCanonicalMessagesPage(sessionJson.session.id, {
+            generation: null,
+            beforeTimelineSeq: null,
+            limit: 10
+        })).toEqual(expect.objectContaining({
+            items: [
+                expect.objectContaining({
+                    kind: 'agent-text',
+                    payload: expect.objectContaining({
+                        text: 'hello canonical native'
+                    })
+                })
+            ],
+            page: expect.objectContaining({
+                generation: 1,
+                latestStreamSeq: 1
+            })
+        }))
 
         engine.stop()
         sseManager.stop()

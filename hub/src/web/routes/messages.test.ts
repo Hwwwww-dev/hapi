@@ -8,6 +8,7 @@ import { RpcRegistry } from '../../socket/rpcRegistry'
 import { SSEManager } from '../../sse/sseManager'
 import { SyncEngine } from '../../sync/syncEngine'
 import { VisibilityTracker } from '../../visibility/visibilityTracker'
+import type { WebAppEnv } from '../middleware/auth'
 import { createMessagesRoutes } from './messages'
 
 function createEngine() {
@@ -27,7 +28,7 @@ function createEngine() {
 }
 
 function createApp(engine: SyncEngine) {
-    const app = new Hono()
+    const app = new Hono<WebAppEnv>()
     app.use('*', async (c, next) => {
         c.set('namespace', 'default')
         return await next()
@@ -37,22 +38,32 @@ function createApp(engine: SyncEngine) {
 }
 
 function createClaudeRawEvent(overrides: Partial<RawEventEnvelope> & Pick<RawEventEnvelope, 'id' | 'sessionId' | 'sourceKey' | 'occurredAt' | 'rawType' | 'payload'>): RawEventEnvelope {
+    const {
+        id,
+        sessionId,
+        sourceKey,
+        occurredAt,
+        rawType,
+        payload,
+        ...rest
+    } = overrides
+
     return {
-        id: overrides.id,
-        sessionId: overrides.sessionId,
+        ...rest,
+        id,
+        sessionId,
         provider: 'claude',
         source: 'runtime',
-        sourceSessionId: overrides.sessionId,
-        sourceKey: overrides.sourceKey,
+        sourceSessionId: sessionId,
+        sourceKey,
         observationKey: null,
         channel: 'runtime:session',
         sourceOrder: 0,
-        occurredAt: overrides.occurredAt,
-        ingestedAt: overrides.occurredAt + 1,
-        rawType: overrides.rawType,
-        payload: overrides.payload,
-        ingestSchemaVersion: 1,
-        ...overrides
+        occurredAt,
+        ingestedAt: occurredAt + 1,
+        rawType,
+        payload,
+        ingestSchemaVersion: 1
     }
 }
 
@@ -102,6 +113,43 @@ describe('messages routes', () => {
                 beforeTimelineSeq: null,
                 nextBeforeTimelineSeq: null,
                 hasMore: false
+            })
+        })
+
+        engine.stop()
+        sseManager.stop()
+    })
+
+    it('renders web-sent codex user input as canonical user-text roots', async () => {
+        const { engine, sseManager } = createEngine()
+        const app = createApp(engine)
+        const session = engine.getOrCreateSession('tag:messages-route-send-message', {
+            path: '/tmp/messages-route-send-message',
+            host: 'local',
+            source: 'hapi',
+            flavor: 'codex',
+            codexSessionId: 'codex-thread-send-message'
+        }, null, 'default')
+
+        await engine.sendMessage(session.id, {
+            text: 'hello codex canonical send',
+            localId: 'local-codex-send-1',
+            sentFrom: 'webapp'
+        })
+
+        const response = await app.request(`http://localhost/sessions/${encodeURIComponent(session.id)}/messages?limit=20`)
+        expect(response.status).toBe(200)
+        expect(await response.json()).toEqual({
+            items: [
+                expect.objectContaining({
+                    kind: 'user-text',
+                    payload: expect.objectContaining({ text: 'hello codex canonical send' })
+                })
+            ],
+            page: expect.objectContaining({
+                generation: 1,
+                parserVersion: 1,
+                latestStreamSeq: 1
             })
         })
 

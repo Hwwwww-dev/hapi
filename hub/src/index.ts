@@ -176,6 +176,12 @@ async function main() {
             }
             return store.sessions.getSession(sessionId)
         },
+        ingestRawEvents: async (sessionId, events) => {
+            if (!syncEngine) {
+                return
+            }
+            return await syncEngine.ingestRawEvents(sessionId, events)
+        },
         onWebappEvent: (event: SyncEvent) => syncEngine?.handleRealtimeEvent(event),
         onSessionAlive: (payload) => syncEngine?.handleSessionAlive(payload),
         onSessionEnd: (payload) => syncEngine?.handleSessionEnd(payload),

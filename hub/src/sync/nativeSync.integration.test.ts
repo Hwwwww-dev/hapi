@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { Hono } from 'hono'
 import type { Server } from 'socket.io'
+import type { RawEventEnvelope } from '@hapi/protocol'
 
 import { createConfiguration, configuration } from '../configuration'
 import { Store } from '../store'
@@ -48,9 +49,13 @@ type NativeSyncProvider = {
     discoverSessions: () => Promise<NativeSessionSummary[]>
     readMessages: (
         summary: NativeSessionSummary,
-        state: NativeSyncState | null
+        state: NativeSyncState | null,
+        context?: {
+            sessionId: string
+            ingestedAt: number
+        }
     ) => Promise<{
-        messages: Array<{ sourceKey: string; createdAt: number; content: unknown }>
+        events: RawEventEnvelope[]
         cursor: string | null
         filePath?: string | null
         mtime?: number | null
@@ -98,7 +103,7 @@ function createWebToken(jwtSecret: Uint8Array): string {
 async function readJsonLines(
     filePath: string,
     state: NativeSyncState | null,
-    toMessage: (line: string, lineIndex: number) => { sourceKey: string; createdAt: number; content: unknown }
+    toEvent: (line: string, lineIndex: number) => RawEventEnvelope
 ) {
     const file = await Bun.file(filePath).text()
     const lines = file.split('\n').filter((line) => line.trim().length > 0)
@@ -106,10 +111,45 @@ async function readJsonLines(
     const nextLines = lines.slice(Number.isFinite(startLine) ? startLine : 0)
 
     return {
-        messages: nextLines.map((line, offset) => toMessage(line, (Number.isFinite(startLine) ? startLine : 0) + offset)),
+        events: nextLines.map((line, offset) => toEvent(line, (Number.isFinite(startLine) ? startLine : 0) + offset)),
         cursor: String(lines.length),
         filePath,
         mtime: Date.now()
+    }
+}
+
+function createNativeRawEvent(overrides: Partial<RawEventEnvelope> & Pick<RawEventEnvelope, 'id' | 'sessionId' | 'provider' | 'sourceSessionId' | 'sourceKey' | 'channel' | 'sourceOrder' | 'occurredAt' | 'ingestedAt' | 'rawType' | 'payload'>): RawEventEnvelope {
+    const {
+        id,
+        sessionId,
+        provider,
+        sourceSessionId,
+        sourceKey,
+        channel,
+        sourceOrder,
+        occurredAt,
+        ingestedAt,
+        rawType,
+        payload,
+        ...rest
+    } = overrides
+
+    return {
+        ...rest,
+        id,
+        sessionId,
+        provider,
+        source: 'native',
+        sourceSessionId,
+        sourceKey,
+        observationKey: null,
+        channel,
+        sourceOrder,
+        occurredAt,
+        ingestedAt,
+        rawType,
+        payload,
+        ingestSchemaVersion: 1
     }
 }
 
@@ -227,15 +267,25 @@ describe('native sync integration', () => {
             async discoverSessions() {
                 return [claudeSummary]
             },
-            async readMessages(summary, state) {
+            async readMessages(summary, state, context) {
                 expect(summary).toEqual(claudeSummary)
+                const sessionId = context?.sessionId ?? claudeSummary.nativeSessionId
+                const ingestedAt = context?.ingestedAt ?? Date.now()
                 return await readJsonLines(claudeSessionFile, state, (line, lineIndex) => {
                     const event = JSON.parse(line) as Record<string, unknown>
-                    return {
+                    return createNativeRawEvent({
+                        id: `claude:${claudeSessionId}:${lineIndex}`,
+                        sessionId,
+                        provider: 'claude',
+                        sourceSessionId: claudeSessionId,
                         sourceKey: `line:${lineIndex}`,
-                        createdAt: Date.parse(String(event.timestamp)),
-                        content: event
-                    }
+                        channel: `claude:file:${claudeSessionFile}`,
+                        sourceOrder: lineIndex,
+                        occurredAt: Date.parse(String(event.timestamp)),
+                        ingestedAt,
+                        rawType: String(event.type),
+                        payload: event
+                    })
                 })
             }
         }
@@ -244,13 +294,26 @@ describe('native sync integration', () => {
             async discoverSessions() {
                 return [codexSummary]
             },
-            async readMessages(summary, state) {
+            async readMessages(summary, state, context) {
                 expect(summary).toEqual(codexSummary)
-                return await readJsonLines(codexSessionFile, state, (line, lineIndex) => ({
-                    sourceKey: `file:2026/03/15/codex-${codexSessionId}.jsonl:line:${lineIndex}`,
-                    createdAt: Date.parse(String((JSON.parse(line) as { payload?: { timestamp?: string } }).payload?.timestamp ?? '2026-03-15T00:00:00.000Z')),
-                    content: JSON.parse(line)
-                }))
+                const sessionId = context?.sessionId ?? codexSummary.nativeSessionId
+                const ingestedAt = context?.ingestedAt ?? Date.now()
+                return await readJsonLines(codexSessionFile, state, (line, lineIndex) => {
+                    const parsed = JSON.parse(line) as { type: string; payload?: { timestamp?: string } }
+                    return createNativeRawEvent({
+                        id: `codex:${codexSessionId}:${lineIndex}`,
+                        sessionId,
+                        provider: 'codex',
+                        sourceSessionId: codexSessionId,
+                        sourceKey: `file:2026/03/15/codex-${codexSessionId}.jsonl:line:${lineIndex}`,
+                        channel: `codex:file:2026/03/15/codex-${codexSessionId}.jsonl`,
+                        sourceOrder: lineIndex,
+                        occurredAt: Date.parse(String(parsed.payload?.timestamp ?? '2026-03-15T00:00:00.000Z')),
+                        ingestedAt,
+                        rawType: parsed.type,
+                        payload: parsed.type === 'event_msg' ? (parsed.payload ?? parsed) : parsed
+                    })
+                })
             }
         }
 
@@ -282,17 +345,17 @@ describe('native sync integration', () => {
                 const json = await response.json() as { state: unknown }
                 return json.state
             },
-            async importNativeMessages(sessionId: string, messages: unknown[]) {
-                const response = await app.request(`http://localhost/cli/native/sessions/${encodeURIComponent(sessionId)}/messages/import`, {
+            async importNativeRawEvents(sessionId: string, events: RawEventEnvelope[]) {
+                const response = await app.request(`http://localhost/cli/native/sessions/${encodeURIComponent(sessionId)}/raw-events/import`, {
                     method: 'POST',
                     headers: {
                         Authorization: `Bearer ${configuration.cliApiToken}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ messages })
+                    body: JSON.stringify({ events })
                 })
                 if (!response.ok) {
-                    throw new Error(`message import failed: ${response.status} ${await response.text()}`)
+                    throw new Error(`raw event import failed: ${response.status} ${await response.text()}`)
                 }
                 const json = await response.json() as { imported: number }
                 return { imported: json.imported }
@@ -395,15 +458,23 @@ describe('native sync integration', () => {
             })
             expect(messagesResponse.status).toBe(200)
             const messagesJson = await messagesResponse.json() as {
-                messages: Array<{ content: Record<string, unknown> }>
+                items: Array<{ kind: string; payload: Record<string, unknown> }>
+                page: {
+                    generation: number
+                    latestStreamSeq: number
+                }
             }
 
-            expect(messagesJson.messages).toHaveLength(3)
-            expect(messagesJson.messages.at(-1)?.content).toEqual(expect.objectContaining({
-                type: 'assistant',
-                message: expect.objectContaining({
-                    content: 'claude tail reply'
+            expect(messagesJson.items).toHaveLength(3)
+            expect(messagesJson.items.at(-1)).toEqual(expect.objectContaining({
+                kind: 'agent-text',
+                payload: expect.objectContaining({
+                    text: 'claude tail reply'
                 })
+            }))
+            expect(messagesJson.page).toEqual(expect.objectContaining({
+                parserVersion: 1,
+                latestStreamSeq: 3
             }))
         } finally {
             service.stop()
@@ -433,7 +504,7 @@ describe('native sync integration', () => {
                 async getNativeSyncState() {
                     return null
                 },
-                async importNativeMessages() {
+                async importNativeRawEvents() {
                     return { imported: 0 }
                 },
                 async updateNativeSyncState() {
@@ -457,7 +528,7 @@ describe('native sync integration', () => {
                 },
                 async readMessages() {
                     return {
-                        messages: [],
+                        events: [],
                         cursor: null,
                         filePath: null,
                         mtime: null
