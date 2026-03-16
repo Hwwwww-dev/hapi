@@ -1,8 +1,90 @@
-import type { AttachmentMetadata, DecryptedMessage } from '@hapi/protocol/types'
+import type {
+    AttachmentMetadata,
+    DecryptedMessage
+} from '@hapi/protocol/types'
+import type {
+    CanonicalMessagesPage,
+    CanonicalRootBlock,
+    RawEventEnvelope
+} from '@hapi/protocol'
 import type { Server } from 'socket.io'
-import type { Store } from '../store'
+
+import type { Store, StoredSessionParseState } from '../store'
+import { rebuildSessionCanonicalState, type CanonicalResetReason } from '../canonical/rebuild'
+import { parseSessionRawEvents, type ParserEmittedOp, type SessionParserState } from '../canonical/parser'
 import { EventPublisher } from './eventPublisher'
 import { maybeApplyFirstMessageSessionTitle } from './sessionTitle'
+
+export const CANONICAL_PARSER_VERSION = 1
+
+export class CanonicalGenerationResetRequiredError extends Error {
+    readonly generation: number
+    readonly parserVersion: number
+
+    constructor(generation: number, parserVersion: number) {
+        super(`Canonical generation reset required: active generation ${generation}, parser version ${parserVersion}`)
+        this.name = 'CanonicalGenerationResetRequiredError'
+        this.generation = generation
+        this.parserVersion = parserVersion
+    }
+}
+
+export type CanonicalIngestResult = {
+    imported: number
+    activeGeneration: number
+    parserVersion: number
+    latestStreamSeq: number
+    resetReason: CanonicalResetReason | null
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function restoreRootIndex(state: StoredSessionParseState | null): SessionParserState['rootIndex'] {
+    if (!state || !isObject(state.state)) {
+        return {}
+    }
+
+    const rootIndex = state.state.rootIndex
+    if (!isObject(rootIndex)) {
+        return {}
+    }
+
+    const restored: SessionParserState['rootIndex'] = {}
+    for (const [rootId, value] of Object.entries(rootIndex)) {
+        if (!isObject(value)) {
+            continue
+        }
+
+        const hash = typeof value.hash === 'string' ? value.hash : null
+        const timelineSeq = typeof value.timelineSeq === 'number' && Number.isFinite(value.timelineSeq)
+            ? Math.max(0, Math.trunc(value.timelineSeq))
+            : null
+        if (!hash || timelineSeq === null) {
+            continue
+        }
+
+        restored[rootId] = { hash, timelineSeq }
+    }
+
+    return restored
+}
+
+function toParserPreviousState(state: StoredSessionParseState | null): SessionParserState | null {
+    if (!state) {
+        return null
+    }
+
+    return {
+        generation: state.activeGeneration,
+        latestStreamSeq: state.latestStreamSeq,
+        lastProcessedRawSortKey: state.lastProcessedRawSortKey,
+        lastProcessedRawEventId: state.lastProcessedRawEventId,
+        rootIndex: restoreRootIndex(state),
+        roots: []
+    }
+}
 
 export class MessageService {
     constructor(
@@ -63,6 +145,149 @@ export class MessageService {
             content: message.content,
             createdAt: message.createdAt
         }))
+    }
+
+    getCanonicalMessagesPage(sessionId: string, options: {
+        generation: number | null
+        beforeTimelineSeq: number | null
+        limit: number
+    }): CanonicalMessagesPage {
+        const state = this.store.sessionParseState.getBySessionId(sessionId)
+        const activeGeneration = state?.activeGeneration ?? 1
+        const parserVersion = state?.parserVersion ?? CANONICAL_PARSER_VERSION
+        const latestStreamSeq = state?.latestStreamSeq ?? 0
+
+        if (options.generation !== null && options.generation !== activeGeneration) {
+            throw new CanonicalGenerationResetRequiredError(activeGeneration, parserVersion)
+        }
+
+        const page = this.store.canonicalBlocks.getRootsPage(sessionId, {
+            generation: activeGeneration,
+            beforeTimelineSeq: options.beforeTimelineSeq,
+            limit: options.limit
+        })
+
+        return {
+            items: page.items,
+            page: {
+                generation: activeGeneration,
+                parserVersion,
+                latestStreamSeq,
+                limit: page.page.limit,
+                beforeTimelineSeq: page.page.beforeTimelineSeq,
+                nextBeforeTimelineSeq: page.page.nextBeforeTimelineSeq,
+                hasMore: page.page.hasMore
+            }
+        }
+    }
+
+    getCanonicalLatestStreamSeq(sessionId: string): number {
+        return this.store.sessionParseState.getBySessionId(sessionId)?.latestStreamSeq ?? 0
+    }
+
+    async rebuildSessionCanonicalState(sessionId: string, reason: CanonicalResetReason = 'rebuild'): Promise<{
+        roots: CanonicalRootBlock[]
+        activeGeneration: number
+        parserVersion: number
+        latestStreamSeq: number
+        resetReason: CanonicalResetReason
+    }> {
+        const rebuilt = await rebuildSessionCanonicalState({
+            store: this.store,
+            sessionId,
+            parserVersion: CANONICAL_PARSER_VERSION,
+            reason
+        })
+
+        this.publisher.emit({
+            type: 'canonical-reset',
+            sessionId,
+            generation: rebuilt.activeGeneration,
+            parserVersion: rebuilt.parserVersion,
+            streamSeq: rebuilt.latestStreamSeq,
+            reason: rebuilt.resetReason
+        })
+        this.broadcastSessionUpdated(sessionId)
+
+        return rebuilt
+    }
+
+    async ingestRawEvents(sessionId: string, events: RawEventEnvelope[]): Promise<CanonicalIngestResult> {
+        const inserted = events
+            .map((event) => this.store.rawEvents.ingest(event))
+            .filter((result) => result.inserted)
+            .map((result) => result.event)
+
+        const existingState = this.store.sessionParseState.getBySessionId(sessionId)
+        if (inserted.length === 0 && existingState) {
+            return {
+                imported: 0,
+                activeGeneration: existingState.activeGeneration,
+                parserVersion: existingState.parserVersion,
+                latestStreamSeq: existingState.latestStreamSeq,
+                resetReason: null
+            }
+        }
+
+        const hasLateEarlierEvent = Boolean(
+            existingState?.lastProcessedRawSortKey
+            && inserted.some((event) => event.sortKey.localeCompare(existingState.lastProcessedRawSortKey as string) < 0)
+        )
+        const parserVersionChanged = Boolean(existingState && existingState.parserVersion !== CANONICAL_PARSER_VERSION)
+        const shouldRebuild = Boolean(existingState?.rebuildRequired || hasLateEarlierEvent || parserVersionChanged)
+
+        if (shouldRebuild) {
+            const rebuilt = await this.rebuildSessionCanonicalState(
+                sessionId,
+                hasLateEarlierEvent ? 'late-earlier-event' : (parserVersionChanged ? 'parser-version-change' : 'rebuild')
+            )
+
+            return {
+                imported: inserted.length,
+                activeGeneration: rebuilt.activeGeneration,
+                parserVersion: rebuilt.parserVersion,
+                latestStreamSeq: rebuilt.latestStreamSeq,
+                resetReason: rebuilt.resetReason
+            }
+        }
+
+        const rawEvents = this.store.rawEvents.listForParserReplay(sessionId)
+        const parsed = parseSessionRawEvents({
+            sessionId,
+            parserVersion: CANONICAL_PARSER_VERSION,
+            rawEvents,
+            previousState: toParserPreviousState(existingState)
+        })
+        const activeGeneration = existingState?.activeGeneration ?? parsed.nextState.generation
+
+        this.store.canonicalBlocks.replaceGeneration(sessionId, activeGeneration, parsed.roots)
+        this.store.sessionParseState.upsert({
+            sessionId,
+            parserVersion: CANONICAL_PARSER_VERSION,
+            activeGeneration,
+            state: {
+                rootIndex: parsed.nextState.rootIndex
+            },
+            lastProcessedRawSortKey: parsed.nextState.lastProcessedRawSortKey,
+            lastProcessedRawEventId: parsed.nextState.lastProcessedRawEventId,
+            latestStreamSeq: parsed.nextState.latestStreamSeq,
+            rebuildRequired: false,
+            lastRebuildStartedAt: existingState?.lastRebuildStartedAt ?? null,
+            lastRebuildCompletedAt: existingState?.lastRebuildCompletedAt ?? null
+        })
+
+        this.publishCanonicalOps(sessionId, activeGeneration, CANONICAL_PARSER_VERSION, parsed)
+        if (inserted.length > 0) {
+            this.broadcastSessionUpdated(sessionId)
+        }
+
+        return {
+            imported: inserted.length,
+            activeGeneration,
+            parserVersion: CANONICAL_PARSER_VERSION,
+            latestStreamSeq: parsed.nextState.latestStreamSeq,
+            resetReason: null
+        }
     }
 
     importNativeMessages(
@@ -146,6 +371,30 @@ export class MessageService {
             createdAt: msg.createdAt
         })
         this.broadcastSessionUpdated(sessionId)
+    }
+
+    private publishCanonicalOps(
+        sessionId: string,
+        generation: number,
+        parserVersion: number,
+        parsed: { emittedOps: ParserEmittedOp[]; nextState: SessionParserState }
+    ): void {
+        if (parsed.emittedOps.length === 0) {
+            return
+        }
+
+        const streamSeqBase = parsed.nextState.latestStreamSeq - parsed.emittedOps.length
+        for (const [index, op] of parsed.emittedOps.entries()) {
+            this.publisher.emit({
+                type: 'canonical-root-upsert',
+                sessionId,
+                generation,
+                parserVersion,
+                streamSeq: streamSeqBase + index + 1,
+                op: op.op,
+                root: op.root
+            })
+        }
     }
 
     private broadcastNewMessage(sessionId: string, message: DecryptedMessage): void {

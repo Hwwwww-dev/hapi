@@ -393,9 +393,16 @@ function anchorIdentityForSeed(seed: SemanticSeed): string {
 }
 
 function createRawSortKeyFromSeed(seed: SemanticSeed): string {
-    const detail = 'partKey' in seed
-        ? seed.partKey
-        : ('toolId' in seed ? seed.toolId : ('subtype' in seed ? seed.subtype : ('rawType' in seed ? seed.rawType : seed.rawEventId)))
+    let detail = seed.rawEventId
+    if ('partKey' in seed) {
+        detail = seed.partKey
+    } else if ('toolId' in seed) {
+        detail = seed.toolId
+    } else if ('subtype' in seed) {
+        detail = seed.subtype
+    } else if ('rawType' in seed) {
+        detail = seed.rawType
+    }
 
     return createRawSortKey({
         occurredAt: seed.occurredAt,
@@ -686,9 +693,7 @@ export function parseSessionRawEvents(input: ParseSessionRawEventsInput): {
         parentEvents.push(event)
     }
 
-    const previousRoots = input.previousState?.roots ?? []
-    const previousParentRoots = previousRoots.filter((root) => root.kind !== 'subagent-root')
-    const parentMutableRoots = parseFlatRawEventsToMutableRoots(input.sessionId, parentEvents, previousParentRoots)
+    const parentMutableRoots = parseFlatRawEventsToMutableRoots(input.sessionId, parentEvents)
     const generation = input.previousState?.generation ?? 1
     const parentCanonicalRoots = toCanonicalRoots(input.sessionId, input.parserVersion, generation, parentMutableRoots)
     const subagentMutableRoots = buildSubagentRoots(

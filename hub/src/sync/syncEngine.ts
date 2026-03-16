@@ -8,6 +8,7 @@
  */
 
 import { isObject } from '@hapi/protocol'
+import type { CanonicalMessagesPage, RawEventEnvelope } from '@hapi/protocol'
 import type { DecryptedMessage, ModelMode, PermissionMode, Session, SyncEvent } from '@hapi/protocol/types'
 import type { Server } from 'socket.io'
 import type { Store, StoredNativeSyncState } from '../store'
@@ -171,6 +172,26 @@ export class SyncEngine {
 
     getMessagesAfter(sessionId: string, options: { afterSeq: number; limit: number }): DecryptedMessage[] {
         return this.messageService.getMessagesAfter(sessionId, options)
+    }
+
+    getCanonicalMessagesPage(sessionId: string, options: {
+        generation: number | null
+        beforeTimelineSeq: number | null
+        limit: number
+    }): CanonicalMessagesPage {
+        return this.messageService.getCanonicalMessagesPage(sessionId, options)
+    }
+
+    getCanonicalLatestStreamSeq(sessionId: string): number {
+        return this.messageService.getCanonicalLatestStreamSeq(sessionId)
+    }
+
+    async ingestRawEvents(sessionId: string, events: RawEventEnvelope[]) {
+        return await this.messageService.ingestRawEvents(sessionId, events)
+    }
+
+    async rebuildSessionCanonicalState(sessionId: string) {
+        return await this.messageService.rebuildSessionCanonicalState(sessionId)
     }
 
     handleRealtimeEvent(event: SyncEvent): void {
