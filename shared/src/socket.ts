@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { RawEventEnvelopeSchema } from './canonical'
 import type { ModelMode, PermissionMode } from './modes'
 
 export type SocketErrorReason = 'namespace-missing' | 'access-denied' | 'not-found'
@@ -68,6 +69,15 @@ export const TerminalErrorPayloadSchema = z.object({
 
 export type TerminalErrorPayload = z.infer<typeof TerminalErrorPayloadSchema>
 
+export const RuntimeRawEventPayloadSchema = z.object({
+    sid: z.string().min(1),
+    event: RawEventEnvelopeSchema.omit({ sessionId: true }).extend({
+        source: z.literal('runtime')
+    })
+})
+
+export type RuntimeRawEventPayload = z.infer<typeof RuntimeRawEventPayloadSchema>
+
 export const UpdateNewMessageBodySchema = z.object({
     t: z.literal('new-message'),
     sid: z.string(),
@@ -133,6 +143,7 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
     message: (data: { sid: string; message: unknown; localId?: string }) => void
+    'runtime-event': (data: RuntimeRawEventPayload) => void
     'session-alive': (data: {
         sid: string
         time: number

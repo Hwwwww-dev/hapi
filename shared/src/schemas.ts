@@ -1,5 +1,8 @@
 import { z } from 'zod'
+import { CanonicalResetEventSchema, CanonicalRootUpsertEventSchema } from './canonical'
 import { MODEL_MODES, PERMISSION_MODES } from './modes'
+
+export * from './canonical'
 
 export const PermissionModeSchema = z.enum(PERMISSION_MODES)
 export const ModelModeSchema = z.enum(MODEL_MODES)
@@ -216,6 +219,8 @@ export const SyncEventSchema = z.discriminatedUnion('type', [
         type: z.literal('message-received'),
         message: DecryptedMessageSchema
     }),
+    CanonicalRootUpsertEventSchema,
+    CanonicalResetEventSchema,
     MachineChangedSchema.extend({
         type: z.literal('machine-updated'),
         data: z.unknown().optional()
