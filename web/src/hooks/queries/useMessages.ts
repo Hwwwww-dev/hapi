@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import type { ApiClient } from '@/api/client'
-import type { DecryptedMessage } from '@/types/api'
+import type { CanonicalRootBlock, DecryptedMessage } from '@/types/api'
 import {
     clearMessageWindow,
     fetchLatestMessages,
@@ -14,20 +14,25 @@ import {
 
 const EMPTY_STATE: MessageWindowState = {
     sessionId: 'unknown',
+    roots: [],
+    items: [],
     messages: [],
     pending: [],
     pendingCount: 0,
+    generation: null,
+    latestStreamSeq: 0,
     hasMore: false,
-    oldestSeq: null,
-    newestSeq: null,
+    beforeTimelineSeq: null,
     isLoading: false,
     isLoadingMore: false,
     warning: null,
     atBottom: true,
+    needsRefresh: false,
     messagesVersion: 0,
 }
 
 export function useMessages(api: ApiClient | null, sessionId: string | null): {
+    canonicalItems: CanonicalRootBlock[]
     messages: DecryptedMessage[]
     warning: string | null
     isLoading: boolean
@@ -60,8 +65,14 @@ export function useMessages(api: ApiClient | null, sessionId: string | null): {
         if (!api || !sessionId) {
             return
         }
+        if (state.isLoading) {
+            return
+        }
+        if (state.generation !== null && !state.needsRefresh) {
+            return
+        }
         void fetchLatestMessages(api, sessionId)
-    }, [api, sessionId])
+    }, [api, sessionId, state.generation, state.isLoading, state.needsRefresh])
 
     useEffect(() => {
         if (!sessionId) {
@@ -97,6 +108,7 @@ export function useMessages(api: ApiClient | null, sessionId: string | null): {
     }, [sessionId])
 
     return {
+        canonicalItems: state.items,
         messages: state.messages,
         warning: state.warning,
         isLoading: state.isLoading,

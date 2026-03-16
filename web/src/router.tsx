@@ -217,6 +217,7 @@ function SessionPage() {
         refetch: refetchSession,
     } = useSession(api, sessionId)
     const {
+        canonicalItems,
         messages,
         warning: messagesWarning,
         isLoading: messagesLoading,
@@ -324,6 +325,7 @@ function SessionPage() {
         <SessionChat
             api={api}
             session={session}
+            canonicalItems={canonicalItems}
             messages={messages}
             messagesWarning={messagesWarning}
             hasMoreMessages={messagesHasMore}

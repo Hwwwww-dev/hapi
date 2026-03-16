@@ -10,6 +10,7 @@ import type {
     MachinePathsExistsResponse,
     MachinesResponse,
     MessagesResponse,
+    MessagesResetRequiredResponse,
     ModelMode,
     PermissionMode,
     PushSubscriptionPayload,
@@ -32,6 +33,25 @@ type ApiClientOptions = {
 
 type ErrorPayload = {
     error?: unknown
+}
+
+function parseMessagesResetRequired(bodyText: string): MessagesResetRequiredResponse | null {
+    try {
+        const parsed = JSON.parse(bodyText) as Partial<MessagesResetRequiredResponse>
+        if (parsed?.reset !== true) {
+            return null
+        }
+        if (typeof parsed.generation !== 'number' || typeof parsed.parserVersion !== 'number') {
+            return null
+        }
+        return {
+            reset: true,
+            generation: parsed.generation,
+            parserVersion: parsed.parserVersion
+        }
+    } catch {
+        return null
+    }
 }
 
 function parseErrorCode(bodyText: string): string | undefined {
@@ -60,6 +80,21 @@ export function extractApiErrorMessage(error: unknown, fallback: string): string
     }
 
     return fallback
+}
+
+export function extractMessagesResetRequired(error: unknown): MessagesResetRequiredResponse | null {
+    if (error instanceof ApiError) {
+        return parseMessagesResetRequired(error.body ?? '')
+    }
+
+    if (error instanceof Error) {
+        const bodyStart = error.message.indexOf('{')
+        if (bodyStart >= 0) {
+            return parseMessagesResetRequired(error.message.slice(bodyStart))
+        }
+    }
+
+    return null
 }
 
 export class ApiError extends Error {
@@ -214,10 +249,17 @@ export class ApiClient {
         return await this.request<SessionResponse>(`/api/sessions/${encodeURIComponent(sessionId)}`)
     }
 
-    async getMessages(sessionId: string, options: { beforeSeq?: number | null; limit?: number }): Promise<MessagesResponse> {
+    async getMessages(sessionId: string, options: {
+        generation?: number | null
+        beforeTimelineSeq?: number | null
+        limit?: number
+    }): Promise<MessagesResponse> {
         const params = new URLSearchParams()
-        if (options.beforeSeq !== undefined && options.beforeSeq !== null) {
-            params.set('beforeSeq', `${options.beforeSeq}`)
+        if (options.generation !== undefined && options.generation !== null) {
+            params.set('generation', `${options.generation}`)
+        }
+        if (options.beforeTimelineSeq !== undefined && options.beforeTimelineSeq !== null) {
+            params.set('beforeTimelineSeq', `${options.beforeTimelineSeq}`)
         }
         if (options.limit !== undefined && options.limit !== null) {
             params.set('limit', `${options.limit}`)

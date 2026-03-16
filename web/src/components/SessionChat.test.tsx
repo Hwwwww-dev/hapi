@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
-import type { Session } from '@/types/api'
+import type { CanonicalRootBlock, Session } from '@/types/api'
 import { I18nProvider } from '@/lib/i18n-context'
 import { SessionChat } from './SessionChat'
 
@@ -10,6 +10,7 @@ const archiveSessionMock = vi.fn(async () => undefined)
 const switchSessionMock = vi.fn(async () => undefined)
 const setPermissionModeMock = vi.fn(async () => undefined)
 const setModelModeMock = vi.fn(async () => undefined)
+const useHappyRuntimeMock = vi.fn((_args?: unknown) => ({}))
 
 vi.mock('@tanstack/react-router', () => ({
     useNavigate: () => vi.fn()
@@ -73,7 +74,7 @@ vi.mock('@/hooks/mutations/useSessionActions', () => ({
 }))
 
 vi.mock('@/lib/assistant-runtime', () => ({
-    useHappyRuntime: () => ({})
+    useHappyRuntime: (args: unknown) => useHappyRuntimeMock(args)
 }))
 
 vi.mock('@/lib/attachmentAdapter', () => ({
@@ -100,6 +101,28 @@ afterEach(() => {
     vi.clearAllMocks()
 })
 
+function createCanonicalRoot(overrides: Partial<CanonicalRootBlock> = {}): CanonicalRootBlock {
+    const id = overrides.id ?? 'root-1'
+    return {
+        id,
+        sessionId: overrides.sessionId ?? 'session-1',
+        timelineSeq: overrides.timelineSeq ?? 1,
+        siblingSeq: overrides.siblingSeq ?? 0,
+        parentBlockId: null,
+        rootBlockId: overrides.rootBlockId ?? id,
+        depth: 0,
+        kind: overrides.kind ?? 'agent-text',
+        createdAt: overrides.createdAt ?? 1,
+        updatedAt: overrides.updatedAt ?? 1,
+        state: overrides.state ?? 'completed',
+        payload: overrides.payload ?? { text: 'hello canonical' },
+        sourceRawEventIds: overrides.sourceRawEventIds ?? ['raw-1'],
+        parserVersion: overrides.parserVersion ?? 1,
+        generation: overrides.generation ?? 1,
+        children: overrides.children ?? []
+    }
+}
+
 function createSession(overrides: Partial<Session> = {}): Session {
     return {
         id: 'session-1',
@@ -123,7 +146,12 @@ function createSession(overrides: Partial<Session> = {}): Session {
     }
 }
 
-function renderChat(session: Session, apiOverrides: Record<string, unknown> = {}) {
+function renderChat(
+    session: Session,
+    apiOverrides: Record<string, unknown> = {},
+    canonicalItems: CanonicalRootBlock[] = [],
+    messages: any[] = []
+) {
     const api = {
         resumeSession: vi.fn(async () => session.id),
         ...apiOverrides
@@ -135,7 +163,8 @@ function renderChat(session: Session, apiOverrides: Record<string, unknown> = {}
             <SessionChat
                 api={api}
                 session={session}
-                messages={[]}
+                canonicalItems={canonicalItems}
+                messages={messages}
                 messagesWarning={null}
                 hasMoreMessages={false}
                 isLoadingMessages={false}
@@ -170,6 +199,7 @@ describe('SessionChat connection controls', () => {
                 <SessionChat
                     api={api}
                     session={session}
+                    canonicalItems={[]}
                     messages={[]}
                     messagesWarning={null}
                     hasMoreMessages={false}
@@ -204,5 +234,56 @@ describe('SessionChat connection controls', () => {
         fireEvent.click(screen.getByRole('button', { name: '取消连接' }))
 
         await waitFor(() => expect(archiveSessionMock).toHaveBeenCalled())
+    })
+
+    it('builds runtime blocks from canonical items plus non-shadowed overlay messages', () => {
+        renderChat(
+            createSession({ active: true }),
+            {},
+            [
+                createCanonicalRoot({
+                    id: 'canonical-user-1',
+                    kind: 'user-text',
+                    createdAt: 1,
+                    payload: { text: 'canonical hello' }
+                })
+            ],
+            [
+                {
+                    id: 'legacy-overlay-1',
+                    seq: null,
+                    localId: 'legacy-overlay-1',
+                    createdAt: 2,
+                    content: {
+                        role: 'user',
+                        content: {
+                            type: 'text',
+                            text: 'optimistic hello'
+                        }
+                    }
+                },
+                {
+                    id: 'shadowed-user-1',
+                    seq: null,
+                    localId: 'shadowed-user-1',
+                    createdAt: 1,
+                    content: {
+                        role: 'user',
+                        content: {
+                            type: 'text',
+                            text: 'canonical hello'
+                        }
+                    }
+                }
+            ]
+        )
+
+        expect(useHappyRuntimeMock).toHaveBeenCalled()
+        const runtimeArgs = useHappyRuntimeMock.mock.calls.at(-1)?.[0] as unknown as { blocks: Array<{ id: string }> }
+        expect(runtimeArgs.blocks.map((block) => block.id)).toEqual(expect.arrayContaining([
+            'canonical-user-1',
+            'legacy-overlay-1'
+        ]))
+        expect(runtimeArgs.blocks.map((block) => block.id)).not.toContain('shadowed-user-1')
     })
 })

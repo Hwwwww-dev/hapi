@@ -1,5 +1,11 @@
 import * as protocol from '@hapi/protocol'
 import type {
+    CanonicalMessagesPage,
+    CanonicalMessagesPageInfo,
+    CanonicalResetEvent,
+    CanonicalRootBlock,
+    CanonicalRootUpsertEvent,
+    CanonicalSyncEvent,
     DecryptedMessage as ProtocolDecryptedMessage,
     Session,
     SessionSummary,
@@ -8,6 +14,12 @@ import type {
 } from '@hapi/protocol/types'
 
 export type {
+    CanonicalMessagesPage,
+    CanonicalMessagesPageInfo,
+    CanonicalResetEvent,
+    CanonicalRootBlock,
+    CanonicalRootUpsertEvent,
+    CanonicalSyncEvent,
     AgentState,
     AttachmentMetadata,
     ModelMode,
@@ -84,14 +96,11 @@ export type AuthResponse = {
 
 export type SessionsResponse = { sessions: SessionSummary[] }
 export type SessionResponse = { session: Session }
-export type MessagesResponse = {
-    messages: DecryptedMessage[]
-    page: {
-        limit: number
-        beforeSeq: number | null
-        nextBeforeSeq: number | null
-        hasMore: boolean
-    }
+export type MessagesResponse = CanonicalMessagesPage
+export type MessagesResetRequiredResponse = {
+    reset: true
+    generation: number
+    parserVersion: number
 }
 
 export type MachinesResponse = { machines: Machine[] }

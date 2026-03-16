@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { AssistantRuntimeProvider } from '@assistant-ui/react'
+import { unwrapRoleWrappedRecordEnvelope } from '@hapi/protocol/messages'
 import type { ApiClient } from '@/api/client'
-import type { AttachmentMetadata, DecryptedMessage, ModelMode, PermissionMode, Session } from '@/types/api'
+import { canonicalRootsToRenderBlocks } from '@/chat/canonical'
+import type { AttachmentMetadata, CanonicalRootBlock, DecryptedMessage, ModelMode, PermissionMode, Session } from '@/types/api'
 import type { ChatBlock, NormalizedMessage } from '@/chat/types'
 import type { Suggestion } from '@/hooks/useActiveSuggestions'
 import { normalizeDecryptedMessage } from '@/chat/normalize'
@@ -22,9 +24,30 @@ import { RealtimeVoiceSession, registerSessionStore, registerVoiceHooksStore, vo
 
 const SESSION_CHAT_RENDERER_INSTANCE_ID = Date.now()
 
+function extractUserText(message: DecryptedMessage): string | null {
+    const record = unwrapRoleWrappedRecordEnvelope(message.content)
+    if (!record || record.role !== 'user') {
+        return null
+    }
+
+    if (
+        record.content
+        && typeof record.content === 'object'
+        && 'type' in record.content
+        && (record.content as { type?: unknown }).type === 'text'
+        && typeof (record.content as { text?: unknown }).text === 'string'
+    ) {
+        const text = (record.content as unknown as { text: string }).text.trim()
+        return text.length > 0 ? text : null
+    }
+
+    return null
+}
+
 export function SessionChat(props: {
     api: ApiClient
     session: Session
+    canonicalItems: CanonicalRootBlock[]
     messages: DecryptedMessage[]
     messagesWarning: string | null
     hasMoreMessages: boolean
@@ -47,7 +70,7 @@ export function SessionChat(props: {
     const navigate = useNavigate()
     const sessionInactive = !props.session.active
     const normalizedCacheRef = useRef<Map<string, { source: DecryptedMessage; normalized: NormalizedMessage | null }>>(new Map())
-    const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
+    const legacyBlocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
     const [statusActionPending, setStatusActionPending] = useState<'resume' | 'disconnect' | 'refresh' | null>(null)
     const agentFlavor = props.session.metadata?.flavor ?? null
@@ -112,7 +135,7 @@ export function SessionChat(props: {
 
     if (rendererInstanceIdRef.current !== SESSION_CHAT_RENDERER_INSTANCE_ID) {
         normalizedCacheRef.current.clear()
-        blocksByIdRef.current.clear()
+        legacyBlocksByIdRef.current.clear()
         prevMessagesRef.current = []
         prevRequestIdsRef.current = new Set()
         prevThinkingRef.current = props.session.thinking
@@ -156,14 +179,14 @@ export function SessionChat(props: {
 
     useEffect(() => {
         normalizedCacheRef.current.clear()
-        blocksByIdRef.current.clear()
+        legacyBlocksByIdRef.current.clear()
     }, [props.session.id])
 
     const normalizedMessages: NormalizedMessage[] = useMemo(() => {
         // Clear caches immediately when session changes (before useEffect runs)
         if (prevSessionIdRef.current !== null && prevSessionIdRef.current !== props.session.id) {
             normalizedCacheRef.current.clear()
-            blocksByIdRef.current.clear()
+            legacyBlocksByIdRef.current.clear()
         }
         prevSessionIdRef.current = props.session.id
 
@@ -193,14 +216,71 @@ export function SessionChat(props: {
         () => reduceChatBlocks(normalizedMessages, props.session.agentState),
         [normalizedMessages, props.session.agentState]
     )
-    const reconciled = useMemo(
-        () => reconcileChatBlocks(reduced.blocks, blocksByIdRef.current),
-        [reduced.blocks]
+
+    const canonicalBlocks = useMemo(
+        () => canonicalRootsToRenderBlocks(props.canonicalItems),
+        [props.canonicalItems]
+    )
+
+    const canonicalRootIds = useMemo(
+        () => new Set(props.canonicalItems.map((item) => item.id)),
+        [props.canonicalItems]
+    )
+
+    const canonicalUserEntries = useMemo(() => {
+        return props.canonicalItems
+            .filter((item) => item.kind === 'user-text')
+            .map((item) => ({
+                createdAt: item.createdAt,
+                text: typeof item.payload?.text === 'string' ? item.payload.text.trim() : ''
+            }))
+            .filter((entry) => entry.text.length > 0)
+    }, [props.canonicalItems])
+
+    const overlayMessages = useMemo(() => {
+        return props.messages.filter((message) => {
+            if (canonicalRootIds.has(message.id)) {
+                return false
+            }
+
+            const userText = extractUserText(message)
+            if (!userText) {
+                return true
+            }
+
+            return !canonicalUserEntries.some((entry) =>
+                entry.text === userText && Math.abs(entry.createdAt - message.createdAt) < 10_000
+            )
+        })
+    }, [canonicalRootIds, canonicalUserEntries, props.messages])
+
+    const normalizedOverlayMessages = useMemo(() => {
+        const overlayIds = new Set(overlayMessages.map((message) => message.id))
+        return normalizedMessages.filter((message) => overlayIds.has(message.id))
+    }, [normalizedMessages, overlayMessages])
+
+    const reducedOverlay = useMemo(
+        () => reduceChatBlocks(normalizedOverlayMessages, null),
+        [normalizedOverlayMessages]
+    )
+    const reconciledOverlay = useMemo(
+        () => reconcileChatBlocks(reducedOverlay.blocks, legacyBlocksByIdRef.current),
+        [reducedOverlay.blocks]
     )
 
     useEffect(() => {
-        blocksByIdRef.current = reconciled.byId
-    }, [reconciled.byId])
+        legacyBlocksByIdRef.current = reconciledOverlay.byId
+    }, [reconciledOverlay.byId])
+
+    const runtimeBlocks = useMemo(() => {
+        const combined = [...canonicalBlocks, ...reconciledOverlay.blocks]
+        return combined.sort((left, right) => {
+            if (left.createdAt !== right.createdAt) {
+                return left.createdAt - right.createdAt
+            }
+            return left.id.localeCompare(right.id)
+        })
+    }, [canonicalBlocks, reconciledOverlay.blocks])
 
     // Permission mode change handler
     const handlePermissionModeChange = useCallback(async (mode: PermissionMode) => {
@@ -307,7 +387,7 @@ export function SessionChat(props: {
 
     const runtime = useHappyRuntime({
         session: props.session,
-        blocks: reconciled.blocks,
+        blocks: runtimeBlocks,
         isSending: props.isSending,
         onSendMessage: handleSend,
         onAbort: handleAbort,
@@ -359,7 +439,7 @@ export function SessionChat(props: {
                         onLoadMore={props.onLoadMore}
                         pendingCount={props.pendingCount}
                         rawMessagesCount={props.messages.length}
-                        normalizedMessagesCount={normalizedMessages.length}
+                        normalizedMessagesCount={runtimeBlocks.length}
                         messagesVersion={props.messagesVersion}
                         forceScrollToken={forceScrollToken}
                     />
