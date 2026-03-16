@@ -1,5 +1,5 @@
-import { useState, useEffect, type FC, type PropsWithChildren } from 'react'
-import { useMessage } from '@assistant-ui/react'
+import { useState, type FC, type PropsWithChildren } from 'react'
+import { useMessage, type ReasoningGroupProps } from '@assistant-ui/react'
 import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown'
 import { cn } from '@/lib/utils'
 import { defaultComponents, MARKDOWN_PLUGINS } from '@/components/assistant-ui/markdown-text'
@@ -50,7 +50,7 @@ export const Reasoning: FC = () => {
  * Wraps consecutive reasoning parts in a collapsible container.
  * Shows shimmer effect while reasoning is streaming.
  */
-export const ReasoningGroup: FC<PropsWithChildren> = ({ children }) => {
+export const ReasoningGroup: FC<PropsWithChildren<ReasoningGroupProps>> = ({ children }) => {
     const [isOpen, setIsOpen] = useState(false)
 
     // Check if reasoning is still streaming
@@ -59,17 +59,11 @@ export const ReasoningGroup: FC<PropsWithChildren> = ({ children }) => {
         && message.content.length > 0
         && message.content[message.content.length - 1]?.type === 'reasoning'
 
-    // Auto-expand while streaming
-    useEffect(() => {
-        if (isStreaming) {
-            setIsOpen(true)
-        }
-    }, [isStreaming])
-
     return (
         <div className="aui-reasoning-group my-2">
             <button
                 type="button"
+                aria-expanded={isOpen}
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
                     'flex items-center gap-1.5 text-xs font-medium',

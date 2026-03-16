@@ -2,6 +2,8 @@ import { useCallback, useMemo } from 'react'
 import type { AppendMessage, AttachmentAdapter, ThreadMessageLike } from '@assistant-ui/react'
 import { useExternalMessageConverter, useExternalStoreRuntime } from '@assistant-ui/react'
 import { safeStringify } from '@hapi/protocol'
+import type { CanonicalRenderBlock, CanonicalToolArtifact } from '@/chat/canonical'
+import { isCanonicalRenderBlock } from '@/chat/canonical'
 import { renderEventLabel } from '@/chat/presentation'
 import type { ChatBlock, CliOutputBlock } from '@/chat/types'
 import type { AgentEvent, ToolCallBlock } from '@/chat/types'
@@ -18,7 +20,110 @@ export type HappyChatMessageMetadata = {
     attachments?: AttachmentMetadata[]
 }
 
-function toThreadMessageLike(block: ChatBlock): ThreadMessageLike {
+export type HappyRenderBlock = ChatBlock | CanonicalRenderBlock
+
+function getCanonicalArtifactLabel(block: CanonicalToolArtifact): string {
+    if (block.kind === 'tool-call' || block.kind === 'tool-result') {
+        return block.tool.name
+    }
+    if (block.kind === 'subagent-root') {
+        return block.title ?? 'Subagent'
+    }
+    const provider = block.provider ?? 'unknown-provider'
+    const rawType = block.rawType ?? 'unknown-raw-type'
+    return `fallback-raw:${provider}:${rawType}`
+}
+
+function toCanonicalThreadMessageLike(block: CanonicalRenderBlock): ThreadMessageLike {
+    if (block.kind === 'user-text') {
+        const messageId = `user:${block.id}`
+        return {
+            role: 'user',
+            id: messageId,
+            createdAt: new Date(block.createdAt),
+            content: [{ type: 'text', text: block.text }],
+            metadata: {
+                custom: {
+                    kind: 'user',
+                    attachments: block.attachments
+                } satisfies HappyChatMessageMetadata
+            }
+        }
+    }
+
+    if (block.kind === 'agent-text') {
+        const messageId = `assistant:${block.id}`
+        return {
+            role: 'assistant',
+            id: messageId,
+            createdAt: new Date(block.createdAt),
+            content: [{ type: 'text', text: block.text }],
+            metadata: {
+                custom: { kind: 'assistant' } satisfies HappyChatMessageMetadata
+            }
+        }
+    }
+
+    if (block.kind === 'reasoning') {
+        const messageId = `assistant:${block.id}`
+        return {
+            role: 'assistant',
+            id: messageId,
+            createdAt: new Date(block.createdAt),
+            content: [{ type: 'reasoning', text: block.text }],
+            metadata: {
+                custom: { kind: 'assistant' } satisfies HappyChatMessageMetadata
+            }
+        }
+    }
+
+    if (block.kind === 'event') {
+        const messageId = `event:${block.id}`
+        return {
+            role: 'system',
+            id: messageId,
+            createdAt: new Date(block.createdAt),
+            content: [{ type: 'text', text: block.text }],
+            metadata: {
+                custom: { kind: 'event' } satisfies HappyChatMessageMetadata
+            }
+        }
+    }
+
+    const artifact = block
+    const messageId = `tool:${block.id}`
+    const toolName = getCanonicalArtifactLabel(artifact)
+    const result = artifact.kind === 'tool-call' || artifact.kind === 'tool-result'
+        ? artifact.tool.result
+        : undefined
+    const isError = artifact.kind === 'tool-call' || artifact.kind === 'tool-result'
+        ? artifact.tool.state === 'error'
+        : artifact.state.trim().toLowerCase() === 'error'
+
+    return {
+        role: 'assistant',
+        id: messageId,
+        createdAt: new Date(block.createdAt),
+        content: [{
+            type: 'tool-call',
+            toolCallId: block.id,
+            toolName,
+            argsText: safeStringify(block.payload),
+            result,
+            isError,
+            artifact
+        }],
+        metadata: {
+            custom: { kind: 'tool', toolCallId: block.id } satisfies HappyChatMessageMetadata
+        }
+    }
+}
+
+function toThreadMessageLike(block: HappyRenderBlock): ThreadMessageLike {
+    if (isCanonicalRenderBlock(block)) {
+        return toCanonicalThreadMessageLike(block)
+    }
+
     if (block.kind === 'user-text') {
         const messageId = `user:${block.id}`
         return {
@@ -170,7 +275,7 @@ function extractMessageContent(message: AppendMessage): { text: string; attachme
 
 export function useHappyRuntime(props: {
     session: Session
-    blocks: readonly ChatBlock[]
+    blocks: readonly HappyRenderBlock[]
     isSending: boolean
     onSendMessage: (text: string, attachments?: AttachmentMetadata[]) => void
     onAbort: () => Promise<void>
@@ -179,9 +284,9 @@ export function useHappyRuntime(props: {
 }) {
     // Use cached message converter for performance optimization
     // This prevents re-converting all messages on every render
-    const convertedMessages = useExternalMessageConverter<ChatBlock>({
+    const convertedMessages = useExternalMessageConverter<HappyRenderBlock>({
         callback: toThreadMessageLike,
-        messages: props.blocks as ChatBlock[],
+        messages: props.blocks as HappyRenderBlock[],
         isRunning: props.session.thinking,
     })
 
