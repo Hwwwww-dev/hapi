@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { io, type Socket } from 'socket.io-client'
 import axios from 'axios'
 import type { ZodType } from 'zod'
@@ -9,7 +9,14 @@ import { apiValidationError } from '@/utils/errorUtils'
 import { AsyncLock } from '@/utils/lock'
 import type { RawJSONLines } from '@/claude/types'
 import { configuration } from '@/configuration'
-import type { ClientToServerEvents, ServerToClientEvents, Update } from '@hapi/protocol'
+import type {
+    ClientToServerEvents,
+    RawEventEnvelope,
+    RawEventProvider,
+    RuntimeRawEventPayload,
+    ServerToClientEvents,
+    Update
+} from '@hapi/protocol'
 import {
     createSessionTitleSummary,
     TerminalClosePayloadSchema,
@@ -34,6 +41,94 @@ import { cleanupUploadDir } from '../modules/common/handlers/uploads'
 import { TerminalManager } from '@/terminal/TerminalManager'
 import { applyVersionedAck } from './versionedUpdate'
 
+type RuntimeProvider = Extract<RawEventProvider, 'claude' | 'codex' | 'gemini' | 'cursor' | 'opencode'>
+
+type RuntimeLogicalIdentity = {
+    sourceKey: string
+    observationKey: string | null
+}
+
+const SYNTHETIC_RUNTIME_ID_RAW_TYPES = new Set([
+    'message',
+    'reasoning',
+    'reasoning-delta',
+    'token_count',
+    'tool-call',
+    'tool-call-result',
+    'tool_result',
+    'plan',
+    'error'
+])
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return null
+    }
+
+    return value as Record<string, unknown>
+}
+
+function asNonEmptyString(value: unknown): string | null {
+    return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+function pickFirstString(
+    record: Record<string, unknown> | null,
+    keys: readonly string[]
+): string | null {
+    if (!record) {
+        return null
+    }
+
+    for (const key of keys) {
+        const value = asNonEmptyString(record[key])
+        if (value) {
+            return value
+        }
+    }
+
+    return null
+}
+
+function isRuntimeProvider(value: string | null | undefined): value is RuntimeProvider {
+    return value === 'claude' || value === 'codex' || value === 'gemini' || value === 'cursor' || value === 'opencode'
+}
+
+function parseRuntimeTimestamp(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+        return Math.trunc(value)
+    }
+
+    if (typeof value !== 'string' || value.length === 0) {
+        return null
+    }
+
+    const numeric = Number(value)
+    if (Number.isFinite(numeric) && numeric >= 0) {
+        return Math.trunc(numeric)
+    }
+
+    const parsed = Date.parse(value)
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return null
+    }
+
+    return Math.trunc(parsed)
+}
+
+function buildRuntimeRawEventId(
+    identity: Pick<RawEventEnvelope, 'provider' | 'source' | 'sourceSessionId' | 'sourceKey'>
+): string {
+    return createHash('sha1')
+        .update([
+            identity.provider,
+            identity.source,
+            identity.sourceSessionId,
+            identity.sourceKey
+        ].join('|'))
+        .digest('hex')
+}
+
 export class ApiSessionClient extends EventEmitter {
     private readonly token: string
     readonly sessionId: string
@@ -52,6 +147,7 @@ export class ApiSessionClient extends EventEmitter {
     private readonly terminalManager: TerminalManager
     private agentStateLock = new AsyncLock()
     private metadataLock = new AsyncLock()
+    private runtimeSourceOrder = 0
     private lastKeepAliveState: {
         thinking: boolean
         mode?: 'local' | 'remote'
@@ -336,37 +432,171 @@ export class ApiSessionClient extends EventEmitter {
         await this.backfillInFlight
     }
 
-    sendClaudeSessionMessage(body: RawJSONLines): void {
-        let content: MessageContent
+    private nextRuntimeSourceOrder(): number {
+        const current = this.runtimeSourceOrder
+        this.runtimeSourceOrder += 1
+        return current
+    }
 
-        if (body.type === 'user' && typeof body.message.content === 'string' && body.isSidechain !== true && body.isMeta !== true) {
-            content = {
-                role: 'user',
-                content: {
-                    type: 'text',
-                    text: body.message.content
-                },
-                meta: {
-                    sentFrom: 'cli'
-                }
-            }
-        } else {
-            content = {
-                role: 'agent',
-                content: {
-                    type: 'output',
-                    data: body
-                },
-                meta: {
-                    sentFrom: 'cli'
-                }
+    private getRuntimeMetadataSessionId(provider: RuntimeProvider): string | null {
+        const metadata = this.metadata
+        if (!metadata) {
+            return null
+        }
+
+        if (provider === 'claude') {
+            return metadata.claudeSessionId ?? null
+        }
+        if (provider === 'codex') {
+            return metadata.codexSessionId ?? null
+        }
+        if (provider === 'gemini') {
+            return metadata.geminiSessionId ?? null
+        }
+        if (provider === 'cursor') {
+            return metadata.cursorSessionId ?? null
+        }
+        if (provider === 'opencode') {
+            return metadata.opencodeSessionId ?? null
+        }
+
+        return null
+    }
+
+    private resolveRuntimeSourceSessionId(provider: RuntimeProvider, body: unknown): string {
+        const record = asRecord(body)
+        const keys = provider === 'claude'
+            ? ['sessionId', 'session_id']
+            : ['sessionId', 'session_id', 'threadId', 'thread_id']
+
+        return pickFirstString(record, keys)
+            ?? this.getRuntimeMetadataSessionId(provider)
+            ?? this.sessionId
+    }
+
+    private resolveRuntimeOccurredAt(body: unknown): number {
+        const record = asRecord(body)
+        return parseRuntimeTimestamp(
+            record?.timestamp
+            ?? record?.createdAt
+            ?? record?.created_at
+            ?? record?.time
+        ) ?? Date.now()
+    }
+
+    private resolveRuntimeRawType(body: unknown): string {
+        const record = asRecord(body)
+        return asNonEmptyString(record?.type) ?? 'unknown'
+    }
+
+    private resolveClaudeRuntimeChannel(rawType: string): string {
+        return rawType === 'event' ? 'claude:runtime:events' : 'claude:runtime:messages'
+    }
+
+    private resolveRuntimeChannel(provider: RuntimeProvider, rawType: string): string {
+        if (provider === 'claude') {
+            return this.resolveClaudeRuntimeChannel(rawType)
+        }
+
+        return `${provider}:runtime`
+    }
+
+    private shouldUseGenericRuntimeId(rawType: string): boolean {
+        return !SYNTHETIC_RUNTIME_ID_RAW_TYPES.has(rawType)
+    }
+
+    private extractRuntimeLogicalIdentity(provider: RuntimeProvider, rawType: string, body: unknown): RuntimeLogicalIdentity | null {
+        const record = asRecord(body)
+        if (!record) {
+            return null
+        }
+
+        const uuid = pickFirstString(record, ['uuid'])
+        if (uuid) {
+            return {
+                sourceKey: `uuid:${uuid}`,
+                observationKey: `${provider}:uuid:${uuid}`
             }
         }
 
-        this.socket.emit('message', {
+        const callId = pickFirstString(record, ['call_id', 'callId', 'tool_call_id', 'toolCallId'])
+        if (callId) {
+            return {
+                sourceKey: `call_id:${callId}`,
+                observationKey: `${provider}:call_id:${callId}`
+            }
+        }
+
+        const responseId = pickFirstString(record, ['response_id', 'responseId'])
+        if (responseId) {
+            return {
+                sourceKey: `response_id:${responseId}`,
+                observationKey: `${provider}:response_id:${responseId}`
+            }
+        }
+
+        const leafUuid = pickFirstString(record, ['leafUuid'])
+        if (leafUuid) {
+            return {
+                sourceKey: `leafUuid:${leafUuid}`,
+                observationKey: null
+            }
+        }
+
+        const id = pickFirstString(record, ['id'])
+        if (id && this.shouldUseGenericRuntimeId(rawType)) {
+            return {
+                sourceKey: `id:${id}`,
+                observationKey: `${provider}:id:${id}`
+            }
+        }
+
+        return null
+    }
+
+    private emitRuntimeEvent(provider: RuntimeProvider, body: unknown): void {
+        const rawType = this.resolveRuntimeRawType(body)
+        const sourceOrder = this.nextRuntimeSourceOrder()
+        const sourceSessionId = this.resolveRuntimeSourceSessionId(provider, body)
+        const identity = this.extractRuntimeLogicalIdentity(provider, rawType, body)
+        const sourceKey = identity?.sourceKey ?? `runtime:${sourceOrder}:${rawType}`
+        const source = 'runtime' as const
+        const event: RuntimeRawEventPayload['event'] = {
+            id: buildRuntimeRawEventId({
+                provider,
+                source,
+                sourceSessionId,
+                sourceKey
+            }),
+            provider,
+            source,
+            sourceSessionId,
+            sourceKey,
+            observationKey: identity?.observationKey ?? null,
+            channel: this.resolveRuntimeChannel(provider, rawType),
+            sourceOrder,
+            occurredAt: this.resolveRuntimeOccurredAt(body),
+            ingestedAt: Date.now(),
+            rawType,
+            payload: body,
+            ingestSchemaVersion: 1
+        }
+
+        this.socket.emit('runtime-event', {
             sid: this.sessionId,
-            message: content
+            event
         })
+    }
+
+    private resolveCodexFamilyProvider(): RuntimeProvider {
+        const flavor = this.metadata?.flavor
+        return isRuntimeProvider(flavor) && flavor !== 'claude'
+            ? flavor
+            : 'codex'
+    }
+
+    sendClaudeSessionMessage(body: RawJSONLines): void {
+        this.emitRuntimeEvent('claude', body)
 
         if (body.type === 'summary' && 'summary' in body && 'leafUuid' in body) {
             this.updateMetadata((metadata) => ({
@@ -400,20 +630,7 @@ export class ApiSessionClient extends EventEmitter {
     }
 
     sendCodexMessage(body: unknown): void {
-        const content = {
-            role: 'agent',
-            content: {
-                type: 'codex',
-                data: body
-            },
-            meta: {
-                sentFrom: 'cli'
-            }
-        }
-        this.socket.emit('message', {
-            sid: this.sessionId,
-            message: content
-        })
+        this.emitRuntimeEvent(this.resolveCodexFamilyProvider(), body)
     }
 
     sendSessionEvent(event: {

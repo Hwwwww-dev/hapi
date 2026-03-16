@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
 type EventHandler = (...args: any[]) => void
 
-const harness = vi.hoisted(() => {
+function createHarness() {
     const listeners = new Map<string, EventHandler[]>()
     const emits: Array<{ event: string; payload: unknown }> = []
 
@@ -63,10 +63,14 @@ const harness = vi.hoisted(() => {
             listeners.clear()
         }
     }
-})
+}
+
+const harness = createHarness()
+;
+(globalThis as typeof globalThis & { __apiSessionHarness?: ReturnType<typeof createHarness> }).__apiSessionHarness = harness
 
 vi.mock('socket.io-client', () => ({
-    io: () => harness.socket
+    io: () => (globalThis as typeof globalThis & { __apiSessionHarness: ReturnType<typeof createHarness> }).__apiSessionHarness.socket
 }))
 
 vi.mock('@/configuration', () => ({
@@ -101,6 +105,25 @@ vi.mock('@/modules/common/registerCommonHandlers', () => ({
 
 import { ApiSessionClient } from './apiSession'
 
+function createSession(overrides?: Partial<ConstructorParameters<typeof ApiSessionClient>[1]>) {
+    return {
+        id: 'session-1',
+        namespace: 'default',
+        seq: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        active: true,
+        activeAt: 1,
+        metadata: null,
+        metadataVersion: 1,
+        agentState: null,
+        agentStateVersion: 1,
+        thinking: false,
+        thinkingAt: 0,
+        ...overrides
+    }
+}
+
 describe('ApiSessionClient keepAlive reconnect state', () => {
     beforeEach(() => {
         harness.reset()
@@ -111,21 +134,7 @@ describe('ApiSessionClient keepAlive reconnect state', () => {
     })
 
     it('re-emits the latest thinking state after reconnect instead of forcing thinking=false', () => {
-        const client = new ApiSessionClient('token', {
-            id: 'session-1',
-            namespace: 'default',
-            seq: 1,
-            createdAt: 1,
-            updatedAt: 1,
-            active: true,
-            activeAt: 1,
-            metadata: null,
-            metadataVersion: 1,
-            agentState: null,
-            agentStateVersion: 1,
-            thinking: false,
-            thinkingAt: 0
-        })
+        const client = new ApiSessionClient('token', createSession())
 
         client.keepAlive(true, 'remote', { permissionMode: 'default' })
         harness.emits.length = 0
@@ -143,25 +152,131 @@ describe('ApiSessionClient keepAlive reconnect state', () => {
         })
     })
 
-    it('stores MCP generated titles in metadata.summary with generated source', async () => {
-        const client = new ApiSessionClient('token', {
-            id: 'session-2',
-            namespace: 'default',
-            seq: 1,
-            createdAt: 1,
-            updatedAt: 1,
-            active: true,
-            activeAt: 1,
+    it('emits Claude runtime raw events with uuid-based identity instead of legacy socket messages', () => {
+        const client = new ApiSessionClient('token', createSession({
             metadata: {
                 path: '/tmp/project',
-                host: 'local'
-            },
-            metadataVersion: 1,
-            agentState: null,
-            agentStateVersion: 1,
-            thinking: false,
-            thinkingAt: 0
+                host: 'local',
+                claudeSessionId: 'claude-native-1',
+                flavor: 'claude'
+            }
+        }))
+
+        client.sendClaudeSessionMessage({
+            type: 'user',
+            uuid: 'user-1',
+            sessionId: 'claude-native-1',
+            message: {
+                role: 'user',
+                content: 'hello runtime'
+            }
+        } as any)
+
+        expect(harness.emits).not.toContainEqual(expect.objectContaining({
+            event: 'message'
+        }))
+        expect(harness.emits).toContainEqual({
+            event: 'runtime-event',
+            payload: expect.objectContaining({
+                sid: 'session-1',
+                event: expect.objectContaining({
+                    provider: 'claude',
+                    source: 'runtime',
+                    sourceSessionId: 'claude-native-1',
+                    sourceKey: 'uuid:user-1',
+                    observationKey: 'claude:uuid:user-1',
+                    channel: 'claude:runtime:messages',
+                    sourceOrder: 0,
+                    rawType: 'user',
+                    payload: expect.objectContaining({
+                        type: 'user',
+                        uuid: 'user-1'
+                    })
+                })
+            })
         })
+    })
+
+    it.each([
+        ['codex', 'codexSessionId', 'codex-thread-1'],
+        ['gemini', 'geminiSessionId', 'gemini-session-1'],
+        ['cursor', 'cursorSessionId', 'cursor-session-1'],
+        ['opencode', 'opencodeSessionId', 'opencode-session-1']
+    ] as const)('emits %s runtime raw events with preserved flavor and fallback source keys', (flavor, sessionField, sourceSessionId) => {
+        const client = new ApiSessionClient('token', createSession({
+            metadata: {
+                path: '/tmp/project',
+                host: 'local',
+                flavor,
+                [sessionField]: sourceSessionId
+            }
+        }))
+
+        client.sendCodexMessage({
+            type: 'tool-call',
+            name: 'Read',
+            callId: 'call-1',
+            input: { path: 'README.md' }
+        })
+        client.sendCodexMessage({
+            type: 'message',
+            message: 'done'
+        })
+
+        const runtimeEvents = harness.emits.filter((entry) => entry.event === 'runtime-event')
+        expect(runtimeEvents).toHaveLength(2)
+        expect(runtimeEvents[0]).toEqual({
+            event: 'runtime-event',
+            payload: expect.objectContaining({
+                sid: 'session-1',
+                event: expect.objectContaining({
+                    provider: flavor,
+                    source: 'runtime',
+                    sourceSessionId,
+                    sourceKey: 'call_id:call-1',
+                    observationKey: `${flavor}:call_id:call-1`,
+                    channel: `${flavor}:runtime`,
+                    sourceOrder: 0,
+                    rawType: 'tool-call',
+                    payload: expect.objectContaining({
+                        type: 'tool-call',
+                        callId: 'call-1'
+                    })
+                })
+            })
+        })
+        expect(runtimeEvents[1]).toEqual({
+            event: 'runtime-event',
+            payload: expect.objectContaining({
+                sid: 'session-1',
+                event: expect.objectContaining({
+                    provider: flavor,
+                    source: 'runtime',
+                    sourceSessionId,
+                    sourceKey: 'runtime:1:message',
+                    observationKey: null,
+                    channel: `${flavor}:runtime`,
+                    sourceOrder: 1,
+                    rawType: 'message',
+                    payload: expect.objectContaining({
+                        type: 'message',
+                        message: 'done'
+                    })
+                })
+            })
+        })
+    })
+
+    it('stores MCP generated titles in metadata.summary with generated source while sending runtime-event', async () => {
+        const client = new ApiSessionClient('token', createSession({
+            id: 'session-2',
+            metadata: {
+                path: '/tmp/project',
+                host: 'local',
+                claudeSessionId: 'claude-native-2',
+                flavor: 'claude'
+            }
+        }))
 
         client.sendClaudeSessionMessage({
             type: 'summary',
@@ -171,6 +286,22 @@ describe('ApiSessionClient keepAlive reconnect state', () => {
 
         await new Promise((resolve) => setTimeout(resolve, 0))
 
+        expect(harness.emits).toContainEqual({
+            event: 'runtime-event',
+            payload: expect.objectContaining({
+                sid: 'session-2',
+                event: expect.objectContaining({
+                    provider: 'claude',
+                    sourceSessionId: 'claude-native-2',
+                    sourceKey: 'leafUuid:leaf-1',
+                    rawType: 'summary',
+                    payload: expect.objectContaining({
+                        type: 'summary',
+                        leafUuid: 'leaf-1'
+                    })
+                })
+            })
+        })
         expect(harness.emits).toContainEqual({
             event: 'update-metadata',
             payload: expect.objectContaining({
