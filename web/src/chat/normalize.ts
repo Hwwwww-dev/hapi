@@ -9,6 +9,7 @@ export function normalizeDecryptedMessage(message: DecryptedMessage): Normalized
     const record = unwrapRoleWrappedRecordEnvelope(message.content)
     if (!record) {
         if (isObject(message.content) && typeof message.content.type === 'string') {
+            // Try as output wrapper first (for native output-type messages)
             const normalizedNativeOutput = normalizeAgentRecord(
                 message.id,
                 message.localId,
@@ -19,6 +20,21 @@ export function normalizeDecryptedMessage(message: DecryptedMessage): Normalized
             if (normalizedNativeOutput) {
                 return {
                     ...normalizedNativeOutput,
+                    status: message.status,
+                    originalText: message.originalText
+                }
+            }
+            // Also try direct normalization (handles codex, event, etc.)
+            const normalizedDirect = normalizeAgentRecord(
+                message.id,
+                message.localId,
+                message.createdAt,
+                message.content,
+                undefined
+            )
+            if (normalizedDirect) {
+                return {
+                    ...normalizedDirect,
                     status: message.status,
                     originalText: message.originalText
                 }

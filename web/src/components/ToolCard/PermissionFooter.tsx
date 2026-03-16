@@ -5,17 +5,20 @@ import type { ChatToolCall, ToolPermission } from '@/chat/types'
 import { usePlatform } from '@/hooks/usePlatform'
 import { Spinner } from '@/components/Spinner'
 import { isCodexFamilyFlavor } from '@/lib/agentFlavorUtils'
+import { canonicalizePermissionToolIdentifier, canonicalizeToolName } from '@/lib/toolNames'
 import { getInputStringAny } from '@/lib/toolInputUtils'
 import { useTranslation } from '@/lib/use-translation'
 
 function isToolAllowedForSession(toolName: string, toolInput: unknown, allowedTools: string[] | undefined): boolean {
     if (!allowedTools || allowedTools.length === 0) return false
-    if (allowedTools.includes(toolName)) return true
+    const canonicalToolName = canonicalizePermissionToolIdentifier(toolName)
+    if (allowedTools.some(tool => canonicalizePermissionToolIdentifier(tool) === canonicalToolName)) return true
 
-    if (toolName === 'Bash') {
+    if (canonicalizeToolName(toolName) === 'Bash') {
         const command = getInputStringAny(toolInput, ['command', 'cmd'])
         if (command) {
-            return allowedTools.includes(`Bash(${command})`)
+            const bashIdentifier = canonicalizePermissionToolIdentifier(`Bash(${command})`)
+            return allowedTools.some(tool => canonicalizePermissionToolIdentifier(tool) === bashIdentifier)
         }
     }
 
@@ -23,10 +26,11 @@ function isToolAllowedForSession(toolName: string, toolInput: unknown, allowedTo
 }
 
 function isCodexSession(metadata: SessionMetadataSummary | null, toolName: string): boolean {
+    const canonicalToolName = canonicalizeToolName(toolName)
     return isCodexFamilyFlavor(metadata?.flavor)
-        || toolName.startsWith('Codex')
-        || toolName.startsWith('Gemini')
-        || toolName.startsWith('OpenCode')
+        || canonicalToolName.startsWith('Codex')
+        || canonicalToolName.startsWith('Gemini')
+        || canonicalToolName.startsWith('OpenCode')
 }
 
 function formatPermissionSummary(permission: ToolPermission, toolName: string, toolInput: unknown, codex: boolean, t: (key: string) => string): string {
@@ -123,16 +127,17 @@ export function PermissionFooter(props: {
     }
 
     const toolName = props.tool.name
-    const isEditTool = toolName === 'Edit'
-        || toolName === 'MultiEdit'
-        || toolName === 'Write'
-        || toolName === 'NotebookEdit'
-    const hideAllowForSession = toolName === 'Edit'
-        || toolName === 'MultiEdit'
-        || toolName === 'Write'
-        || toolName === 'NotebookEdit'
-        || toolName === 'exit_plan_mode'
-        || toolName === 'ExitPlanMode'
+    const canonicalToolName = canonicalizeToolName(toolName)
+    const isEditTool = canonicalToolName === 'Edit'
+        || canonicalToolName === 'MultiEdit'
+        || canonicalToolName === 'Write'
+        || canonicalToolName === 'NotebookEdit'
+    const hideAllowForSession = canonicalToolName === 'Edit'
+        || canonicalToolName === 'MultiEdit'
+        || canonicalToolName === 'Write'
+        || canonicalToolName === 'NotebookEdit'
+        || canonicalToolName === 'exit_plan_mode'
+        || canonicalToolName === 'ExitPlanMode'
 
     const canAllowForSession = !codex && isPending && !hideAllowForSession
     const canAllowAllEdits = !codex && isPending && isEditTool
@@ -154,8 +159,8 @@ export function PermissionFooter(props: {
     const approveForSession = async () => {
         if (!canAllowForSession || loading || loadingAllEdits || loadingForSession) return
         setLoadingForSession(true)
-        const command = toolName === 'Bash' ? getInputStringAny(props.tool.input, ['command', 'cmd']) : null
-        const toolIdentifier = toolName === 'Bash' && command ? `Bash(${command})` : toolName
+        const command = canonicalToolName === 'Bash' ? getInputStringAny(props.tool.input, ['command', 'cmd']) : null
+        const toolIdentifier = canonicalToolName === 'Bash' && command ? `Bash(${command})` : toolName
         await run(() => props.api.approvePermission(props.sessionId, permission.id, { allowTools: [toolIdentifier] }), 'success')
         setLoadingForSession(false)
     }

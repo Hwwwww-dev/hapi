@@ -16,7 +16,9 @@ import { isRequestUserInputToolName } from '@/components/ToolCard/requestUserInp
 import { getToolPresentation } from '@/components/ToolCard/knownTools'
 import { getToolFullViewComponent, getToolViewComponent } from '@/components/ToolCard/views/_all'
 import { getToolResultViewComponent } from '@/components/ToolCard/views/_results'
+import { extractApplyPatchText } from '@/lib/applyPatch'
 import { usePointerFocusRing } from '@/hooks/usePointerFocusRing'
+import { canonicalizeToolName } from '@/lib/toolNames'
 import { getInputString, getInputStringAny, truncate } from '@/lib/toolInputUtils'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/use-translation'
@@ -75,7 +77,7 @@ function TaskStateIcon(props: { state: ToolCallBlock['tool']['state'] }) {
 }
 
 function getTaskSummaryChildren(block: ToolCallBlock): { visible: ToolCallBlock[]; remaining: number } | null {
-    if (block.tool.name !== 'Task') return null
+    if (canonicalizeToolName(block.tool.name) !== 'Task') return null
 
     const children = block.children
         .filter((child): child is ToolCallBlock => child.kind === 'tool-call')
@@ -143,7 +145,7 @@ function renderExitPlanModeInput(input: unknown): ReactNode | null {
 }
 
 function renderToolInput(block: ToolCallBlock): ReactNode {
-    const toolName = block.tool.name
+    const toolName = canonicalizeToolName(block.tool.name)
     const input = block.tool.input
 
     if (toolName === 'Task' && isObject(input) && typeof input.prompt === 'string') {
@@ -220,6 +222,13 @@ function renderToolInput(block: ToolCallBlock): ReactNode {
             : getInputStringAny(input, ['command', 'cmd'])
         if (cmd) {
             return <CodeBlock code={cmd} language="bash" />
+        }
+    }
+
+    if (toolName === 'apply_patch') {
+        const patch = extractApplyPatchText(input)
+        if (patch) {
+            return <CodeBlock code={patch} language="diff" />
         }
     }
 
@@ -302,17 +311,18 @@ function ToolCardInner(props: ToolCardProps) {
     ])
 
     const toolName = props.block.tool.name
+    const canonicalToolName = canonicalizeToolName(toolName)
     const toolTitle = presentation.title
     const subtitle = presentation.subtitle ?? props.block.tool.description
     const taskSummary = renderTaskSummary(props.block, props.metadata)
     const runningFrom = props.block.tool.startedAt ?? props.block.tool.createdAt
-    const showInline = !presentation.minimal && toolName !== 'Task'
-    const CompactToolView = showInline ? getToolViewComponent(toolName) : null
-    const FullToolView = getToolFullViewComponent(toolName)
-    const ResultToolView = getToolResultViewComponent(toolName)
+    const showInline = !presentation.minimal && canonicalToolName !== 'Task'
+    const CompactToolView = showInline ? getToolViewComponent(canonicalToolName) : null
+    const FullToolView = getToolFullViewComponent(canonicalToolName)
+    const ResultToolView = getToolResultViewComponent(canonicalToolName)
     const permission = props.block.tool.permission
-    const isAskUserQuestion = isAskUserQuestionToolName(toolName)
-    const isRequestUserInput = isRequestUserInputToolName(toolName)
+    const isAskUserQuestion = isAskUserQuestionToolName(canonicalToolName)
+    const isRequestUserInput = isRequestUserInputToolName(canonicalToolName)
     const isQuestionTool = isAskUserQuestion || isRequestUserInput
     const showsPermissionFooter = Boolean(permission && (
         permission.status === 'pending'

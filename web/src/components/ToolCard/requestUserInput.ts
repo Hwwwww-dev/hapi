@@ -1,4 +1,5 @@
 import { isObject } from '@hapi/protocol'
+import { isToolName } from '@/lib/toolNames'
 
 export type RequestUserInputOption = {
     label: string
@@ -20,7 +21,7 @@ export type RequestUserInputQuestionInfo = {
 export type RequestUserInputAnswers = Record<string, { answers: string[] }>
 
 export function isRequestUserInputToolName(toolName: string): boolean {
-    return toolName === 'request_user_input'
+    return isToolName(toolName, 'request_user_input')
 }
 
 export function parseRequestUserInputInput(input: unknown): { questions: RequestUserInputQuestion[] } {

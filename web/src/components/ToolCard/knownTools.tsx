@@ -4,6 +4,8 @@ import { isObject } from '@hapi/protocol'
 import { BulbIcon, ClipboardIcon, EyeIcon, FileDiffIcon, GlobeIcon, MessageSquareIcon, PuzzleIcon, QuestionIcon, RocketIcon, SearchIcon, TerminalIcon, UsersIcon, WrenchIcon } from '@/components/ToolCard/icons'
 import type { ChecklistItem } from '@/components/ToolCard/checklist'
 import { extractTodoChecklist, extractUpdatePlanChecklist } from '@/components/ToolCard/checklist'
+import { extractApplyPatchFiles, extractApplyPatchText } from '@/lib/applyPatch'
+import { canonicalizeToolName } from '@/lib/toolNames'
 import { basename, resolveDisplayPath } from '@/utils/path'
 import { getInputStringAny, truncate } from '@/lib/toolInputUtils'
 
@@ -43,10 +45,6 @@ function formatMCPTitle(toolName: string): string {
         return `MCP: ${serverName} ${toolPart}`
     }
     return `MCP: ${snakeToTitleWithSpaces(withoutPrefix)}`
-}
-
-function resolveToolName(toolName: string): string {
-    return toolName.replace(/^functions\./, '')
 }
 
 type ToolOpts = {
@@ -218,7 +216,15 @@ export const knownTools: Record<string, {
     apply_patch: {
         icon: () => <FileDiffIcon className={DEFAULT_ICON_CLASS} />,
         title: () => 'Apply changes',
-        minimal: true
+        subtitle: (opts) => {
+            const files = extractApplyPatchFiles(opts.input)
+            if (files.length === 0) return null
+
+            const display = resolveDisplayPath(files[0], opts.metadata)
+            const name = basename(display)
+            return files.length > 1 ? `${name} (+${files.length - 1})` : name
+        },
+        minimal: (opts) => extractApplyPatchText(opts.input) === null
     },
     Read: {
         icon: () => <EyeIcon className={DEFAULT_ICON_CLASS} />,
@@ -324,7 +330,7 @@ export const knownTools: Record<string, {
     CodexReasoning: {
         icon: () => <BulbIcon className={DEFAULT_ICON_CLASS} />,
         title: (opts) => getInputStringAny(opts.input, ['title']) ?? 'Reasoning',
-        minimal: true
+        minimal: false
     },
     CodexPatch: {
         icon: () => <FileDiffIcon className={DEFAULT_ICON_CLASS} />,
@@ -466,7 +472,7 @@ export const knownTools: Record<string, {
 }
 
 export function getToolPresentation(opts: Omit<ToolOpts, 'metadata'> & { metadata: SessionMetadataSummary | null }): ToolPresentation {
-    const resolvedToolName = resolveToolName(opts.toolName)
+    const resolvedToolName = canonicalizeToolName(opts.toolName)
     const resolvedOpts = { ...opts, toolName: resolvedToolName }
 
     if (resolvedToolName.startsWith('mcp__')) {

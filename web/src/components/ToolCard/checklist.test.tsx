@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { ToolCallBlock } from '@/chat/types'
+import { isAskUserQuestionToolName } from '@/components/ToolCard/askUserQuestion'
 import { ChecklistList, extractTodoChecklist, extractUpdatePlanChecklist } from '@/components/ToolCard/checklist'
 import { getToolPresentation } from '@/components/ToolCard/knownTools'
+import { isRequestUserInputToolName } from '@/components/ToolCard/requestUserInput'
+import { ApplyPatchView } from '@/components/ToolCard/views/ApplyPatchView'
+import { AskUserQuestionView } from '@/components/ToolCard/views/AskUserQuestionView'
+import { CodexReasoningView } from '@/components/ToolCard/views/CodexReasoningView'
+import { RequestUserInputView } from '@/components/ToolCard/views/RequestUserInputView'
 import { getToolViewComponent } from '@/components/ToolCard/views/_all'
 import { UpdatePlanView } from '@/components/ToolCard/views/UpdatePlanView'
 
@@ -193,7 +199,16 @@ describe('developer tool presentation aliases', () => {
     it('renders apply_patch as Apply changes', () => {
         const presentation = getToolPresentation({
             toolName: 'apply_patch',
-            input: { patch: '*** Begin Patch' },
+            input: {
+                patch: [
+                    '*** Begin Patch',
+                    '*** Update File: web/src/foo.ts',
+                    '@@',
+                    '-old',
+                    '+new',
+                    '*** End Patch'
+                ].join('\n')
+            },
             result: undefined,
             childrenCount: 0,
             description: null,
@@ -201,6 +216,22 @@ describe('developer tool presentation aliases', () => {
         })
 
         expect(presentation.title).toBe('Apply changes')
+        expect(presentation.subtitle).toBe('foo.ts')
+        expect(presentation.minimal).toBe(false)
+    })
+
+    it('expands CodexReasoning inline when result text exists', () => {
+        const presentation = getToolPresentation({
+            toolName: 'CodexReasoning',
+            input: { title: 'Search strategy' },
+            result: { content: '先查调用链，再看兼容层。' },
+            childrenCount: 0,
+            description: null,
+            metadata: null
+        })
+
+        expect(presentation.title).toBe('Search strategy')
+        expect(presentation.minimal).toBe(false)
     })
 })
 
@@ -231,6 +262,26 @@ describe('UpdatePlanView', () => {
 
     it('is registered as the compact tool view', () => {
         expect(getToolViewComponent('update_plan')).toBe(UpdatePlanView)
+    })
+})
+
+describe('canonical tool-name handling', () => {
+    it('treats functions.request_user_input as the same interactive tool', () => {
+        expect(isRequestUserInputToolName('functions.request_user_input')).toBe(true)
+        expect(getToolViewComponent('functions.request_user_input')).toBe(RequestUserInputView)
+    })
+
+    it('treats functions.ask_user_question as the same interactive tool', () => {
+        expect(isAskUserQuestionToolName('functions.ask_user_question')).toBe(true)
+        expect(getToolViewComponent('functions.ask_user_question')).toBe(AskUserQuestionView)
+    })
+
+    it('registers apply_patch with the diff-style tool view', () => {
+        expect(getToolViewComponent('apply_patch')).toBe(ApplyPatchView)
+    })
+
+    it('registers CodexReasoning with the inline reasoning view', () => {
+        expect(getToolViewComponent('CodexReasoning')).toBe(CodexReasoningView)
     })
 })
 

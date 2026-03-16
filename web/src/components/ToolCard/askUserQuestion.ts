@@ -1,4 +1,5 @@
 import { isObject } from '@hapi/protocol'
+import { isToolName } from '@/lib/toolNames'
 
 export type AskUserQuestionOption = {
     label: string
@@ -18,7 +19,7 @@ export type AskUserQuestionQuestionInfo = {
 }
 
 export function isAskUserQuestionToolName(toolName: string): boolean {
-    return toolName === 'AskUserQuestion' || toolName === 'ask_user_question'
+    return isToolName(toolName, 'AskUserQuestion', 'ask_user_question')
 }
 
 export function parseAskUserQuestionInput(input: unknown): { questions: AskUserQuestionQuestion[] } {

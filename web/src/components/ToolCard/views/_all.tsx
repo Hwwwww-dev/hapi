@@ -3,6 +3,8 @@ import type { ToolCallBlock } from '@/chat/types'
 import type { SessionMetadataSummary } from '@/types/api'
 import { CodexDiffCompactView, CodexDiffFullView } from '@/components/ToolCard/views/CodexDiffView'
 import { CodexPatchView } from '@/components/ToolCard/views/CodexPatchView'
+import { ApplyPatchView } from '@/components/ToolCard/views/ApplyPatchView'
+import { CodexReasoningView } from '@/components/ToolCard/views/CodexReasoningView'
 import { EditView } from '@/components/ToolCard/views/EditView'
 import { AskUserQuestionView } from '@/components/ToolCard/views/AskUserQuestionView'
 import { RequestUserInputView } from '@/components/ToolCard/views/RequestUserInputView'
@@ -11,6 +13,7 @@ import { MultiEditFullView, MultiEditView } from '@/components/ToolCard/views/Mu
 import { TodoWriteView } from '@/components/ToolCard/views/TodoWriteView'
 import { UpdatePlanView } from '@/components/ToolCard/views/UpdatePlanView'
 import { WriteView } from '@/components/ToolCard/views/WriteView'
+import { canonicalizeToolName } from '@/lib/toolNames'
 
 export type ToolViewProps = {
     block: ToolCallBlock
@@ -26,6 +29,8 @@ export const toolViewRegistry: Record<string, ToolViewComponent> = {
     TodoWrite: TodoWriteView,
     update_plan: UpdatePlanView,
     CodexDiff: CodexDiffCompactView,
+    CodexReasoning: CodexReasoningView,
+    apply_patch: ApplyPatchView,
     AskUserQuestion: AskUserQuestionView,
     ExitPlanMode: ExitPlanModeView,
     ask_user_question: AskUserQuestionView,
@@ -39,6 +44,7 @@ export const toolFullViewRegistry: Record<string, ToolViewComponent> = {
     Write: WriteView,
     CodexDiff: CodexDiffFullView,
     CodexPatch: CodexPatchView,
+    apply_patch: ApplyPatchView,
     AskUserQuestion: AskUserQuestionView,
     ExitPlanMode: ExitPlanModeView,
     ask_user_question: AskUserQuestionView,
@@ -47,9 +53,9 @@ export const toolFullViewRegistry: Record<string, ToolViewComponent> = {
 }
 
 export function getToolViewComponent(toolName: string): ToolViewComponent | null {
-    return toolViewRegistry[toolName] ?? null
+    return toolViewRegistry[canonicalizeToolName(toolName)] ?? null
 }
 
 export function getToolFullViewComponent(toolName: string): ToolViewComponent | null {
-    return toolFullViewRegistry[toolName] ?? null
+    return toolFullViewRegistry[canonicalizeToolName(toolName)] ?? null
 }

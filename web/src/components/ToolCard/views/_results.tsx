@@ -3,6 +3,7 @@ import { isObject, safeStringify } from '@hapi/protocol'
 import { CodeBlock } from '@/components/CodeBlock'
 import { MarkdownRenderer } from '@/components/MarkdownRenderer'
 import { ChecklistList, extractTodoChecklist } from '@/components/ToolCard/checklist'
+import { canonicalizeToolName } from '@/lib/toolNames'
 import { basename, resolveDisplayPath } from '@/utils/path'
 
 function parseToolUseError(message: string): { isToolUseError: boolean; errorMessage: string | null } {
@@ -544,6 +545,7 @@ const GenericResultView: ToolViewComponent = (props: ToolViewProps) => {
 export const toolResultViewRegistry: Record<string, ToolViewComponent> = {
     Task: MarkdownResultView,
     Bash: BashResultView,
+    exec_command: BashResultView,
     Glob: LineListResultView,
     Grep: LineListResultView,
     LS: LineListResultView,
@@ -557,6 +559,7 @@ export const toolResultViewRegistry: Record<string, ToolViewComponent> = {
     NotebookEdit: MutationResultView,
     TodoWrite: TodoWriteResultView,
     CodexReasoning: CodexReasoningResultView,
+    apply_patch: MutationResultView,
     CodexPatch: CodexPatchResultView,
     CodexDiff: CodexDiffResultView,
     AskUserQuestion: AskUserQuestionResultView,
@@ -566,8 +569,9 @@ export const toolResultViewRegistry: Record<string, ToolViewComponent> = {
 }
 
 export function getToolResultViewComponent(toolName: string): ToolViewComponent {
-    if (toolName.startsWith('mcp__')) {
+    const canonicalToolName = canonicalizeToolName(toolName)
+    if (canonicalToolName.startsWith('mcp__')) {
         return GenericResultView
     }
-    return toolResultViewRegistry[toolName] ?? GenericResultView
+    return toolResultViewRegistry[canonicalToolName] ?? GenericResultView
 }

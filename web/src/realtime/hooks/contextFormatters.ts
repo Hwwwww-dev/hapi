@@ -1,6 +1,7 @@
 import { unwrapRoleWrappedRecordEnvelope } from '@hapi/protocol/messages'
 import { isObject } from '@hapi/protocol'
 import { getExplicitSessionTitle, getSessionPathFallbackTitle, type DecryptedMessage, type Session } from '@/types/api'
+import { canonicalizeToolName } from '@/lib/toolNames'
 import { VOICE_CONFIG } from '../voiceConfig'
 
 interface SessionMetadata {
@@ -82,9 +83,10 @@ export function formatPermissionRequest(
     toolName: string,
     toolArgs: unknown
 ): string {
-    return `Claude Code is requesting permission to use ${toolName} (session ${sessionId}):
+    const displayToolName = canonicalizeToolName(toolName)
+    return `Claude Code is requesting permission to use ${displayToolName} (session ${sessionId}):
 <request_id>${requestId}</request_id>
-<tool_name>${toolName}</tool_name>
+<tool_name>${displayToolName}</tool_name>
 <tool_args>${JSON.stringify(toolArgs)}</tool_args>`
 }
 
@@ -108,7 +110,7 @@ export function formatMessage(message: DecryptedMessage): string | null {
     }
 
     // Determine message type by checking for tool_use (assistant) vs user content
-    const hasToolUse = content.some(item => item.type === 'tool_use')
+    const hasToolUse = content.some(item => item.type === 'tool_use' || item.type === 'tool_call')
     const isAssistant = normalizedRole === 'assistant'
         ? true
         : normalizedRole === 'user'
@@ -118,8 +120,8 @@ export function formatMessage(message: DecryptedMessage): string | null {
     for (const item of content) {
         if (item.type === 'text' && item.text) {
             lines.push(formatPlainText(isAssistant ? 'assistant' : 'user', item.text))
-        } else if (item.type === 'tool_use' && !VOICE_CONFIG.DISABLE_TOOL_CALLS) {
-            const name = item.name || 'unknown'
+        } else if ((item.type === 'tool_use' || item.type === 'tool_call') && !VOICE_CONFIG.DISABLE_TOOL_CALLS) {
+            const name = canonicalizeToolName(item.name || 'unknown')
             if (VOICE_CONFIG.LIMITED_TOOL_CALLS) {
                 lines.push(`Claude Code is using ${name}`)
             } else {

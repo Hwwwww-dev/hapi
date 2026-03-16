@@ -20,6 +20,8 @@ import { useTranslation } from '@/lib/use-translation'
 import { useVoiceOptional } from '@/lib/voice-context'
 import { RealtimeVoiceSession, registerSessionStore, registerVoiceHooksStore, voiceHooks } from '@/realtime'
 
+const SESSION_CHAT_RENDERER_INSTANCE_ID = Date.now()
+
 export function SessionChat(props: {
     api: ApiClient
     session: Session
@@ -106,6 +108,16 @@ export function SessionChat(props: {
     }, [props.session.thinking, props.session.id])
 
     const prevRequestIdsRef = useRef<Set<string>>(new Set())
+    const rendererInstanceIdRef = useRef(SESSION_CHAT_RENDERER_INSTANCE_ID)
+
+    if (rendererInstanceIdRef.current !== SESSION_CHAT_RENDERER_INSTANCE_ID) {
+        normalizedCacheRef.current.clear()
+        blocksByIdRef.current.clear()
+        prevMessagesRef.current = []
+        prevRequestIdsRef.current = new Set()
+        prevThinkingRef.current = props.session.thinking
+        rendererInstanceIdRef.current = SESSION_CHAT_RENDERER_INSTANCE_ID
+    }
 
     useEffect(() => {
         const requests = props.session.agentState?.requests ?? {}
