@@ -1,0 +1,112 @@
+import { describe, expect, it } from 'bun:test'
+import { toSessionSummary } from '@hapi/protocol'
+import type { SyncEvent } from '@hapi/protocol/types'
+import { Store } from '../store'
+import { RpcRegistry } from '../socket/rpcRegistry'
+import type { EventPublisher } from './eventPublisher'
+import { SessionCache } from './sessionCache'
+import { SyncEngine } from './syncEngine'
+
+function createPublisher(events: SyncEvent[]): EventPublisher {
+    return {
+        emit: (event: SyncEvent) => {
+            events.push(event)
+        }
+    } as unknown as EventPublisher
+}
+
+describe('session model', () => {
+    it('includes explicit model in session summaries', () => {
+        const store = new Store(':memory:')
+        const events: SyncEvent[] = []
+        const cache = new SessionCache(store, createPublisher(events))
+
+        const session = cache.getOrCreateSession(
+            'session-model-summary',
+            { path: '/tmp/project', host: 'localhost', flavor: 'codex' },
+            null,
+            'default',
+            'gpt-5.4'
+        )
+
+        expect(session.model).toBe('gpt-5.4')
+        expect(toSessionSummary(session).model).toBe('gpt-5.4')
+    })
+
+    it('preserves model from old session when merging into resumed session', async () => {
+        const store = new Store(':memory:')
+        const events: SyncEvent[] = []
+        const cache = new SessionCache(store, createPublisher(events))
+
+        const oldSession = cache.getOrCreateSession(
+            'session-model-old',
+            { path: '/tmp/project', host: 'localhost', flavor: 'codex' },
+            null,
+            'default',
+            'gpt-5.4'
+        )
+        const newSession = cache.getOrCreateSession(
+            'session-model-new',
+            { path: '/tmp/project', host: 'localhost', flavor: 'codex' },
+            null,
+            'default'
+        )
+
+        await cache.mergeSessions(oldSession.id, newSession.id, 'default')
+
+        const merged = cache.getSession(newSession.id)
+        expect(merged?.model).toBe('gpt-5.4')
+    })
+
+    it('passes the stored model when respawning a resumed session', async () => {
+        const store = new Store(':memory:')
+        const engine = new SyncEngine(
+            store,
+            {} as never,
+            new RpcRegistry(),
+            { broadcast() {} } as never
+        )
+
+        try {
+            const session = engine.getOrCreateSession(
+                'session-model-resume',
+                {
+                    path: '/tmp/project',
+                    host: 'localhost',
+                    machineId: 'machine-1',
+                    flavor: 'codex',
+                    codexSessionId: 'codex-thread-1'
+                },
+                null,
+                'default',
+                'gpt-5.4'
+            )
+            engine.getOrCreateMachine(
+                'machine-1',
+                { host: 'localhost', platform: 'linux', happyCliVersion: '0.1.0' },
+                null,
+                'default'
+            )
+            engine.handleMachineAlive({ machineId: 'machine-1', time: Date.now() })
+
+            let capturedModel: string | undefined
+            ;(engine as any).rpcGateway.spawnSession = async (
+                _machineId: string,
+                _directory: string,
+                _agent: string,
+                model?: string
+            ) => {
+                capturedModel = model
+                return { type: 'success', sessionId: session.id }
+            }
+            ;(engine as any).waitForSessionActive = async () => true
+
+            const result = await engine.resumeSession(session.id, 'default')
+
+            expect(result).toEqual({ type: 'success', sessionId: session.id })
+            expect(capturedModel).toBe('gpt-5.4')
+        } finally {
+            engine.stop()
+        }
+    })
+})

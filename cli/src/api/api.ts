@@ -18,13 +18,15 @@ export class ApiClient {
         tag: string
         metadata: Metadata
         state: AgentState | null
+        model?: string
     }): Promise<Session> {
         const response = await axios.post<CreateSessionResponse>(
             `${configuration.apiUrl}/cli/sessions`,
             {
                 tag: opts.tag,
                 metadata: opts.metadata,
-                agentState: opts.state
+                agentState: opts.state,
+                model: opts.model
             },
             {
                 headers: {
@@ -69,6 +71,7 @@ export class ApiClient {
             thinking: raw.thinking,
             thinkingAt: raw.thinkingAt,
             todos: raw.todos,
+            model: raw.model,
             permissionMode: raw.permissionMode,
             modelMode: raw.modelMode
         }

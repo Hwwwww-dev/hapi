@@ -21,6 +21,7 @@ export type SessionBootstrapOptions = {
     workingDirectory?: string
     tag?: string
     agentState?: AgentState | null
+    model?: string
 }
 
 export type SessionBootstrapResult = {
@@ -124,7 +125,8 @@ export async function bootstrapSession(options: SessionBootstrapOptions): Promis
     const sessionInfo = await api.getOrCreateSession({
         tag: sessionTag,
         metadata,
-        state: agentState
+        state: agentState,
+        model: options.model
     })
 
     const session = api.sessionSyncClient(sessionInfo)

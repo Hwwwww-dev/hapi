@@ -17,7 +17,7 @@ import { createModeChangeHandler, createRunnerLifecycle, setControlledByUser } f
 import { isModelModeAllowedForFlavor, isPermissionModeAllowedForFlavor } from '@hapi/protocol';
 import { ModelModeSchema, PermissionModeSchema } from '@hapi/protocol/schemas';
 import { formatMessageWithAttachments } from '@/utils/attachmentFormatter';
-import { resolveClaudeSessionModelMode } from './modelMode';
+import { resolveClaudePersistedModel, resolveClaudeSessionModelMode } from './modelMode';
 
 export interface StartOptions {
     model?: string
@@ -50,7 +50,8 @@ export async function runClaude(options: StartOptions = {}): Promise<void> {
         flavor: 'claude',
         startedBy,
         workingDirectory,
-        agentState: initialState
+        agentState: initialState,
+        model: resolveClaudePersistedModel(options.model)
     });
     logger.debug(`Session created: ${sessionInfo.id}`);
 

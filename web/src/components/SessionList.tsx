@@ -1,4 +1,3 @@
-import { getModelModeLabel } from '@hapi/protocol'
 import { useEffect, useMemo, useState } from 'react'
 import type { SessionSummary } from '@/types/api'
 import type { ApiClient } from '@/api/client'
@@ -8,6 +7,7 @@ import { useSessionActions } from '@/hooks/mutations/useSessionActions'
 import { SessionActionMenu } from '@/components/SessionActionMenu'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { getSessionModelLabel } from '@/lib/sessionModelLabel'
 import { useTranslation } from '@/lib/use-translation'
 
 type SessionGroup = {
@@ -199,7 +199,7 @@ function SessionItem(props: {
     })
 
     const sessionName = getSessionTitle(s)
-    const modelModeLabel = getModelModeLabel(s.modelMode ?? 'default')
+    const modelLabel = getSessionModelLabel(s)
     const statusDotClass = s.active
         ? (s.thinking ? 'bg-[#007AFF]' : 'bg-[var(--app-badge-success-text)]')
         : 'bg-[var(--app-hint)]'
@@ -261,7 +261,9 @@ function SessionItem(props: {
                         </span>
                         {getAgentLabel(s)}
                     </span>
-                    <span>{t('session.item.modelMode')}: {modelModeLabel}</span>
+                    {modelLabel ? (
+                        <span>{t(modelLabel.key)}: {modelLabel.value}</span>
+                    ) : null}
                     {s.metadata?.worktree?.branch ? (
                         <span>{t('session.item.worktree')}: {s.metadata.worktree.branch}</span>
                     ) : null}

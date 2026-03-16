@@ -13,6 +13,8 @@ export type GeminiLocalConfig = {
     model?: string;
 };
 
+export type GeminiModelSource = 'explicit' | 'env' | 'local' | 'default';
+
 const GEMINI_DIR = join(homedir(), '.gemini');
 const SETTINGS_PATH = join(GEMINI_DIR, 'settings.json');
 const CONFIG_PATH = join(GEMINI_DIR, 'config.json');
@@ -85,20 +87,29 @@ export function readGeminiLocalConfig(): GeminiLocalConfig {
 export function resolveGeminiRuntimeConfig(opts: {
     model?: string;
     token?: string;
-} = {}): { model: string; token?: string } {
+} = {}): { model: string; token?: string; modelSource: GeminiModelSource } {
     const local = readGeminiLocalConfig();
 
-    const model = opts.model
-        ?? process.env[GEMINI_MODEL_ENV]
-        ?? local.model
-        ?? DEFAULT_GEMINI_MODEL;
+    let modelSource: GeminiModelSource = 'default';
+    let model = DEFAULT_GEMINI_MODEL;
+
+    if (opts.model) {
+        model = opts.model;
+        modelSource = 'explicit';
+    } else if (process.env[GEMINI_MODEL_ENV]) {
+        model = process.env[GEMINI_MODEL_ENV]!;
+        modelSource = 'env';
+    } else if (local.model) {
+        model = local.model;
+        modelSource = 'local';
+    }
 
     const token = opts.token
         ?? process.env[GEMINI_API_KEY_ENV]
         ?? process.env[GOOGLE_API_KEY_ENV]
         ?? local.token;
 
-    return { model, token };
+    return { model, token, modelSource };
 }
 
 export function buildGeminiEnv(opts: {

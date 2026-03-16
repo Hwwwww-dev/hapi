@@ -210,8 +210,8 @@ export class SyncEngine {
         this.machineCache.reloadAll()
     }
 
-    getOrCreateSession(tag: string, metadata: unknown, agentState: unknown, namespace: string): Session {
-        return this.sessionCache.getOrCreateSession(tag, metadata, agentState, namespace)
+    getOrCreateSession(tag: string, metadata: unknown, agentState: unknown, namespace: string, model?: string): Session {
+        return this.sessionCache.getOrCreateSession(tag, metadata, agentState, namespace, model)
     }
 
     getOrCreateMachine(id: string, metadata: unknown, runnerState: unknown, namespace: string): Machine {
@@ -372,7 +372,7 @@ export class SyncEngine {
             targetMachine.id,
             metadata.path,
             flavor,
-            undefined,
+            session.model,
             undefined,
             undefined,
             undefined,

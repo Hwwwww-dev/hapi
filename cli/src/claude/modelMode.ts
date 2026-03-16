@@ -8,11 +8,23 @@ const CLAUDE_SESSION_MODEL_MODES = new Set<SessionModelMode>([
 ])
 
 export function resolveClaudeSessionModelMode(model?: string): SessionModelMode {
-    if (!model) {
+    const trimmedModel = model?.trim()
+    if (!trimmedModel) {
         return 'default'
     }
 
-    return CLAUDE_SESSION_MODEL_MODES.has(model as SessionModelMode)
-        ? model as SessionModelMode
+    return CLAUDE_SESSION_MODEL_MODES.has(trimmedModel as SessionModelMode)
+        ? trimmedModel as SessionModelMode
         : 'default'
+}
+
+export function resolveClaudePersistedModel(model?: string): string | undefined {
+    const trimmedModel = model?.trim()
+    if (!trimmedModel || trimmedModel === 'auto' || trimmedModel === 'default') {
+        return undefined
+    }
+
+    return resolveClaudeSessionModelMode(trimmedModel) === 'default'
+        ? trimmedModel
+        : undefined
 }

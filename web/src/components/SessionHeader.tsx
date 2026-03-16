@@ -1,4 +1,3 @@
-import { getModelModeLabel } from '@hapi/protocol'
 import { useId, useMemo, useRef, useState } from 'react'
 import type { Session } from '@/types/api'
 import type { ApiClient } from '@/api/client'
@@ -7,6 +6,7 @@ import { useSessionActions } from '@/hooks/mutations/useSessionActions'
 import { SessionActionMenu } from '@/components/SessionActionMenu'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { getSessionModelLabel } from '@/lib/sessionModelLabel'
 import { useTranslation } from '@/lib/use-translation'
 
 function getSessionTitle(session: Session): string {
@@ -71,7 +71,7 @@ export function SessionHeader(props: {
     const { session, api, onSessionDeleted } = props
     const title = useMemo(() => getSessionTitle(session), [session])
     const worktreeBranch = session.metadata?.worktree?.branch
-    const modelModeLabel = getModelModeLabel(session.modelMode ?? 'default')
+    const modelLabel = getSessionModelLabel(session)
 
     const [menuOpen, setMenuOpen] = useState(false)
     const [menuAnchorPoint, setMenuAnchorPoint] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
@@ -140,9 +140,11 @@ export function SessionHeader(props: {
                                 <span aria-hidden="true">❖</span>
                                 {session.metadata?.flavor?.trim() || 'unknown'}
                             </span>
-                            <span>
-                                {t('session.item.modelMode')}: {modelModeLabel}
-                            </span>
+                            {modelLabel ? (
+                                <span>
+                                    {t(modelLabel.key)}: {modelLabel.value}
+                                </span>
+                            ) : null}
                             {worktreeBranch ? (
                                 <span>{t('session.item.worktree')}: {worktreeBranch}</span>
                             ) : null}

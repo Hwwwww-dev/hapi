@@ -55,8 +55,8 @@ export class SessionCache {
         return this.getSessions().filter((session) => session.active)
     }
 
-    getOrCreateSession(tag: string, metadata: unknown, agentState: unknown, namespace: string): Session {
-        const stored = this.store.sessions.getOrCreateSession(tag, metadata, agentState, namespace)
+    getOrCreateSession(tag: string, metadata: unknown, agentState: unknown, namespace: string, model?: string): Session {
+        const stored = this.store.sessions.getOrCreateSession(tag, metadata, agentState, namespace, model)
         return this.refreshSession(stored.id) ?? (() => { throw new Error('Failed to load session') })()
     }
 
@@ -126,6 +126,7 @@ export class SessionCache {
             thinkingAt: existing?.thinkingAt ?? 0,
             todos,
             teamState,
+            model: stored.model ?? undefined,
             permissionMode: existing?.permissionMode,
             modelMode: existing?.modelMode
         }
@@ -322,6 +323,15 @@ export class SessionCache {
                 if (result.result === 'error') {
                     break
                 }
+            }
+        }
+
+        if (newStored.model === null && oldStored.model !== null) {
+            const updated = this.store.sessions.setSessionModel(newSessionId, oldStored.model, namespace, {
+                touchUpdatedAt: false
+            })
+            if (!updated) {
+                throw new Error('Failed to preserve session model during merge')
             }
         }
 
