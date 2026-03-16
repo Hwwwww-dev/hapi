@@ -2,12 +2,14 @@ import { Hono } from 'hono'
 import { AttachmentMetadataSchema } from '@hapi/protocol/schemas'
 import { z } from 'zod'
 import type { SyncEngine } from '../../sync/syncEngine'
+import { CanonicalGenerationResetRequiredError } from '../../sync/messageService'
 import type { WebAppEnv } from '../middleware/auth'
 import { requireSessionFromParam, requireSyncEngine } from './guards'
 
 const querySchema = z.object({
     limit: z.coerce.number().int().min(1).max(200).optional(),
-    beforeSeq: z.coerce.number().int().min(1).optional()
+    generation: z.coerce.number().int().min(1).optional(),
+    beforeTimelineSeq: z.coerce.number().int().min(1).optional()
 })
 
 const sendMessageBodySchema = z.object({
@@ -33,8 +35,26 @@ export function createMessagesRoutes(getSyncEngine: () => SyncEngine | null): Ho
 
         const parsed = querySchema.safeParse(c.req.query())
         const limit = parsed.success ? (parsed.data.limit ?? 50) : 50
-        const beforeSeq = parsed.success ? (parsed.data.beforeSeq ?? null) : null
-        return c.json(engine.getMessagesPage(sessionId, { limit, beforeSeq }))
+        const generation = parsed.success ? (parsed.data.generation ?? null) : null
+        const beforeTimelineSeq = parsed.success ? (parsed.data.beforeTimelineSeq ?? null) : null
+
+        try {
+            return c.json(engine.getCanonicalMessagesPage(sessionId, {
+                generation,
+                beforeTimelineSeq,
+                limit
+            }))
+        } catch (error) {
+            if (error instanceof CanonicalGenerationResetRequiredError) {
+                return c.json({
+                    reset: true,
+                    generation: error.generation,
+                    parserVersion: error.parserVersion
+                }, 409)
+            }
+
+            throw error
+        }
     })
 
     app.post('/sessions/:id/messages', async (c) => {
