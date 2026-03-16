@@ -2,40 +2,55 @@ import { Database } from 'bun:sqlite'
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync } from 'node:fs'
 import { dirname } from 'node:path'
 
+import { CanonicalBlockStore } from './canonicalBlockStore'
 import { MachineStore } from './machineStore'
 import { MessageStore } from './messageStore'
 import { NativeSyncStateStore } from './nativeSyncStateStore'
 import { PushStore } from './pushStore'
 import { RawEventStore } from './rawEventStore'
+import { SessionParseStateStore } from './sessionParseStateStore'
 import { SessionStore } from './sessionStore'
+import { StagedChildRawEventStore } from './stagedChildRawEventStore'
 import { UserStore } from './userStore'
 
 export type {
     RawEventIngestResult,
+    StoredCanonicalBlock,
+    StoredCanonicalRootsPage,
+    StoredCanonicalRootsPageInfo,
     StoredMachine,
     StoredMessage,
     StoredNativeSyncState,
     StoredPushSubscription,
     StoredRawEvent,
     StoredSession,
+    StoredSessionParseState,
+    StoredStagedChildRawEvent,
+    StoredStagedChildRawEventPayload,
     StoredUser,
     VersionedUpdateResult
 } from './types'
+export { CanonicalBlockStore } from './canonicalBlockStore'
 export { MachineStore } from './machineStore'
 export { MessageStore } from './messageStore'
 export { NativeSyncStateStore } from './nativeSyncStateStore'
 export { PushStore } from './pushStore'
 export { RawEventStore } from './rawEventStore'
+export { SessionParseStateStore } from './sessionParseStateStore'
 export { SessionStore } from './sessionStore'
+export { StagedChildRawEventStore } from './stagedChildRawEventStore'
 export { UserStore } from './userStore'
 
-const SCHEMA_VERSION: number = 7
+const SCHEMA_VERSION: number = 8
 const REQUIRED_TABLES = [
     'sessions',
     'session_native_aliases',
     'machines',
     'messages',
     'raw_events',
+    'canonical_blocks',
+    'session_parse_state',
+    'staged_child_raw_events',
     'native_sync_state',
     'users',
     'push_subscriptions'
@@ -49,6 +64,9 @@ export class Store {
     readonly machines: MachineStore
     readonly messages: MessageStore
     readonly rawEvents: RawEventStore
+    readonly canonicalBlocks: CanonicalBlockStore
+    readonly sessionParseState: SessionParseStateStore
+    readonly stagedChildRawEvents: StagedChildRawEventStore
     readonly nativeSyncState: NativeSyncStateStore
     readonly users: UserStore
     readonly push: PushStore
@@ -92,6 +110,9 @@ export class Store {
         this.machines = new MachineStore(this.db)
         this.messages = new MessageStore(this.db)
         this.rawEvents = new RawEventStore(this.db)
+        this.canonicalBlocks = new CanonicalBlockStore(this.db)
+        this.sessionParseState = new SessionParseStateStore(this.db)
+        this.stagedChildRawEvents = new StagedChildRawEventStore(this.db)
         this.nativeSyncState = new NativeSyncStateStore(this.db)
         this.users = new UserStore(this.db)
         this.push = new PushStore(this.db)
@@ -210,6 +231,50 @@ export class Store {
             ON raw_events(provider, source, source_session_id, source_key);
             CREATE INDEX IF NOT EXISTS idx_raw_events_session_ingest_seq
             ON raw_events(session_id, ingest_seq);
+
+            CREATE TABLE IF NOT EXISTS canonical_blocks (
+                id TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                generation INTEGER NOT NULL,
+                timeline_seq INTEGER NOT NULL,
+                sibling_seq INTEGER NOT NULL,
+                parent_block_id TEXT,
+                root_block_id TEXT NOT NULL,
+                depth INTEGER NOT NULL,
+                kind TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                state TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                source_raw_event_ids TEXT NOT NULL,
+                parser_version INTEGER NOT NULL,
+                PRIMARY KEY (session_id, generation, id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_canonical_blocks_generation_timeline
+            ON canonical_blocks(session_id, generation, timeline_seq, sibling_seq, id);
+
+            CREATE TABLE IF NOT EXISTS session_parse_state (
+                session_id TEXT PRIMARY KEY,
+                parser_version INTEGER NOT NULL,
+                active_generation INTEGER NOT NULL,
+                state_json TEXT NOT NULL,
+                last_processed_raw_sort_key TEXT,
+                last_processed_raw_event_id TEXT,
+                latest_stream_seq INTEGER NOT NULL,
+                rebuild_required INTEGER NOT NULL,
+                last_rebuild_started_at INTEGER,
+                last_rebuild_completed_at INTEGER
+            );
+
+            CREATE TABLE IF NOT EXISTS staged_child_raw_events (
+                id TEXT PRIMARY KEY,
+                provider TEXT NOT NULL,
+                child_identity TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                staged_at INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_staged_child_raw_events_child_identity
+            ON staged_child_raw_events(child_identity, staged_at, id);
 
             CREATE TABLE IF NOT EXISTS native_sync_state (
                 session_id TEXT PRIMARY KEY,

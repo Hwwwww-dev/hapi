@@ -1,4 +1,9 @@
-import type { RawEventEnvelope } from '@hapi/protocol'
+import type {
+    CanonicalBlockKind,
+    CanonicalRootBlock,
+    RawEventEnvelope,
+    RawEventProvider
+} from '@hapi/protocol'
 
 export type StoredSession = {
     id: string
@@ -55,6 +60,60 @@ export type StoredRawEvent = Omit<RawEventEnvelope, 'observationKey'> & {
 export type RawEventIngestResult = {
     event: StoredRawEvent
     inserted: boolean
+}
+
+export type StoredCanonicalBlock = {
+    id: string
+    sessionId: string
+    generation: number
+    timelineSeq: number
+    siblingSeq: number
+    parentBlockId: string | null
+    rootBlockId: string
+    depth: number
+    kind: CanonicalBlockKind
+    createdAt: number
+    updatedAt: number
+    state: string
+    payload: Record<string, unknown>
+    sourceRawEventIds: string[]
+    parserVersion: number
+}
+
+export type StoredCanonicalRootsPageInfo = {
+    generation: number
+    limit: number
+    beforeTimelineSeq: number | null
+    nextBeforeTimelineSeq: number | null
+    hasMore: boolean
+}
+
+export type StoredCanonicalRootsPage = {
+    items: CanonicalRootBlock[]
+    page: StoredCanonicalRootsPageInfo
+}
+
+export type StoredSessionParseState = {
+    sessionId: string
+    parserVersion: number
+    activeGeneration: number
+    state: unknown
+    lastProcessedRawSortKey: string | null
+    lastProcessedRawEventId: string | null
+    latestStreamSeq: number
+    rebuildRequired: boolean
+    lastRebuildStartedAt: number | null
+    lastRebuildCompletedAt: number | null
+}
+
+export type StoredStagedChildRawEventPayload = Omit<RawEventEnvelope, 'sessionId'>
+
+export type StoredStagedChildRawEvent = {
+    id: string
+    provider: RawEventProvider
+    childIdentity: string
+    payload: StoredStagedChildRawEventPayload
+    stagedAt: number
 }
 
 export type StoredNativeSyncState = {
