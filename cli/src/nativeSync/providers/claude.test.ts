@@ -203,9 +203,12 @@ describe('Claude native provider', () => {
 
         const provider = createClaudeNativeProvider()
         const [summary] = await provider.discoverSessions()
-        const result = await provider.readMessages(summary, null)
+        const result = await provider.readMessages(summary, null, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 5000
+        })
 
-        expect(result.messages.map((message) => message.sourceKey)).toEqual([
+        expect(result.events.map((event) => event.sourceKey)).toEqual([
             'line:0',
             'line:1',
             'line:2',
@@ -214,11 +217,92 @@ describe('Claude native provider', () => {
             'line:5',
             'line:6'
         ])
-        expect(result.messages[0].content).toEqual(expect.objectContaining({ type: 'summary' }))
-        expect(result.messages[3].content).toEqual(expect.objectContaining({ type: 'user' }))
-        expect(result.messages.at(-1)?.content).toEqual(expect.objectContaining({ type: 'assistant' }))
+        expect(result.events.map((event) => event.sourceOrder)).toEqual([0, 1, 2, 3, 4, 5, 6])
+        expect(result.events[0]).toEqual(expect.objectContaining({
+            sessionId: 'hapi-session-1',
+            provider: 'claude',
+            source: 'native',
+            sourceSessionId: sessionId,
+            sourceKey: 'line:0',
+            sourceOrder: 0,
+            channel: expect.stringContaining('claude:file:'),
+            rawType: 'summary',
+            payload: expect.objectContaining({ type: 'summary' })
+        }))
+        expect(result.events[1]).toEqual(expect.objectContaining({
+            rawType: 'user',
+            observationKey: 'claude:uuid:523a67c0-a9bf-4cef-b886-d71f390b5a2f',
+            payload: expect.objectContaining({ type: 'user' })
+        }))
+        expect(result.events[4]).toEqual(expect.objectContaining({
+            rawType: 'assistant',
+            observationKey: 'claude:uuid:840a4f3a-d7ca-40d3-9737-1cec01d334eb',
+            payload: expect.objectContaining({ type: 'assistant' })
+        }))
+        expect(result.events.at(-1)?.rawType).toBe('assistant')
         expect(result.cursor).toBeTruthy()
         expect(result.filePath).toBe(join(projectDir, `${sessionId}.jsonl`))
+    })
+
+    it('preserves malformed Claude rows as ingest-error raw events', async () => {
+        const sessionId = 'claude-session-ingest-error'
+        const projectPath = '/Users/tester/src/claude-ingest-error'
+        const projectDir = getProjectPath(projectPath)
+        const sessionFile = join(projectDir, `${sessionId}.jsonl`)
+
+        await mkdir(projectDir, { recursive: true })
+        await writeFile(sessionFile, [
+            '{not-json',
+            JSON.stringify({
+                nope: true
+            }),
+            JSON.stringify({
+                type: 'user',
+                uuid: 'user-1',
+                sessionId,
+                cwd: projectPath,
+                timestamp: '2026-01-01T00:00:05.000Z',
+                message: {
+                    content: 'hello'
+                }
+            })
+        ].join('\n') + '\n')
+
+        const provider = createClaudeNativeProvider()
+        const [summary] = await provider.discoverSessions()
+        const result = await provider.readMessages(summary, null, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 6000
+        })
+
+        expect(result.events.map((event) => event.rawType)).toEqual([
+            'ingest-error',
+            'ingest-error',
+            'user'
+        ])
+        expect(result.events[0]).toEqual(expect.objectContaining({
+            sourceKey: 'line:0',
+            sourceOrder: 0,
+            occurredAt: 0,
+            payload: expect.objectContaining({
+                stage: 'json-parse',
+                rawPreview: '{not-json'
+            })
+        }))
+        expect(result.events[1]).toEqual(expect.objectContaining({
+            sourceKey: 'line:1',
+            sourceOrder: 1,
+            occurredAt: 0,
+            payload: expect.objectContaining({
+                stage: 'schema-parse',
+                rawPreview: expect.stringContaining('"nope":true')
+            })
+        }))
+        expect(result.events[2]).toEqual(expect.objectContaining({
+            rawType: 'user',
+            observationKey: 'claude:uuid:user-1',
+            occurredAt: Date.parse('2026-01-01T00:00:05.000Z')
+        }))
     })
 
     it('tails only newly appended lines after the persisted cursor', async () => {
@@ -243,7 +327,10 @@ describe('Claude native provider', () => {
 
         const provider = createClaudeNativeProvider()
         const [summary] = await provider.discoverSessions()
-        const initial = await provider.readMessages(summary, null)
+        const initial = await provider.readMessages(summary, null, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 7000
+        })
 
         await appendFile(sessionFile, JSON.stringify({
             type: 'assistant',
@@ -267,11 +354,19 @@ describe('Claude native provider', () => {
             lastSyncedAt: 1,
             syncStatus: 'healthy',
             lastError: null
+        }, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 7001
         })
 
-        expect(tail.messages).toHaveLength(1)
-        expect(tail.messages[0].sourceKey).toBe('line:1')
-        expect(tail.messages[0].content).toEqual(expect.objectContaining({ type: 'assistant' }))
+        expect(tail.events).toHaveLength(1)
+        expect(tail.events[0]).toEqual(expect.objectContaining({
+            sourceKey: 'line:1',
+            sourceOrder: 1,
+            rawType: 'assistant',
+            observationKey: 'claude:uuid:assistant-1',
+            payload: expect.objectContaining({ type: 'assistant' })
+        }))
         expect(tail.cursor).not.toBe(initial.cursor)
     })
 })

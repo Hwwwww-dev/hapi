@@ -4,8 +4,16 @@ import { basename, join } from 'node:path'
 import { homedir } from 'node:os'
 
 import { readClaudeNativeLog } from '@/claude/utils/nativeLogReader'
+import type { RawJSONLines } from '@/claude/types'
 import { getProjectPath } from '@/claude/utils/path'
-import type { NativeMessageBatch, NativeSyncProvider } from './provider'
+import {
+    buildNativeFileChannel,
+    createNativeRawEvent,
+    resolveNativeReadContext,
+    type NativeMessageBatch,
+    type NativeReadContext,
+    type NativeSyncProvider
+} from './provider'
 import type { NativeSessionSummary, NativeSyncState } from '../types'
 
 type ClaudeCursor = {
@@ -96,6 +104,23 @@ function buildCursor(filePath: string, line: number): string {
     return JSON.stringify({ filePath, line })
 }
 
+function extractClaudeObservationKey(event: RawJSONLines): string | null {
+    if ('uuid' in event && typeof event.uuid === 'string' && event.uuid.length > 0) {
+        return `claude:uuid:${event.uuid}`
+    }
+
+    return null
+}
+
+function createClaudeIngestErrorPayload(row: Extract<Awaited<ReturnType<typeof readClaudeNativeLog>>['rows'][number], { kind: 'ingest-error' }>): Record<string, unknown> {
+    return {
+        stage: row.stage,
+        error: row.error,
+        rawPreview: row.rawLine,
+        lineIndex: row.lineIndex
+    }
+}
+
 async function listSessionFiles(): Promise<string[]> {
     const projectsDir = getProjectsDir()
     if (!existsSync(projectsDir)) {
@@ -183,7 +208,11 @@ export function createClaudeNativeProvider(): NativeSyncProvider {
             return summaries.sort((left, right) => right.lastActivityAt - left.lastActivityAt)
         },
 
-        async readMessages(summary: NativeSessionSummary, state: NativeSyncState | null): Promise<NativeMessageBatch> {
+        async readMessages(
+            summary: NativeSessionSummary,
+            state: NativeSyncState | null,
+            context?: NativeReadContext
+        ): Promise<NativeMessageBatch> {
             const filePath = state?.filePath
                 ?? sessionFileCache.get(summary.nativeSessionId)
                 ?? join(getProjectPath(summary.projectPath), `${summary.nativeSessionId}.jsonl`)
@@ -191,7 +220,7 @@ export function createClaudeNativeProvider(): NativeSyncProvider {
             const mtimeMs = Math.floor(fileStat.mtimeMs)
             if (state?.filePath === filePath && state.mtime === mtimeMs) {
                 return {
-                    messages: [],
+                    events: [],
                     cursor: state.cursor,
                     filePath,
                     mtime: mtimeMs
@@ -199,14 +228,24 @@ export function createClaudeNativeProvider(): NativeSyncProvider {
             }
 
             const startLine = parseCursor(state?.cursor, filePath)
-            const { entries, totalLines } = await readClaudeNativeLog(filePath, startLine)
+            const { rows, totalLines } = await readClaudeNativeLog(filePath, startLine)
+            const { sessionId, ingestedAt } = resolveNativeReadContext(summary, context)
+            const channel = buildNativeFileChannel('claude', filePath)
             sessionFileCache.set(summary.nativeSessionId, filePath)
 
             return {
-                messages: entries.map((entry) => ({
-                    sourceKey: entry.sourceKey,
-                    createdAt: entry.createdAt,
-                    content: entry.event
+                events: rows.map((row) => createNativeRawEvent({
+                    sessionId,
+                    provider: 'claude',
+                    sourceSessionId: summary.nativeSessionId,
+                    sourceKey: row.sourceKey,
+                    observationKey: row.kind === 'event' ? extractClaudeObservationKey(row.event) : null,
+                    channel,
+                    sourceOrder: row.lineIndex,
+                    occurredAt: row.createdAt,
+                    ingestedAt,
+                    rawType: row.kind === 'event' ? row.event.type : 'ingest-error',
+                    payload: row.kind === 'event' ? row.event : createClaudeIngestErrorPayload(row)
                 })),
                 cursor: buildCursor(filePath, totalLines),
                 filePath,

@@ -5,12 +5,28 @@ import type { SessionFileScanEntry } from '@/modules/common/session/BaseSessionS
 import type { CodexSessionEvent } from './codexEventConverter'
 
 export type CodexNativeEventEntry = SessionFileScanEntry<CodexSessionEvent> & {
+    kind: 'event'
+    lineIndex: number
     sourceKey: string
     createdAt: number
 }
 
+export type CodexNativeEventIngestErrorEntry = {
+    kind: 'ingest-error'
+    lineIndex: number
+    sourceKey: string
+    createdAt: number
+    rawType: 'ingest-error'
+    rawLine: string
+    stage: 'json-parse' | 'schema-parse'
+    error: string
+}
+
+export type CodexNativeEventRow = CodexNativeEventEntry | CodexNativeEventIngestErrorEntry
+
 export type CodexNativeEventReadResult = {
     entries: CodexNativeEventEntry[]
+    rows: CodexNativeEventRow[]
     totalLines: number
     resetToStart: boolean
     sessionId: string | null
@@ -45,6 +61,10 @@ export function normalizeCodexPath(value: string): string {
     return process.platform === 'win32' ? resolved.toLowerCase() : resolved
 }
 
+function isCodexSessionEvent(value: unknown): value is CodexSessionEvent {
+    return asString(asRecord(value)?.type) !== null
+}
+
 function buildSourceKey(filePath: string, lineIndex: number, sourceRoot?: string): string {
     if (!sourceRoot) {
         return `line:${lineIndex}`
@@ -65,6 +85,7 @@ export async function readCodexNativeEventFile(
     } catch {
         return {
             entries: [],
+            rows: [],
             totalLines: startLine,
             resetToStart: false,
             sessionId: null,
@@ -84,6 +105,7 @@ export async function readCodexNativeEventFile(
     let sessionTimestamp: number | null = null
     let lastCreatedAt = 0
     const entries: CodexNativeEventEntry[] = []
+    const rows: CodexNativeEventRow[] = []
 
     for (let index = 0; index < lines.length; index += 1) {
         const trimmed = lines[index].trim()
@@ -91,8 +113,34 @@ export async function readCodexNativeEventFile(
             continue
         }
 
+        const sourceKey = buildSourceKey(filePath, index, sourceRoot)
+        const shouldIncludeRow = index >= effectiveStartLine
+
         try {
-            const parsed = JSON.parse(trimmed) as CodexSessionEvent
+            const parsedValue = JSON.parse(trimmed)
+            if (!isCodexSessionEvent(parsedValue)) {
+                const createdAt = parseCodexTimestamp(asRecord(parsedValue)?.timestamp ?? null)
+                    ?? lastCreatedAt
+                    ?? sessionTimestamp
+                    ?? 0
+                lastCreatedAt = createdAt
+
+                if (shouldIncludeRow) {
+                    rows.push({
+                        kind: 'ingest-error',
+                        lineIndex: index,
+                        sourceKey,
+                        createdAt,
+                        rawType: 'ingest-error',
+                        rawLine: trimmed,
+                        stage: 'schema-parse',
+                        error: 'Codex row must include a non-empty string type'
+                    })
+                }
+                continue
+            }
+
+            const parsed = parsedValue
             const payload = asRecord(parsed.payload)
             const topLevelTimestamp = parseCodexTimestamp(asRecord(parsed)?.timestamp ?? null)
 
@@ -119,22 +167,46 @@ export async function readCodexNativeEventFile(
 
             const createdAt = (payload ? parseCodexTimestamp(payload.timestamp) : null)
                 ?? topLevelTimestamp
-                ?? (lastCreatedAt || sessionTimestamp || index)
+                ?? lastCreatedAt
+                ?? sessionTimestamp
+                ?? 0
             lastCreatedAt = createdAt
 
-            entries.push({
+            const entry: CodexNativeEventEntry = {
+                kind: 'event',
                 event: parsed,
                 lineIndex: index,
-                sourceKey: buildSourceKey(filePath, index, sourceRoot),
+                sourceKey,
                 createdAt
-            })
+            }
+
+            entries.push(entry)
+            rows.push(entry)
         } catch {
+            const createdAt = lastCreatedAt ?? sessionTimestamp ?? 0
+            lastCreatedAt = createdAt
+
+            if (!shouldIncludeRow) {
+                continue
+            }
+
+            rows.push({
+                kind: 'ingest-error',
+                lineIndex: index,
+                sourceKey,
+                createdAt,
+                rawType: 'ingest-error',
+                rawLine: trimmed,
+                stage: 'json-parse',
+                error: 'Failed to parse JSON'
+            })
             continue
         }
     }
 
     return {
         entries,
+        rows,
         totalLines,
         resetToStart,
         sessionId,

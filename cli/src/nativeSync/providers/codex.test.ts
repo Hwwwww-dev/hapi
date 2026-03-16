@@ -297,40 +297,56 @@ describe('Codex native provider', () => {
 
         const provider = createCodexNativeProvider()
         const [summary] = await provider.discoverSessions()
-        const result = await provider.readMessages(summary, null)
+        const result = await provider.readMessages(summary, null, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 5000
+        })
 
-        expect(result.messages.map((message) => message.sourceKey)).toEqual([
+        expect(result.events.map((event) => event.sourceKey)).toEqual([
+            'file:2026/01/02/codex-codex-session-2.jsonl:line:0',
             'file:2026/01/02/codex-codex-session-2.jsonl:line:1',
             'file:2026/01/02/codex-codex-session-2.jsonl:line:2'
         ])
-        expect(result.messages.map((message) => message.content)).toEqual([
-            {
-                role: 'agent',
-                content: expect.objectContaining({
-                    type: 'codex',
-                    data: expect.objectContaining({
-                        type: 'message',
-                        message: 'hello'
-                    })
-                }),
-                meta: {
-                    sentFrom: 'cli'
-                }
-            },
-            {
-                role: 'agent',
-                content: expect.objectContaining({
-                    type: 'codex',
-                    data: expect.objectContaining({
-                        type: 'tool-call',
-                        name: 'write_file'
-                    })
-                }),
-                meta: {
-                    sentFrom: 'cli'
-                }
-            }
-        ])
+        expect(result.events.map((event) => event.sourceOrder)).toEqual([0, 1, 2])
+        expect(result.events[0]).toEqual(expect.objectContaining({
+            sessionId: 'hapi-session-1',
+            provider: 'codex',
+            source: 'native',
+            sourceSessionId: sessionId,
+            sourceKey: 'file:2026/01/02/codex-codex-session-2.jsonl:line:0',
+            sourceOrder: 0,
+            channel: 'codex:file:2026/01/02/codex-codex-session-2.jsonl',
+            rawType: 'session_meta',
+            payload: expect.objectContaining({
+                type: 'session_meta',
+                payload: expect.objectContaining({
+                    id: sessionId
+                })
+            })
+        }))
+        expect(result.events[1]).toEqual(expect.objectContaining({
+            rawType: 'event_msg',
+            observationKey: null,
+            payload: expect.objectContaining({
+                type: 'event_msg',
+                payload: expect.objectContaining({
+                    type: 'agent_message',
+                    message: 'hello'
+                })
+            })
+        }))
+        expect(result.events[2]).toEqual(expect.objectContaining({
+            rawType: 'response_item',
+            observationKey: 'codex:call_id:call-2',
+            payload: expect.objectContaining({
+                type: 'response_item',
+                payload: expect.objectContaining({
+                    type: 'function_call',
+                    name: 'write_file',
+                    call_id: 'call-2'
+                })
+            })
+        }))
         expect(result.cursor).toBeTruthy()
         expect(result.filePath).toBe(sessionFile)
     })
@@ -368,10 +384,13 @@ describe('Codex native provider', () => {
 
         const provider = createCodexNativeProvider()
         const [summary] = await provider.discoverSessions()
-        const result = await provider.readMessages(summary, null)
+        const result = await provider.readMessages(summary, null, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 5100
+        })
 
         expect(result.filePath).toBe(sessionFile)
-        expect(result.messages).toHaveLength(2)
+        expect(result.events).toHaveLength(3)
     })
 
     it('re-reads a small overlap near the persisted cursor only after the native file changes', async () => {
@@ -400,7 +419,10 @@ describe('Codex native provider', () => {
 
         const provider = createCodexNativeProvider()
         const [summary] = await provider.discoverSessions()
-        const initial = await provider.readMessages(summary, null)
+        const initial = await provider.readMessages(summary, null, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 5200
+        })
         const unchanged = await provider.readMessages(summary, {
             sessionId: 'hapi-session-1',
             provider: 'codex',
@@ -412,9 +434,12 @@ describe('Codex native provider', () => {
             lastSyncedAt: 1,
             syncStatus: 'healthy',
             lastError: null
+        }, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 5201
         })
 
-        expect(unchanged.messages).toHaveLength(0)
+        expect(unchanged.events).toHaveLength(0)
         expect(unchanged.cursor).toBe(initial.cursor)
 
         await appendFile(sessionFile, JSON.stringify({
@@ -427,6 +452,8 @@ describe('Codex native provider', () => {
                 }
             }
         }) + '\n')
+        const updatedMtime = new Date((initial.mtime ?? 0) + 1_000)
+        await utimes(sessionFile, updatedMtime, updatedMtime)
 
         const tail = await provider.readMessages(summary, {
             sessionId: 'hapi-session-1',
@@ -439,31 +466,37 @@ describe('Codex native provider', () => {
             lastSyncedAt: 1,
             syncStatus: 'healthy',
             lastError: null
+        }, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 5202
         })
 
-        expect(tail.messages).toHaveLength(2)
-        expect(tail.messages[0].sourceKey).toBe('file:2026/01/03/codex-codex-session-3.jsonl:line:1')
-        expect(tail.messages[1].sourceKey).toBe('file:2026/01/03/codex-codex-session-3.jsonl:line:2')
-        expect(tail.messages[1].content).toEqual({
-            role: 'agent',
-            content: expect.objectContaining({
-                type: 'codex',
-                data: expect.objectContaining({
-                    type: 'tool-call-result',
-                    callId: 'call-1',
+        expect(tail.events).toHaveLength(3)
+        expect(tail.events.map((event) => event.sourceKey)).toEqual([
+            'file:2026/01/03/codex-codex-session-3.jsonl:line:0',
+            'file:2026/01/03/codex-codex-session-3.jsonl:line:1',
+            'file:2026/01/03/codex-codex-session-3.jsonl:line:2'
+        ])
+        expect(tail.events[0]?.id).toBe(initial.events[0]?.id)
+        expect(tail.events[1]?.id).toBe(initial.events[1]?.id)
+        expect(tail.events[2]).toEqual(expect.objectContaining({
+            rawType: 'response_item',
+            observationKey: 'codex:call_id:call-1',
+            payload: expect.objectContaining({
+                type: 'response_item',
+                payload: expect.objectContaining({
+                    type: 'function_call_output',
+                    call_id: 'call-1',
                     output: {
                         ok: true
                     }
                 })
-            }),
-            meta: {
-                sentFrom: 'cli'
-            }
-        })
+            })
+        }))
         expect(tail.cursor).not.toBe(initial.cursor)
     })
 
-    it('converts native Codex events into the same chat protocol used by live sessions', async () => {
+    it('preserves raw Codex payloads without reshaping them into UI messages', async () => {
         const sessionId = 'codex-session-4'
         const sessionDir = join(tempDir, 'sessions', '2026', '01', '04')
         const sessionFile = join(sessionDir, `codex-${sessionId}.jsonl`)
@@ -496,32 +529,101 @@ describe('Codex native provider', () => {
 
         const provider = createCodexNativeProvider()
         const [summary] = await provider.discoverSessions()
-        const result = await provider.readMessages(summary, null)
+        const result = await provider.readMessages(summary, null, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 5300
+        })
 
-        expect(result.messages).toHaveLength(2)
-        expect(result.messages[0].content).toEqual({
-            role: 'user',
-            content: {
-                type: 'text',
-                text: 'write a test'
-            },
-            meta: {
-                sentFrom: 'cli'
+        expect(result.events).toHaveLength(3)
+        expect(result.events[1]).toEqual(expect.objectContaining({
+            rawType: 'event_msg',
+            payload: {
+                type: 'event_msg',
+                payload: {
+                    type: 'user_message',
+                    message: 'write a test'
+                }
             }
-        })
-        expect(result.messages[1].content).toEqual({
-            role: 'agent',
-            content: expect.objectContaining({
-                type: 'codex',
-                data: expect.objectContaining({
-                    type: 'message',
+        }))
+        expect(result.events[2]).toEqual(expect.objectContaining({
+            rawType: 'event_msg',
+            payload: {
+                type: 'event_msg',
+                payload: {
+                    type: 'agent_message',
                     message: 'done'
-                })
-            }),
-            meta: {
-                sentFrom: 'cli'
+                }
             }
+        }))
+    })
+
+    it('preserves malformed Codex rows as ingest-error raw events', async () => {
+        const sessionId = 'codex-session-ingest-error'
+        const sessionDir = join(tempDir, 'sessions', '2026', '01', '10')
+        const sessionFile = join(sessionDir, `codex-${sessionId}.jsonl`)
+
+        await mkdir(sessionDir, { recursive: true })
+        await writeFile(sessionFile, [
+            JSON.stringify({
+                type: 'session_meta',
+                payload: {
+                    id: sessionId,
+                    cwd: '/workspaces/codex-ingest-error',
+                    timestamp: '2026-01-10T00:00:00.000Z'
+                }
+            }),
+            '{not-json',
+            JSON.stringify({
+                payload: {
+                    bad: true
+                }
+            }),
+            JSON.stringify({
+                type: 'response_item',
+                payload: {
+                    type: 'function_call_output',
+                    call_id: 'call-9',
+                    output: {
+                        ok: true
+                    }
+                }
+            })
+        ].join('\n') + '\n')
+
+        const provider = createCodexNativeProvider()
+        const [summary] = await provider.discoverSessions()
+        const result = await provider.readMessages(summary, null, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 5400
         })
+
+        expect(result.events.map((event) => event.rawType)).toEqual([
+            'session_meta',
+            'ingest-error',
+            'ingest-error',
+            'response_item'
+        ])
+        expect(result.events[1]).toEqual(expect.objectContaining({
+            sourceKey: 'file:2026/01/10/codex-codex-session-ingest-error.jsonl:line:1',
+            sourceOrder: 1,
+            occurredAt: Date.parse('2026-01-10T00:00:00.000Z'),
+            payload: expect.objectContaining({
+                stage: 'json-parse',
+                rawPreview: '{not-json'
+            })
+        }))
+        expect(result.events[2]).toEqual(expect.objectContaining({
+            sourceKey: 'file:2026/01/10/codex-codex-session-ingest-error.jsonl:line:2',
+            sourceOrder: 2,
+            occurredAt: Date.parse('2026-01-10T00:00:00.000Z'),
+            payload: expect.objectContaining({
+                stage: 'schema-parse',
+                rawPreview: expect.stringContaining('"bad":true')
+            })
+        }))
+        expect(result.events[3]).toEqual(expect.objectContaining({
+            observationKey: 'codex:call_id:call-9'
+        }))
     })
 
     it('uses top-level native timestamps for Codex messages that lack payload timestamps', async () => {
@@ -552,9 +654,12 @@ describe('Codex native provider', () => {
 
         const provider = createCodexNativeProvider()
         const [summary] = await provider.discoverSessions()
-        const result = await provider.readMessages(summary, null)
+        const result = await provider.readMessages(summary, null, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 5500
+        })
 
-        expect(result.messages).toHaveLength(1)
-        expect(result.messages[0]?.createdAt).toBe(Date.parse('2026-03-15T14:20:42.770Z'))
+        expect(result.events).toHaveLength(2)
+        expect(result.events[1]?.occurredAt).toBe(Date.parse('2026-03-15T14:20:42.770Z'))
     })
 })

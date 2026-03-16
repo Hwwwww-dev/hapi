@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { RawEventEnvelope } from '@hapi/protocol'
 
 import { NativeSyncService } from './NativeSyncService'
-import type { NativeSyncState, NativeMessage, NativeSessionSummary } from './types'
+import type { NativeSyncState, NativeSessionSummary } from './types'
 import { buildStableNativeTag, type NativeSyncProvider } from './providers/provider'
 
 function createSummary(overrides: Partial<NativeSessionSummary> = {}): NativeSessionSummary {
@@ -19,11 +20,23 @@ function createSummary(overrides: Partial<NativeSessionSummary> = {}): NativeSes
     }
 }
 
-function createMessage(sourceKey: string, createdAt: number, content: unknown): NativeMessage {
+function createEvent(overrides: Partial<RawEventEnvelope> = {}): RawEventEnvelope {
     return {
-        sourceKey,
-        createdAt,
-        content
+        id: 'raw-1',
+        sessionId: 'hapi-session-1',
+        provider: 'claude',
+        source: 'native',
+        sourceSessionId: 'native-1',
+        sourceKey: 'line:0',
+        observationKey: null,
+        channel: 'claude:file:/tmp/project/.native/session.jsonl',
+        sourceOrder: 0,
+        occurredAt: 100,
+        ingestedAt: 200,
+        rawType: 'assistant',
+        payload: { role: 'assistant', content: 'hello' },
+        ingestSchemaVersion: 1,
+        ...overrides
     }
 }
 
@@ -45,7 +58,7 @@ function createState(overrides: Partial<NativeSyncState> = {}): NativeSyncState 
 
 function createProvider(options: {
     summaries?: NativeSessionSummary[]
-    readResult?: { messages: NativeMessage[]; cursor: string | null; filePath?: string | null; mtime?: number | null }
+    readResult?: { events: RawEventEnvelope[]; cursor: string | null; filePath?: string | null; mtime?: number | null }
     readImplementation?: NativeSyncProvider['readMessages']
 } = {}): NativeSyncProvider & {
     discoverSessions: ReturnType<typeof vi.fn>
@@ -55,7 +68,7 @@ function createProvider(options: {
         name: options.summaries?.[0]?.provider ?? 'claude',
         discoverSessions: vi.fn().mockResolvedValue(options.summaries ?? []),
         readMessages: vi.fn(options.readImplementation ?? (async () => ({
-            messages: options.readResult?.messages ?? [],
+            events: options.readResult?.events ?? [],
             cursor: options.readResult?.cursor ?? null,
             filePath: options.readResult?.filePath ?? null,
             mtime: options.readResult?.mtime ?? null
@@ -73,7 +86,7 @@ function createApi(options: {
         getNativeSyncState: vi.fn()
             .mockResolvedValueOnce(options.initialState ?? null)
             .mockResolvedValue(options.nextState ?? options.initialState ?? null),
-        importNativeMessages: vi.fn().mockResolvedValue({ imported: 0 }),
+        importNativeRawEvents: vi.fn().mockResolvedValue({ imported: 0 }),
         updateNativeSyncState: vi.fn().mockResolvedValue(undefined)
     }
 }
@@ -165,14 +178,28 @@ describe('NativeSyncService', () => {
 
     it('maps a new native session to one canonical HAPI session', async () => {
         const summary = createSummary()
-        const messages = [
-            createMessage('line:1', 101, { role: 'user', content: 'hi' }),
-            createMessage('line:2', 102, { role: 'assistant', content: 'hello' })
+        const events = [
+            createEvent({
+                id: 'raw-1',
+                sourceKey: 'line:1',
+                sourceOrder: 1,
+                occurredAt: 101,
+                rawType: 'user',
+                payload: { role: 'user', content: 'hi' }
+            }),
+            createEvent({
+                id: 'raw-2',
+                sourceKey: 'line:2',
+                sourceOrder: 2,
+                occurredAt: 102,
+                rawType: 'assistant',
+                payload: { role: 'assistant', content: 'hello' }
+            })
         ]
         const provider = createProvider({
             summaries: [summary],
             readResult: {
-                messages,
+                events,
                 cursor: 'line:2',
                 filePath: '/tmp/project/.native/session.jsonl',
                 mtime: 999
@@ -210,15 +237,28 @@ describe('NativeSyncService', () => {
             })
         }))
         expect(api.getNativeSyncState).toHaveBeenCalledWith('hapi-session-1')
-        expect(provider.readMessages).toHaveBeenCalledWith(summary, null)
-        expect(api.importNativeMessages).toHaveBeenCalledWith('hapi-session-1', [
+        expect(provider.readMessages).toHaveBeenCalledWith(summary, null, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 5000
+        })
+        expect(api.importNativeRawEvents).toHaveBeenCalledWith('hapi-session-1', [
             expect.objectContaining({
+                sessionId: 'hapi-session-1',
+                provider: 'claude',
+                source: 'native',
+                sourceSessionId: 'native-1',
                 sourceKey: 'line:1',
-                createdAt: 101
+                occurredAt: 101,
+                rawType: 'user'
             }),
             expect.objectContaining({
+                sessionId: 'hapi-session-1',
+                provider: 'claude',
+                source: 'native',
+                sourceSessionId: 'native-1',
                 sourceKey: 'line:2',
-                createdAt: 102
+                occurredAt: 102,
+                rawType: 'assistant'
             })
         ])
         expect(api.updateNativeSyncState).toHaveBeenCalledWith(expect.objectContaining({
@@ -241,7 +281,13 @@ describe('NativeSyncService', () => {
         const provider = createProvider({
             summaries: [summary],
             readResult: {
-                messages: [createMessage('line:3', 103, { role: 'assistant', content: 'new' })],
+                events: [createEvent({
+                    id: 'raw-3',
+                    sourceKey: 'line:3',
+                    sourceOrder: 3,
+                    occurredAt: 103,
+                    payload: { role: 'assistant', content: 'new' }
+                })],
                 cursor: 'line:3',
                 filePath: '/tmp/project/.native/session.jsonl',
                 mtime: 1000
@@ -271,7 +317,10 @@ describe('NativeSyncService', () => {
         expect(api.upsertNativeSession).toHaveBeenNthCalledWith(2, expect.objectContaining({
             tag: buildStableNativeTag(summary)
         }))
-        expect(provider.readMessages).toHaveBeenNthCalledWith(2, summary, initialState)
+        expect(provider.readMessages).toHaveBeenNthCalledWith(2, summary, initialState, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 12000
+        })
     })
 
     it('imports only unseen native messages from the persisted cursor', async () => {
@@ -280,7 +329,13 @@ describe('NativeSyncService', () => {
         const provider = createProvider({
             summaries: [summary],
             readResult: {
-                messages: [createMessage('line:3', 103, { role: 'assistant', content: 'tail' })],
+                events: [createEvent({
+                    id: 'raw-3',
+                    sourceKey: 'line:3',
+                    sourceOrder: 3,
+                    occurredAt: 103,
+                    payload: { role: 'assistant', content: 'tail' }
+                })],
                 cursor: 'line:3'
             }
         })
@@ -298,8 +353,11 @@ describe('NativeSyncService', () => {
 
         await service.syncOnce()
 
-        expect(provider.readMessages).toHaveBeenCalledWith(summary, existingState)
-        expect(api.importNativeMessages).toHaveBeenCalledWith('hapi-session-1', [
+        expect(provider.readMessages).toHaveBeenCalledWith(summary, existingState, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 7000
+        })
+        expect(api.importNativeRawEvents).toHaveBeenCalledWith('hapi-session-1', [
             expect.objectContaining({ sourceKey: 'line:3' })
         ])
     })
@@ -310,9 +368,21 @@ describe('NativeSyncService', () => {
         const provider = createProvider({
             summaries: [summary],
             readResult: {
-                messages: [
-                    createMessage('line:1', 101, { role: 'assistant', content: largeText }),
-                    createMessage('line:2', 102, { role: 'assistant', content: largeText })
+                events: [
+                    createEvent({
+                        id: 'raw-1',
+                        sourceKey: 'line:1',
+                        sourceOrder: 1,
+                        occurredAt: 101,
+                        payload: { role: 'assistant', content: largeText }
+                    }),
+                    createEvent({
+                        id: 'raw-2',
+                        sourceKey: 'line:2',
+                        sourceOrder: 2,
+                        occurredAt: 102,
+                        payload: { role: 'assistant', content: largeText }
+                    })
                 ],
                 cursor: 'line:2'
             }
@@ -329,11 +399,11 @@ describe('NativeSyncService', () => {
 
         await service.syncOnce()
 
-        expect(api.importNativeMessages).toHaveBeenCalledTimes(2)
-        expect(api.importNativeMessages).toHaveBeenNthCalledWith(1, 'hapi-session-1', [
+        expect(api.importNativeRawEvents).toHaveBeenCalledTimes(2)
+        expect(api.importNativeRawEvents).toHaveBeenNthCalledWith(1, 'hapi-session-1', [
             expect.objectContaining({ sourceKey: 'line:1' })
         ])
-        expect(api.importNativeMessages).toHaveBeenNthCalledWith(2, 'hapi-session-1', [
+        expect(api.importNativeRawEvents).toHaveBeenNthCalledWith(2, 'hapi-session-1', [
             expect.objectContaining({ sourceKey: 'line:2' })
         ])
     })
@@ -344,7 +414,7 @@ describe('NativeSyncService', () => {
         const provider = createProvider({
             summaries: [summary],
             readResult: {
-                messages: [],
+                events: [],
                 cursor: 'line:5'
             }
         })
@@ -363,7 +433,10 @@ describe('NativeSyncService', () => {
 
         await service.syncOnce()
 
-        expect(provider.readMessages).toHaveBeenCalledWith(summary, persistedState)
+        expect(provider.readMessages).toHaveBeenCalledWith(summary, persistedState, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 8000
+        })
         expect(api.updateNativeSyncState).toHaveBeenCalledWith(expect.objectContaining({
             cursor: 'line:5',
             lastSyncedAt: 8000
@@ -391,7 +464,14 @@ describe('NativeSyncService', () => {
                 }
 
                 return {
-                    messages: [createMessage('line:10', 110, { role: 'assistant', content: 'ok' })],
+                    events: [createEvent({
+                        id: 'raw-10',
+                        sourceSessionId: 'native-ok',
+                        sourceKey: 'line:10',
+                        sourceOrder: 10,
+                        occurredAt: 110,
+                        payload: { role: 'assistant', content: 'ok' }
+                    })],
                     cursor: 'line:10',
                     filePath: '/tmp/project/.native/ok.jsonl',
                     mtime: 333
@@ -405,7 +485,7 @@ describe('NativeSyncService', () => {
             getNativeSyncState: vi.fn()
                 .mockResolvedValueOnce(existingState)
                 .mockResolvedValueOnce(null),
-            importNativeMessages: vi.fn().mockResolvedValue({ imported: 1 }),
+            importNativeRawEvents: vi.fn().mockResolvedValue({ imported: 1 }),
             updateNativeSyncState: vi.fn().mockResolvedValue(undefined)
         }
         const service = new NativeSyncService({
@@ -428,7 +508,7 @@ describe('NativeSyncService', () => {
             syncStatus: 'error',
             lastError: 'scan failed'
         }))
-        expect(api.importNativeMessages).toHaveBeenCalledWith('hapi-session-ok', [
+        expect(api.importNativeRawEvents).toHaveBeenCalledWith('hapi-session-ok', [
             expect.objectContaining({ sourceKey: 'line:10' })
         ])
     })

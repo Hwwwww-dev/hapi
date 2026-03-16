@@ -1,4 +1,5 @@
 import axios from 'axios'
+import type { RawEventEnvelope } from '@hapi/protocol'
 import type { AgentState, CreateMachineResponse, CreateSessionResponse, RunnerState, Machine, MachineMetadata, Metadata, Session } from '@/api/types'
 import {
     AgentStateSchema,
@@ -16,7 +17,7 @@ import { getAuthToken } from '@/api/auth'
 import { apiValidationError } from '@/utils/errorUtils'
 import { ApiMachineClient } from './apiMachine'
 import { ApiSessionClient } from './apiSession'
-import type { NativeMessageImport, NativeSyncState } from '@/nativeSync/types'
+import type { NativeSyncState } from '@/nativeSync/types'
 
 export class ApiClient {
     static async create(): Promise<ApiClient> {
@@ -170,10 +171,10 @@ export class ApiClient {
         return parsed.data.state
     }
 
-    async importNativeMessages(sessionId: string, messages: NativeMessageImport[]): Promise<{ imported: number; session: Session }> {
+    async importNativeRawEvents(sessionId: string, events: RawEventEnvelope[]): Promise<{ imported: number; session: Session }> {
         const response = await axios.post(
-            `${configuration.apiUrl}/cli/native/sessions/${encodeURIComponent(sessionId)}/messages/import`,
-            { messages },
+            `${configuration.apiUrl}/cli/native/sessions/${encodeURIComponent(sessionId)}/raw-events/import`,
+            { events },
             {
                 headers: {
                     Authorization: `Bearer ${this.token}`,
@@ -185,13 +186,17 @@ export class ApiClient {
 
         const parsed = ImportNativeMessagesResponseSchema.safeParse(response.data)
         if (!parsed.success) {
-            throw apiValidationError('Invalid /cli/native/sessions/:id/messages/import response', response)
+            throw apiValidationError('Invalid /cli/native/sessions/:id/raw-events/import response', response)
         }
 
         return {
             imported: parsed.data.imported,
             session: this.parseSession(parsed.data.session)
         }
+    }
+
+    async importNativeMessages(sessionId: string, events: RawEventEnvelope[]): Promise<{ imported: number; session: Session }> {
+        return this.importNativeRawEvents(sessionId, events)
     }
 
     async updateNativeSyncState(state: NativeSyncState): Promise<NativeSyncState> {

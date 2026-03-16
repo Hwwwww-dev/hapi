@@ -1,7 +1,8 @@
-import type { NativeSyncProvider } from './providers/provider'
+import type { RawEventEnvelope } from '@hapi/protocol'
 import { buildStableNativeTag } from './providers/provider'
-import type { NativeMessageImport, NativeSyncState, NativeSessionSummary } from './types'
 import { createSessionTitleSummary } from '@hapi/protocol'
+import type { NativeSyncProvider } from './providers/provider'
+import type { NativeSyncState, NativeSessionSummary } from './types'
 
 export type NativeSyncApi = {
     upsertNativeSession(payload: {
@@ -12,7 +13,7 @@ export type NativeSyncApi = {
         agentState?: unknown | null
     }): Promise<{ id: string }>
     getNativeSyncState(sessionId: string): Promise<NativeSyncState | null>
-    importNativeMessages(sessionId: string, messages: NativeMessageImport[]): Promise<{ imported: number }>
+    importNativeRawEvents(sessionId: string, events: RawEventEnvelope[]): Promise<{ imported: number }>
     updateNativeSyncState(state: NativeSyncState): Promise<unknown>
 }
 
@@ -161,15 +162,22 @@ export class NativeSyncService {
         const state = await this.api.getNativeSyncState(session.id)
 
         try {
-            const batch = await provider.readMessages(summary, state)
-            const messages = batch.messages.map((message) => ({
-                ...message,
-                sourceProvider: summary.provider,
-                sourceSessionId: summary.nativeSessionId
+            const ingestedAt = this.now()
+            const batch = await provider.readMessages(summary, state, {
+                sessionId: session.id,
+                ingestedAt
+            })
+            const events = batch.events.map((event) => ({
+                ...event,
+                sessionId: session.id,
+                provider: summary.provider,
+                source: 'native' as const,
+                sourceSessionId: summary.nativeSessionId,
+                ingestedAt
             }))
 
-            if (messages.length > 0) {
-                await this.importMessagesInChunks(session.id, messages)
+            if (events.length > 0) {
+                await this.importEventsInChunks(session.id, events)
             }
 
             await this.api.updateNativeSyncState({
@@ -228,34 +236,34 @@ export class NativeSyncService {
         return metadata
     }
 
-    private async importMessagesInChunks(sessionId: string, messages: NativeMessageImport[]): Promise<void> {
-        let currentChunk: NativeMessageImport[] = []
+    private async importEventsInChunks(sessionId: string, events: RawEventEnvelope[]): Promise<void> {
+        let currentChunk: RawEventEnvelope[] = []
         let currentBytes = this.baseImportPayloadBytes()
 
-        for (const message of messages) {
-            const messageBytes = this.messageImportBytes(message)
+        for (const event of events) {
+            const eventBytes = this.eventImportBytes(event)
 
-            if (currentChunk.length > 0 && currentBytes + messageBytes > NativeSyncService.MAX_IMPORT_BATCH_BYTES) {
-                await this.api.importNativeMessages(sessionId, currentChunk)
+            if (currentChunk.length > 0 && currentBytes + eventBytes > NativeSyncService.MAX_IMPORT_BATCH_BYTES) {
+                await this.api.importNativeRawEvents(sessionId, currentChunk)
                 currentChunk = []
                 currentBytes = this.baseImportPayloadBytes()
             }
 
-            currentChunk.push(message)
-            currentBytes += messageBytes
+            currentChunk.push(event)
+            currentBytes += eventBytes
         }
 
         if (currentChunk.length > 0) {
-            await this.api.importNativeMessages(sessionId, currentChunk)
+            await this.api.importNativeRawEvents(sessionId, currentChunk)
         }
     }
 
     private baseImportPayloadBytes(): number {
-        return Buffer.byteLength('{"messages":[]}', 'utf8')
+        return Buffer.byteLength('{"events":[]}', 'utf8')
     }
 
-    private messageImportBytes(message: NativeMessageImport): number {
-        return Buffer.byteLength(JSON.stringify(message), 'utf8') + 1
+    private eventImportBytes(event: RawEventEnvelope): number {
+        return Buffer.byteLength(JSON.stringify(event), 'utf8') + 1
     }
 
     private getSessionSyncKey(summary: NativeSessionSummary): string {

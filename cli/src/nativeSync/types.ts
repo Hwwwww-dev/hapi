@@ -1,3 +1,5 @@
+import type { RawEventEnvelope } from '@hapi/protocol'
+
 export type NativeProviderName = 'claude' | 'codex'
 
 export type NativeSessionSummary = {
@@ -12,16 +14,7 @@ export type NativeSessionSummary = {
     title?: string
 }
 
-export type NativeMessage = {
-    sourceKey: string
-    createdAt: number
-    content: unknown
-}
-
-export type NativeMessageImport = NativeMessage & {
-    sourceProvider: NativeProviderName
-    sourceSessionId: string
-}
+export type NativeRawEvent = RawEventEnvelope
 
 export type NativeSyncState = {
     sessionId: string

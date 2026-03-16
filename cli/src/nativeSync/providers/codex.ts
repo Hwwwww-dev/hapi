@@ -6,7 +6,14 @@ import { homedir } from 'node:os'
 import type { CodexSessionEvent } from '@/codex/utils/codexEventConverter'
 import { convertCodexEvent } from '@/codex/utils/codexEventConverter'
 import { asRecord, parseCodexTimestamp, readCodexNativeEventFile } from '@/codex/utils/nativeEventReader'
-import type { NativeMessageBatch, NativeSyncProvider } from './provider'
+import {
+    buildNativeFileChannel,
+    createNativeRawEvent,
+    resolveNativeReadContext,
+    type NativeMessageBatch,
+    type NativeReadContext,
+    type NativeSyncProvider
+} from './provider'
 import type { NativeSessionSummary, NativeSyncState } from '../types'
 
 type CodexCursor = {
@@ -129,61 +136,43 @@ function buildCursor(filePath: string, line: number): string {
     return JSON.stringify({ filePath, line })
 }
 
-function convertNativeCodexEvent(event: CodexSessionEvent, sourceKey: string): unknown | null {
-    const converted = convertCodexEvent(event)
-    if (!converted) {
+function extractCodexObservationKey(event: CodexSessionEvent): string | null {
+    if (event.type === 'session_meta') {
         return null
     }
 
-    if (converted.userMessage) {
-        return {
-            role: 'user',
-            content: {
-                type: 'text',
-                text: converted.userMessage
-            },
-            meta: {
-                sentFrom: 'cli'
-            }
-        }
+    const payload = asRecord(event.payload)
+    if (!payload) {
+        return null
     }
 
-    if (converted.message) {
-        const message = (() => {
-            if (converted.message.type === 'message' || converted.message.type === 'reasoning' || converted.message.type === 'token_count') {
-                return {
-                    ...converted.message,
-                    id: `native:${sourceKey}:${converted.message.type}`
-                }
-            }
-            if (converted.message.type === 'tool-call') {
-                return {
-                    ...converted.message,
-                    id: `native:${sourceKey}:tool-call:${converted.message.callId}`
-                }
-            }
-            if (converted.message.type === 'tool-call-result') {
-                return {
-                    ...converted.message,
-                    id: `native:${sourceKey}:tool-call-result:${converted.message.callId}`
-                }
-            }
-            return converted.message
-        })()
+    const candidates = [
+        ['call_id', 'call_id'],
+        ['callId', 'call_id'],
+        ['tool_call_id', 'call_id'],
+        ['toolCallId', 'call_id'],
+        ['response_id', 'response_id'],
+        ['responseId', 'response_id'],
+        ['id', 'id']
+    ] as const
 
-        return {
-            role: 'agent',
-            content: {
-                type: 'codex',
-                data: message
-            },
-            meta: {
-                sentFrom: 'cli'
-            }
+    for (const [key, label] of candidates) {
+        const value = payload[key]
+        if (typeof value === 'string' && value.length > 0) {
+            return `codex:${label}:${value}`
         }
     }
 
     return null
+}
+
+function createCodexIngestErrorPayload(row: Extract<Awaited<ReturnType<typeof readCodexNativeEventFile>>['rows'][number], { kind: 'ingest-error' }>): Record<string, unknown> {
+    return {
+        stage: row.stage,
+        error: row.error,
+        rawPreview: row.rawLine,
+        lineIndex: row.lineIndex
+    }
 }
 
 function extractTitle(result: Awaited<ReturnType<typeof readCodexNativeEventFile>>): string | undefined {
@@ -269,14 +258,18 @@ export function createCodexNativeProvider(): NativeSyncProvider {
             return summaries.sort((left, right) => right.lastActivityAt - left.lastActivityAt)
         },
 
-        async readMessages(summary: NativeSessionSummary, state: NativeSyncState | null): Promise<NativeMessageBatch> {
+        async readMessages(
+            summary: NativeSessionSummary,
+            state: NativeSyncState | null,
+            context?: NativeReadContext
+        ): Promise<NativeMessageBatch> {
             const sessionsRoot = getSessionsRoot()
             const filePath = state?.filePath
                 ?? sessionFileCache.get(summary.nativeSessionId)
                 ?? await resolveSessionFile(summary.nativeSessionId)
             if (!filePath) {
                 return {
-                    messages: [],
+                    events: [],
                     cursor: state?.cursor ?? null,
                     filePath: state?.filePath ?? null,
                     mtime: state?.mtime ?? null
@@ -289,7 +282,7 @@ export function createCodexNativeProvider(): NativeSyncProvider {
             const mtimeMs = Math.floor(fileStat.mtimeMs)
             if (state?.filePath === filePath && state.mtime === mtimeMs) {
                 return {
-                    messages: [],
+                    events: [],
                     cursor: state.cursor,
                     filePath,
                     mtime: mtimeMs
@@ -298,24 +291,23 @@ export function createCodexNativeProvider(): NativeSyncProvider {
 
             const startLine = parseCursor(state?.cursor, filePath)
             const result = await readCodexNativeEventFile(filePath, startLine, sessionsRoot)
+            const { sessionId, ingestedAt } = resolveNativeReadContext(summary, context)
+            const channel = buildNativeFileChannel('codex', filePath, sessionsRoot)
 
             return {
-                messages: result.entries.flatMap((entry) => {
-                    if (entry.event.type === 'session_meta') {
-                        return []
-                    }
-
-                    const content = convertNativeCodexEvent(entry.event, entry.sourceKey)
-                    if (!content) {
-                        return []
-                    }
-
-                    return [{
-                        sourceKey: entry.sourceKey,
-                        createdAt: entry.createdAt,
-                        content
-                    }]
-                }),
+                events: result.rows.map((row) => createNativeRawEvent({
+                    sessionId,
+                    provider: 'codex',
+                    sourceSessionId: summary.nativeSessionId,
+                    sourceKey: row.sourceKey,
+                    observationKey: row.kind === 'event' ? extractCodexObservationKey(row.event) : null,
+                    channel,
+                    sourceOrder: row.lineIndex,
+                    occurredAt: row.createdAt,
+                    ingestedAt,
+                    rawType: row.kind === 'event' ? row.event.type : 'ingest-error',
+                    payload: row.kind === 'event' ? row.event : createCodexIngestErrorPayload(row)
+                })),
                 cursor: buildCursor(filePath, result.totalLines),
                 filePath,
                 mtime: mtimeMs
