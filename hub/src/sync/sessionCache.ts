@@ -316,6 +316,10 @@ export class SessionCache {
         this.store.messages.mergeSessionMessages(sourceSessionId, targetSessionId, {
             strategy: 'append-source'
         })
+        this.store.sessions.reconcileSessionTimestamps(targetSessionId, namespace, {
+            createdAt: targetStored.createdAt,
+            lastActivityAt: targetStored.updatedAt
+        })
 
         const mergedMetadata = options?.mergedMetadata !== undefined
             ? options.mergedMetadata

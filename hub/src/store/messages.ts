@@ -151,7 +151,6 @@ export function importNativeMessage(
             SET content = ?, created_at = ?
             WHERE id = ?
         `).run(nextContentJson, payload.createdAt, existing.id)
-        touchSessionUpdatedAt(db, sessionId, payload.createdAt)
 
         const updated = db.prepare('SELECT * FROM messages WHERE id = ?').get(existing.id) as DbMessageRow | undefined
         if (!updated) {
@@ -188,7 +187,6 @@ export function importNativeMessage(
         source_session_id: payload.sourceSessionId,
         source_key: payload.sourceKey
     })
-    touchSessionUpdatedAt(db, sessionId, payload.createdAt)
 
     const inserted = db.prepare('SELECT * FROM messages WHERE id = ?').get(id) as DbMessageRow | undefined
     if (!inserted) {

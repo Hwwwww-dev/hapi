@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mkdir, readFile, rm, writeFile, appendFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -52,6 +52,144 @@ describe('Claude native provider', () => {
             title: 'say lol'
         }))
         expect(summaries[0].lastActivityAt).toBeGreaterThan(0)
+    })
+
+    it('derives summary chronology from parseable native event timestamps instead of file mtime', async () => {
+        const sessionId = 'claude-session-chronology'
+        const projectPath = '/Users/tester/src/claude-chronology'
+        const projectDir = getProjectPath(projectPath)
+        const sessionFile = join(projectDir, `${sessionId}.jsonl`)
+
+        await mkdir(projectDir, { recursive: true })
+        await writeFile(sessionFile, [
+            JSON.stringify({
+                type: 'summary',
+                summary: 'starting up',
+                leafUuid: 'leaf-1',
+                sessionId,
+                cwd: projectPath,
+                timestamp: 'not-a-date'
+            }),
+            JSON.stringify({
+                type: 'user',
+                uuid: 'user-1',
+                sessionId,
+                cwd: projectPath,
+                timestamp: '2026-01-01T00:00:10.000Z',
+                message: {
+                    content: 'hello'
+                }
+            }),
+            JSON.stringify({
+                type: 'assistant',
+                uuid: 'assistant-1',
+                sessionId,
+                cwd: projectPath,
+                timestamp: '2026-01-01T00:00:20.000Z',
+                message: {
+                    content: [{ text: 'world' }]
+                }
+            })
+        ].join('\n') + '\n')
+
+        const inflatedMtime = new Date('2026-01-02T00:00:00.000Z')
+        await utimes(sessionFile, inflatedMtime, inflatedMtime)
+
+        const provider = createClaudeNativeProvider()
+        const [summary] = await provider.discoverSessions()
+
+        expect(summary).toEqual(expect.objectContaining({
+            createdAt: Date.parse('2026-01-01T00:00:10.000Z'),
+            lastActivityAt: Date.parse('2026-01-01T00:00:20.000Z')
+        }))
+    })
+
+    it('falls back to file timestamps when native chronology is unavailable', async () => {
+        const sessionId = 'claude-session-fallback'
+        const projectPath = '/Users/tester/src/claude-fallback'
+        const projectDir = getProjectPath(projectPath)
+        const sessionFile = join(projectDir, `${sessionId}.jsonl`)
+
+        await mkdir(projectDir, { recursive: true })
+        await writeFile(sessionFile, [
+            JSON.stringify({
+                type: 'user',
+                uuid: 'user-1',
+                sessionId,
+                cwd: projectPath,
+                timestamp: 'not-a-date',
+                message: {
+                    content: 'hello'
+                }
+            }),
+            JSON.stringify({
+                type: 'assistant',
+                uuid: 'assistant-1',
+                sessionId,
+                cwd: projectPath,
+                timestamp: 'still-not-a-date',
+                message: {
+                    content: [{ text: 'world' }]
+                }
+            })
+        ].join('\n') + '\n')
+
+        const createdStat = await stat(sessionFile)
+        const laterMtime = new Date(Math.floor((createdStat.birthtimeMs || createdStat.mtimeMs) + 60_000))
+        await utimes(sessionFile, laterMtime, laterMtime)
+        const adjustedStat = await stat(sessionFile)
+
+        const provider = createClaudeNativeProvider()
+        const [summary] = await provider.discoverSessions()
+
+        expect(summary).toEqual(expect.objectContaining({
+            createdAt: Math.floor(adjustedStat.birthtimeMs || adjustedStat.mtimeMs),
+            lastActivityAt: Math.floor(adjustedStat.mtimeMs)
+        }))
+    })
+
+    it('clamps fallback lastActivityAt to createdAt when file mtime is older than the creation fallback', async () => {
+        const sessionId = 'claude-session-clamp'
+        const projectPath = '/Users/tester/src/claude-clamp'
+        const projectDir = getProjectPath(projectPath)
+        const sessionFile = join(projectDir, `${sessionId}.jsonl`)
+
+        await mkdir(projectDir, { recursive: true })
+        await writeFile(sessionFile, [
+            JSON.stringify({
+                type: 'user',
+                uuid: 'user-1',
+                sessionId,
+                cwd: projectPath,
+                timestamp: 'not-a-date',
+                message: {
+                    content: 'hello'
+                }
+            }),
+            JSON.stringify({
+                type: 'assistant',
+                uuid: 'assistant-1',
+                sessionId,
+                cwd: projectPath,
+                timestamp: 'still-not-a-date',
+                message: {
+                    content: [{ text: 'world' }]
+                }
+            })
+        ].join('\n') + '\n')
+
+        const createdStat = await stat(sessionFile)
+        const earlierMtime = new Date(Math.max(1, Math.floor((createdStat.birthtimeMs || createdStat.mtimeMs) - 60_000)))
+        await utimes(sessionFile, earlierMtime, earlierMtime)
+        const adjustedStat = await stat(sessionFile)
+
+        const provider = createClaudeNativeProvider()
+        const [summary] = await provider.discoverSessions()
+
+        expect(summary).toEqual(expect.objectContaining({
+            createdAt: Math.floor(adjustedStat.birthtimeMs || adjustedStat.mtimeMs),
+            lastActivityAt: Math.floor(adjustedStat.birthtimeMs || adjustedStat.mtimeMs)
+        }))
     })
 
     it('imports full history in source order', async () => {

@@ -12,7 +12,12 @@ type CliEnv = {
 const nativeSessionUpsertSchema = z.object({
     tag: z.string().min(1),
     metadata: z.unknown(),
+    createdAt: z.number().finite().positive(),
+    lastActivityAt: z.number().finite().positive(),
     agentState: z.unknown().nullable().optional()
+}).refine((value) => value.lastActivityAt >= value.createdAt, {
+    message: 'lastActivityAt must be >= createdAt',
+    path: ['lastActivityAt']
 })
 
 const nativeMessageSchema = z.object({
@@ -73,6 +78,8 @@ export function createCliNativeRoutes(getSyncEngine: () => SyncEngine | null): H
         const session = engine.upsertNativeSession({
             tag: parsed.data.tag,
             metadata: parsed.data.metadata,
+            createdAt: parsed.data.createdAt,
+            lastActivityAt: parsed.data.lastActivityAt,
             agentState: parsed.data.agentState ?? null,
             namespace: c.get('namespace')
         })

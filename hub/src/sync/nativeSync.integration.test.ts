@@ -37,6 +37,7 @@ type NativeSessionSummary = {
     projectPath: string
     displayPath: string
     flavor: 'claude' | 'codex'
+    createdAt: number
     discoveredAt: number
     lastActivityAt: number
     title?: string
@@ -206,6 +207,7 @@ describe('native sync integration', () => {
             projectPath: claudeProjectPath,
             displayPath: claudeProjectPath,
             flavor: 'claude',
+            createdAt: Date.parse('2026-03-15T00:00:00.000Z'),
             discoveredAt: Date.parse('2026-03-15T00:00:00.000Z'),
             lastActivityAt: Date.parse('2026-03-15T00:00:01.000Z'),
             title: 'hello from claude'
@@ -216,6 +218,7 @@ describe('native sync integration', () => {
             projectPath: codexProjectPath,
             displayPath: codexProjectPath,
             flavor: 'codex',
+            createdAt: Date.parse('2026-03-15T00:00:00.000Z'),
             discoveredAt: Date.parse('2026-03-15T00:00:00.000Z'),
             lastActivityAt: Date.parse('2026-03-15T00:00:02.000Z')
         }
@@ -312,13 +315,14 @@ describe('native sync integration', () => {
             }
         }
 
+        let now = Date.parse('2026-03-15T00:00:05.000Z')
         const service = new NativeSyncService({
             api: nativeApi,
             providers: [claudeProvider, codexProvider],
             machineId: 'machine-1',
             host: 'local',
             pollIntervalMs: 60_000,
-            now: () => Date.parse('2026-03-15T00:00:05.000Z')
+            now: () => now
         })
 
         try {
@@ -333,6 +337,8 @@ describe('native sync integration', () => {
             const sessionsJson = await sessionsResponse.json() as {
                 sessions: Array<{
                     id: string
+                    createdAt: number
+                    updatedAt: number
                     metadata: {
                         source?: string
                         nativeProvider?: string
@@ -344,6 +350,8 @@ describe('native sync integration', () => {
             expect(sessionsJson.sessions).toHaveLength(2)
             expect(sessionsJson.sessions).toEqual(expect.arrayContaining([
                 expect.objectContaining({
+                    createdAt: Date.parse('2026-03-15T00:00:00.000Z'),
+                    updatedAt: Date.parse('2026-03-15T00:00:01.000Z'),
                     metadata: expect.objectContaining({
                         source: 'native',
                         nativeProvider: 'claude',
@@ -351,6 +359,8 @@ describe('native sync integration', () => {
                     })
                 }),
                 expect.objectContaining({
+                    createdAt: Date.parse('2026-03-15T00:00:00.000Z'),
+                    updatedAt: Date.parse('2026-03-15T00:00:02.000Z'),
                     metadata: expect.objectContaining({
                         source: 'native',
                         nativeProvider: 'codex',
@@ -373,6 +383,8 @@ describe('native sync integration', () => {
                     content: 'claude tail reply'
                 }
             }) + '\n')
+            claudeSummary.lastActivityAt = Date.parse('2026-03-15T00:00:03.000Z')
+            now = Date.parse('2026-03-15T00:00:10.000Z')
 
             await service.syncOnce()
 
@@ -392,6 +404,79 @@ describe('native sync integration', () => {
                 message: expect.objectContaining({
                     content: 'claude tail reply'
                 })
+            }))
+        } finally {
+            service.stop()
+            engine.stop()
+            sseManager.stop()
+        }
+    })
+
+    it('uses provider lastActivityAt as updatedAt before any native messages are imported', async () => {
+        const nativeSessionId = 'claude-native-empty'
+        const projectPath = '/workspace/native-empty-project'
+        const { engine, sseManager } = createEngine()
+
+        const service = new NativeSyncService({
+            api: {
+                async upsertNativeSession(payload: Record<string, unknown>) {
+                    const session = engine.upsertNativeSession({
+                        tag: String(payload.tag),
+                        namespace: 'default',
+                        metadata: payload.metadata,
+                        createdAt: Number(payload.createdAt),
+                        lastActivityAt: Number(payload.lastActivityAt),
+                        agentState: null
+                    })
+                    return { id: session.id }
+                },
+                async getNativeSyncState() {
+                    return null
+                },
+                async importNativeMessages() {
+                    return { imported: 0 }
+                },
+                async updateNativeSyncState() {
+                    return null
+                }
+            },
+            providers: [{
+                name: 'claude',
+                async discoverSessions() {
+                    return [{
+                        provider: 'claude',
+                        nativeSessionId,
+                        projectPath,
+                        displayPath: projectPath,
+                        flavor: 'claude',
+                        createdAt: 100,
+                        discoveredAt: 100,
+                        lastActivityAt: 250,
+                        title: 'empty'
+                    }]
+                },
+                async readMessages() {
+                    return {
+                        messages: [],
+                        cursor: null,
+                        filePath: null,
+                        mtime: null
+                    }
+                }
+            }],
+            machineId: 'machine-1',
+            host: 'local',
+            pollIntervalMs: 60_000,
+            now: () => 500
+        })
+
+        try {
+            await service.syncOnce()
+
+            const session = engine.getSessionsByNamespace('default').find((item) => item.metadata?.nativeSessionId === nativeSessionId)
+            expect(session).toEqual(expect.objectContaining({
+                createdAt: 100,
+                updatedAt: 250
             }))
         } finally {
             service.stop()

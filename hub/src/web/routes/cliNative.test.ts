@@ -63,6 +63,8 @@ describe('CLI native routes', () => {
             headers: authHeaders(undefined),
             body: JSON.stringify({
                 tag: 'native:claude:project:native-1',
+                createdAt: 1,
+                lastActivityAt: 1,
                 metadata: {
                     path: '/tmp/project',
                     host: 'local'
@@ -81,6 +83,8 @@ describe('CLI native routes', () => {
         const app = createCliRoutes(() => engine)
         const body = {
             tag: 'native:claude:project:native-1',
+            createdAt: 10,
+            lastActivityAt: 20,
             metadata: {
                 path: '/tmp/project',
                 host: 'local',
@@ -159,6 +163,8 @@ describe('CLI native routes', () => {
             headers: authHeaders(configuration.cliApiToken),
             body: JSON.stringify({
                 tag: 'native:codex:project:native-2',
+                createdAt: 10,
+                lastActivityAt: 10,
                 metadata: {
                     path: '/tmp/project',
                     host: 'local',
@@ -216,6 +222,8 @@ describe('CLI native routes', () => {
             headers: authHeaders(configuration.cliApiToken),
             body: JSON.stringify({
                 tag: 'native:claude:project:native-3',
+                createdAt: 10,
+                lastActivityAt: 10,
                 metadata: {
                     path: '/tmp/project',
                     host: 'local',
@@ -286,6 +294,116 @@ describe('CLI native routes', () => {
                 lastError: null
             }
         })
+
+        engine.stop()
+        sseManager.stop()
+    })
+
+    it('validates native session upsert timestamps', async () => {
+        const { engine, sseManager } = createTestEngine()
+        const app = createCliRoutes(() => engine)
+        const baseBody = {
+            tag: 'native:claude:project:native-invalid',
+            metadata: {
+                path: '/tmp/project',
+                host: 'local',
+                flavor: 'claude',
+                source: 'native',
+                nativeProvider: 'claude',
+                nativeSessionId: 'native-invalid',
+                nativeProjectPath: '/tmp/project',
+                nativeDiscoveredAt: 1
+            },
+            agentState: null
+        }
+
+        const invalidBodies = [
+            { ...baseBody, lastActivityAt: 1 },
+            { ...baseBody, createdAt: 1 },
+            { ...baseBody, createdAt: Number.NaN, lastActivityAt: 1 },
+            { ...baseBody, createdAt: Number.POSITIVE_INFINITY, lastActivityAt: 1 },
+            { ...baseBody, createdAt: 0, lastActivityAt: 1 },
+            { ...baseBody, createdAt: 2, lastActivityAt: 1 }
+        ]
+
+        for (const body of invalidBodies) {
+            const response = await app.request('http://localhost/native/sessions/upsert', {
+                method: 'POST',
+                headers: authHeaders(configuration.cliApiToken),
+                body: JSON.stringify(body)
+            })
+            expect(response.status).toBe(400)
+        }
+
+        const okResponse = await app.request('http://localhost/native/sessions/upsert', {
+            method: 'POST',
+            headers: authHeaders(configuration.cliApiToken),
+            body: JSON.stringify({
+                ...baseBody,
+                createdAt: 1,
+                lastActivityAt: 2
+            })
+        })
+
+        expect(okResponse.status).toBe(200)
+
+        engine.stop()
+        sseManager.stop()
+    })
+
+    it('does not let sync-state bookkeeping rewrite session recency', async () => {
+        const { engine, sseManager } = createTestEngine()
+        const app = createCliRoutes(() => engine)
+
+        const sessionResponse = await app.request('http://localhost/native/sessions/upsert', {
+            method: 'POST',
+            headers: authHeaders(configuration.cliApiToken),
+            body: JSON.stringify({
+                tag: 'native:claude:project:native-4',
+                createdAt: 10,
+                lastActivityAt: 20,
+                metadata: {
+                    path: '/tmp/project',
+                    host: 'local',
+                    flavor: 'claude',
+                    source: 'native',
+                    nativeProvider: 'claude',
+                    nativeSessionId: 'native-4',
+                    nativeProjectPath: '/tmp/project',
+                    nativeDiscoveredAt: 10,
+                    claudeSessionId: 'native-4'
+                },
+                agentState: null
+            })
+        })
+        const sessionJson = await sessionResponse.json() as { session: { id: string } }
+        const before = engine.getSession(sessionJson.session.id)
+        expect(before).toEqual(expect.objectContaining({
+            createdAt: 10,
+            updatedAt: 20
+        }))
+
+        const response = await app.request(`http://localhost/native/sessions/${sessionJson.session.id}/sync-state`, {
+            method: 'POST',
+            headers: authHeaders(configuration.cliApiToken),
+            body: JSON.stringify({
+                provider: 'claude',
+                nativeSessionId: 'native-4',
+                machineId: 'machine-1',
+                cursor: '10',
+                filePath: '/tmp/session.jsonl',
+                mtime: 11,
+                lastSyncedAt: 999,
+                syncStatus: 'healthy',
+                lastError: null
+            })
+        })
+
+        expect(response.status).toBe(200)
+        expect(engine.getSession(sessionJson.session.id)).toEqual(expect.objectContaining({
+            createdAt: 10,
+            updatedAt: 20
+        }))
 
         engine.stop()
         sseManager.stop()

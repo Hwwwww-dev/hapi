@@ -9,6 +9,7 @@ import {
     getSessionByNamespace,
     getSessions,
     getSessionsByNamespace,
+    reconcileSessionTimestamps,
     setSessionTeamState,
     setSessionTodos,
     syncNativeAliasesForSessionMetadata,
@@ -84,5 +85,16 @@ export class SessionStore {
 
     syncNativeAliasesForSessionMetadata(id: string, namespace: string, metadata: unknown): void {
         syncNativeAliasesForSessionMetadata(this.db, id, namespace, metadata)
+    }
+
+    reconcileSessionTimestamps(
+        id: string,
+        namespace: string,
+        payload: {
+            createdAt: number
+            lastActivityAt: number
+        }
+    ): StoredSession | null {
+        return reconcileSessionTimestamps(this.db, id, namespace, payload)
     }
 }

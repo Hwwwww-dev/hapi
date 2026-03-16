@@ -76,7 +76,6 @@ export class MessageService {
     ): { imported: number; messages: DecryptedMessage[] } {
         let imported = 0
         const importedMessages: DecryptedMessage[] = []
-        let touchedSession = false
 
         for (const item of messages) {
             const result = this.store.messages.importNativeMessage(sessionId, item)
@@ -84,7 +83,6 @@ export class MessageService {
                 continue
             }
 
-            touchedSession = true
             if (result.inserted) {
                 imported += 1
             }
@@ -100,10 +98,6 @@ export class MessageService {
                 importedMessages.push(message)
                 this.broadcastNewMessage(sessionId, message)
             }
-        }
-
-        if (touchedSession) {
-            this.broadcastSessionUpdated(sessionId)
         }
 
         return { imported, messages: importedMessages }

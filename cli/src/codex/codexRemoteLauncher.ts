@@ -44,6 +44,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
     private abortController: AbortController = new AbortController();
     private currentThreadId: string | null = null;
     private currentTurnId: string | null = null;
+    private abortCleanup: (() => void) | null = null;
 
     constructor(session: CodexSession) {
         super(process.env.DEBUG ? session.logPath : undefined);
@@ -80,6 +81,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
             this.permissionHandler?.reset();
             this.reasoningProcessor?.abort();
             this.diffProcessor?.reset();
+            this.abortCleanup?.();
             logger.debug('[Codex] Abort completed - session remains active');
         } catch (error) {
             logger.debug('[Codex] Error during abort:', error);
@@ -229,6 +231,10 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
         let clearReadyAfterTurnTimer: (() => void) | null = null;
         let turnInFlight = false;
         let allowAnonymousTerminalEvent = false;
+        let wasCreated = false;
+        let currentModeHash: string | null = null;
+        let pending: { message: string; mode: EnhancedMode; isolate: boolean; hash: string } | null = null;
+        let first = true;
 
         const handleCodexEvent = (msg: Record<string, unknown>) => {
             const msgType = asString(msg.type);
@@ -565,6 +571,21 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
             session.sendSessionEvent({ type: 'ready' });
         };
 
+        this.abortCleanup = () => {
+            turnInFlight = false;
+            allowAnonymousTerminalEvent = false;
+            this.currentTurnId = null;
+            clearReadyAfterTurnTimer?.();
+            appServerEventConverter?.reset();
+            session.onThinkingChange(false);
+            emitReadyIfIdle({
+                pending,
+                queueSize: () => session.queue.size(),
+                shouldExit: this.shouldExit,
+                sendReady
+            });
+        };
+
         const syncSessionId = () => {
             if (!mcpClient) return;
             const clientSessionId = mcpClient.getSessionId();
@@ -584,11 +605,6 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
         } else if (mcpClient) {
             await mcpClient.connect();
         }
-
-        let wasCreated = false;
-        let currentModeHash: string | null = null;
-        let pending: { message: string; mode: EnhancedMode; isolate: boolean; hash: string } | null = null;
-        let first = true;
 
         clearReadyAfterTurnTimer = () => {
             if (!readyAfterTurnTimer) {
@@ -835,6 +851,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
         this.permissionHandler?.reset();
         this.reasoningProcessor?.abort();
         this.diffProcessor?.reset();
+        this.abortCleanup = null;
         this.permissionHandler = null;
         this.reasoningProcessor = null;
         this.diffProcessor = null;

@@ -38,6 +38,8 @@ describe('native import resume takeover', () => {
         const imported = engine.upsertNativeSession({
             tag: 'native:claude:project:native-active',
             namespace,
+            createdAt: 1,
+            lastActivityAt: 1,
             metadata: {
                 path: '/tmp/project',
                 host: 'local',
@@ -87,6 +89,8 @@ describe('native import resume takeover', () => {
         const imported = engine.upsertNativeSession({
             tag: 'native:claude:project:native-1',
             namespace,
+            createdAt: 1,
+            lastActivityAt: 1,
             metadata: {
                 path: '/tmp/project',
                 host: 'local',
@@ -169,6 +173,7 @@ describe('native import resume takeover', () => {
             { role: 'assistant', content: 'native-history' },
             { role: 'assistant', content: 'resumed-tail' }
         ])
+        expect(canonical?.updatedAt).toBeGreaterThanOrEqual(messages.at(-1)?.createdAt ?? 0)
 
         engine.stop()
         sseManager.stop()
@@ -188,6 +193,8 @@ describe('native import resume takeover', () => {
         const imported = engine.upsertNativeSession({
             tag: 'native:codex:project:native-2',
             namespace,
+            createdAt: 1,
+            lastActivityAt: 1,
             metadata: {
                 path: '/tmp/project',
                 host: 'local',
@@ -227,7 +234,7 @@ describe('native import resume takeover', () => {
     })
 
     it('preserves hybrid metadata and agent state when native sync re-upserts the canonical session', async () => {
-        const { engine, sseManager } = createEngine()
+        const { store, engine, sseManager } = createEngine()
         const namespace = 'default'
 
         engine.getOrCreateMachine('machine-1', {
@@ -240,6 +247,8 @@ describe('native import resume takeover', () => {
         const imported = engine.upsertNativeSession({
             tag: 'native:claude:project:native-3',
             namespace,
+            createdAt: 1,
+            lastActivityAt: 1,
             metadata: {
                 path: '/tmp/project',
                 host: 'local',
@@ -275,6 +284,7 @@ describe('native import resume takeover', () => {
             completedRequests: {}
         }, namespace)
 
+        store.messages.addMessage(resumed.id, { role: 'assistant', content: 'hybrid-tail' })
         engine.handleSessionAlive({ sid: resumed.id, time: Date.now(), thinking: true })
         ;(engine as any).rpcGateway.spawnSession = async () => ({
             type: 'success',
@@ -297,10 +307,13 @@ describe('native import resume takeover', () => {
         expect(beforeResync?.agentState?.requests).toEqual(expect.objectContaining({
             req1: expect.objectContaining({ tool: 'bash' })
         }))
+        const beforeUpdatedAt = beforeResync?.updatedAt
 
         engine.upsertNativeSession({
             tag: 'native:claude:project:native-3',
             namespace,
+            createdAt: 1,
+            lastActivityAt: 999,
             metadata: {
                 path: '/tmp/project',
                 host: 'local',
@@ -329,6 +342,7 @@ describe('native import resume takeover', () => {
         expect(afterResync?.agentState?.requests).toEqual(expect.objectContaining({
             req1: expect.objectContaining({ tool: 'bash' })
         }))
+        expect(afterResync?.updatedAt).toBe(beforeUpdatedAt)
 
         engine.stop()
         sseManager.stop()

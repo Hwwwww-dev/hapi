@@ -5,7 +5,7 @@ import { homedir } from 'node:os'
 
 import type { CodexSessionEvent } from '@/codex/utils/codexEventConverter'
 import { convertCodexEvent } from '@/codex/utils/codexEventConverter'
-import { readCodexNativeEventFile } from '@/codex/utils/nativeEventReader'
+import { asRecord, parseCodexTimestamp, readCodexNativeEventFile } from '@/codex/utils/nativeEventReader'
 import type { NativeMessageBatch, NativeSyncProvider } from './provider'
 import type { NativeSessionSummary, NativeSyncState } from '../types'
 
@@ -19,6 +19,62 @@ const CURSOR_RESCAN_OVERLAP_LINES = 512
 type CachedSummaryEntry = {
     mtimeMs: number
     summary: NativeSessionSummary | null
+}
+
+function toTimestampMs(value: number | bigint): number {
+    return typeof value === 'bigint' ? Number(value) : value
+}
+
+function extractCodexEventTimestamp(event: CodexSessionEvent): number | null {
+    const payload = asRecord(event.payload)
+    return (payload ? parseCodexTimestamp(payload.timestamp) : null)
+        ?? parseCodexTimestamp(event.timestamp)
+}
+
+function extractSessionMetaPayloadTimestamp(entries: Awaited<ReturnType<typeof readCodexNativeEventFile>>['entries']): number | null {
+    for (const entry of entries) {
+        if (entry.event.type !== 'session_meta') {
+            continue
+        }
+
+        const payload = asRecord(entry.event.payload)
+        const timestamp = payload ? parseCodexTimestamp(payload.timestamp) : null
+        if (timestamp !== null) {
+            return timestamp
+        }
+    }
+
+    return null
+}
+
+function resolveCodexSummaryTimes(
+    result: Awaited<ReturnType<typeof readCodexNativeEventFile>>,
+    fileStat: Awaited<ReturnType<typeof stat>>
+): Pick<NativeSessionSummary, 'createdAt' | 'discoveredAt' | 'lastActivityAt'> {
+    const sessionMetaPayloadTimestamp = extractSessionMetaPayloadTimestamp(result.entries)
+    const firstEventTimestamp = result.entries
+        .map((entry) => extractCodexEventTimestamp(entry.event))
+        .find((timestamp): timestamp is number => timestamp !== null)
+    const lastNonSessionMetaTimestamp = [...result.entries]
+        .reverse()
+        .map((entry) => entry.event.type === 'session_meta' ? null : extractCodexEventTimestamp(entry.event))
+        .find((timestamp): timestamp is number => timestamp !== null)
+
+    const createdAt = sessionMetaPayloadTimestamp
+        ?? firstEventTimestamp
+        ?? Math.floor(toTimestampMs(fileStat.birthtimeMs || fileStat.mtimeMs))
+    const lastActivityAt = Math.max(
+        lastNonSessionMetaTimestamp
+            ?? sessionMetaPayloadTimestamp
+            ?? Math.floor(toTimestampMs(fileStat.mtimeMs)),
+        createdAt
+    )
+
+    return {
+        createdAt,
+        discoveredAt: createdAt,
+        lastActivityAt
+    }
 }
 
 function getSessionsRoot(): string {
@@ -193,15 +249,16 @@ export function createCodexNativeProvider(): NativeSyncProvider {
                     continue
                 }
 
-                const lastEntry = [...result.entries].reverse().find((entry) => entry.event.type !== 'session_meta')
+                const { createdAt, discoveredAt, lastActivityAt } = resolveCodexSummaryTimes(result, fileStat)
                 const summary: NativeSessionSummary = {
                     provider: 'codex',
                     nativeSessionId: result.sessionId,
                     projectPath: result.cwd,
                     displayPath: result.cwd,
                     flavor: 'codex',
-                    discoveredAt: Math.floor(fileStat.birthtimeMs || fileStat.mtimeMs),
-                    lastActivityAt: Math.max(lastEntry?.createdAt ?? result.sessionTimestamp ?? mtimeMs, mtimeMs),
+                    createdAt,
+                    discoveredAt,
+                    lastActivityAt,
                     title: extractTitle(result)
                 }
                 summaryCache.set(filePath, { mtimeMs, summary })

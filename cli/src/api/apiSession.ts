@@ -51,6 +51,11 @@ export class ApiSessionClient extends EventEmitter {
     private readonly terminalManager: TerminalManager
     private agentStateLock = new AsyncLock()
     private metadataLock = new AsyncLock()
+    private lastKeepAliveState: {
+        thinking: boolean
+        mode?: 'local' | 'remote'
+        runtime?: { permissionMode?: SessionPermissionMode; modelMode?: SessionModelMode }
+    }
 
     constructor(token: string, session: Session) {
         super()
@@ -60,6 +65,9 @@ export class ApiSessionClient extends EventEmitter {
         this.metadataVersion = session.metadataVersion
         this.agentState = session.agentState
         this.agentStateVersion = session.agentStateVersion
+        this.lastKeepAliveState = {
+            thinking: session.thinking
+        }
 
         this.rpcHandlerManager = new RpcHandlerManager({
             scopePrefix: this.sessionId,
@@ -105,7 +113,9 @@ export class ApiSessionClient extends EventEmitter {
             this.socket.emit('session-alive', {
                 sid: this.sessionId,
                 time: Date.now(),
-                thinking: false
+                thinking: this.lastKeepAliveState.thinking,
+                ...(this.lastKeepAliveState.mode ? { mode: this.lastKeepAliveState.mode } : {}),
+                ...(this.lastKeepAliveState.runtime ?? {})
             })
         })
 
@@ -440,6 +450,11 @@ export class ApiSessionClient extends EventEmitter {
         mode: 'local' | 'remote',
         runtime?: { permissionMode?: SessionPermissionMode; modelMode?: SessionModelMode }
     ): void {
+        this.lastKeepAliveState = {
+            thinking,
+            mode,
+            runtime
+        }
         this.socket.volatile.emit('session-alive', {
             sid: this.sessionId,
             time: Date.now(),

@@ -6,6 +6,7 @@ export type NativeSessionSummary = {
     projectPath: string
     displayPath: string
     flavor: 'claude' | 'codex'
+    createdAt: number
     discoveredAt: number
     lastActivityAt: number
     title?: string

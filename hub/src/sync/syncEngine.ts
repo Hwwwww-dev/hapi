@@ -238,6 +238,8 @@ export class SyncEngine {
         tag: string
         namespace: string
         metadata: unknown
+        createdAt: number
+        lastActivityAt: number
         agentState?: unknown | null
     }): Session {
         const nativeIdentity = this.resolveNativeSessionIdentity(payload.metadata)
@@ -269,6 +271,7 @@ export class SyncEngine {
             current,
             this.mergeNativeSessionAgentState(current.agentState, payload.agentState)
         )
+        current = this.reconcileSessionTimestamps(current, payload.createdAt, payload.lastActivityAt)
 
         for (const matchingSession of matchingSessions) {
             if (matchingSession.id === current.id) {
@@ -312,9 +315,19 @@ export class SyncEngine {
         }
 
         const result = this.messageService.importNativeMessages(sessionId, payload)
+        const current = this.getSession(sessionId) ?? session
+        const fallbackLastActivityAt = payload.reduce(
+            (maxTimestamp, message) => Math.max(maxTimestamp, message.createdAt),
+            current.createdAt
+        )
+        const reconciled = this.reconcileSessionTimestamps(
+            current,
+            current.createdAt,
+            fallbackLastActivityAt
+        )
         return {
             imported: result.imported,
-            session: this.getSession(sessionId) ?? session
+            session: reconciled
         }
     }
 
@@ -464,6 +477,27 @@ export class SyncEngine {
         }
 
         return this.getSession(session.id) ?? this.sessionCache.refreshSession(session.id) ?? session
+    }
+
+    private reconcileSessionTimestamps(session: Session, createdAt: number, lastActivityAt: number): Session {
+        const reconciled = this.store.sessions.reconcileSessionTimestamps(
+            session.id,
+            session.namespace,
+            { createdAt, lastActivityAt }
+        )
+        if (!reconciled) {
+            return this.getSession(session.id) ?? this.sessionCache.refreshSession(session.id) ?? session
+        }
+
+        if (
+            reconciled.createdAt === session.createdAt
+            && reconciled.updatedAt === session.updatedAt
+            && reconciled.seq === session.seq
+        ) {
+            return this.getSession(session.id) ?? session
+        }
+
+        return this.sessionCache.refreshSession(session.id) ?? this.getSession(session.id) ?? session
     }
 
     private resolveNativeSessionIdentity(metadata: unknown): { provider: 'claude' | 'codex'; nativeSessionId: string } | null {

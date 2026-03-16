@@ -18,6 +18,36 @@ type CachedSummaryEntry = {
     summary: NativeSessionSummary | null
 }
 
+function toTimestampMs(value: number | bigint): number {
+    return typeof value === 'bigint' ? Number(value) : value
+}
+
+function parseClaudeEventTimestamp(value: string | undefined): number | null {
+    if (!value) {
+        return null
+    }
+
+    const parsed = Date.parse(value)
+    return Number.isFinite(parsed) ? parsed : null
+}
+
+function resolveClaudeSummaryTimes(
+    entries: Awaited<ReturnType<typeof readClaudeNativeLog>>['entries'],
+    fileStat: Awaited<ReturnType<typeof stat>>
+): Pick<NativeSessionSummary, 'createdAt' | 'discoveredAt' | 'lastActivityAt'> {
+    const eventTimestamps = entries
+        .map((entry) => parseClaudeEventTimestamp(entry.event.timestamp))
+        .filter((timestamp): timestamp is number => timestamp !== null)
+    const createdAt = eventTimestamps[0] ?? Math.floor(toTimestampMs(fileStat.birthtimeMs || fileStat.mtimeMs))
+    const lastActivityAt = Math.max(eventTimestamps.at(-1) ?? Math.floor(toTimestampMs(fileStat.mtimeMs)), createdAt)
+
+    return {
+        createdAt,
+        discoveredAt: createdAt,
+        lastActivityAt
+    }
+}
+
 function getClaudeConfigDir(): string {
     return process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
 }
@@ -133,15 +163,16 @@ export function createClaudeNativeProvider(): NativeSyncProvider {
                     continue
                 }
 
-                const lastEntry = entries[entries.length - 1]
+                const { createdAt, discoveredAt, lastActivityAt } = resolveClaudeSummaryTimes(entries, fileStat)
                 const summary: NativeSessionSummary = {
                     provider: 'claude',
                     nativeSessionId: basename(filePath, '.jsonl'),
                     projectPath: firstEntryWithCwd.cwd,
                     displayPath: firstEntryWithCwd.cwd,
                     flavor: 'claude',
-                    discoveredAt: Math.floor(fileStat.birthtimeMs || fileStat.mtimeMs),
-                    lastActivityAt: Math.max(lastEntry?.createdAt ?? mtimeMs, mtimeMs),
+                    createdAt,
+                    discoveredAt,
+                    lastActivityAt,
                     title: extractTitle(entries.find((entry) => entry.event.type === 'user')?.event)
                 }
                 summaryCache.set(filePath, { mtimeMs, summary })

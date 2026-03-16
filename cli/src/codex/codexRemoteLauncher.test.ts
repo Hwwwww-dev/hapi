@@ -4,7 +4,10 @@ import type { EnhancedMode } from './loop';
 
 const harness = vi.hoisted(() => ({
     notifications: [] as Array<{ method: string; params: unknown }>,
-    registerRequestCalls: [] as string[]
+    registerRequestCalls: [] as string[],
+    interruptCalls: [] as Array<{ threadId: string; turnId: string }>,
+    startTurnMode: 'complete' as 'complete' | 'pending-abort',
+    turnId: ''
 }));
 
 vi.mock('./codexAppServerClient', () => {
@@ -34,9 +37,15 @@ vi.mock('./codexAppServerClient', () => {
         }
 
         async startTurn(): Promise<{ turn: Record<string, never> }> {
-            const started = { turn: {} };
+            const started = {
+                turn: harness.turnId ? { id: harness.turnId } : {}
+            };
             harness.notifications.push({ method: 'turn/started', params: started });
             this.notificationHandler?.('turn/started', started);
+
+            if (harness.startTurnMode === 'pending-abort') {
+                return { turn: started.turn as Record<string, never> };
+            }
 
             const completed = { status: 'Completed', turn: {} };
             harness.notifications.push({ method: 'turn/completed', params: completed });
@@ -45,7 +54,8 @@ vi.mock('./codexAppServerClient', () => {
             return { turn: {} };
         }
 
-        async interruptTurn(): Promise<Record<string, never>> {
+        async interruptTurn(params: { threadId: string; turnId: string }): Promise<Record<string, never>> {
+            harness.interruptCalls.push(params);
             return {};
         }
 
@@ -80,7 +90,6 @@ function createMode(): EnhancedMode {
 function createSessionStub() {
     const queue = new MessageQueue2<EnhancedMode>((mode) => JSON.stringify(mode));
     queue.push('hello from launcher test', createMode());
-    queue.close();
 
     const sessionEvents: Array<{ type: string; [key: string]: unknown }> = [];
     const codexMessages: unknown[] = [];
@@ -145,6 +154,7 @@ function createSessionStub() {
         thinkingChanges,
         foundSessionIds,
         rpcHandlers,
+        queue,
         getAgentState: () => agentState
     };
 }
@@ -153,6 +163,9 @@ describe('codexRemoteLauncher', () => {
     afterEach(() => {
         harness.notifications = [];
         harness.registerRequestCalls = [];
+        harness.interruptCalls = [];
+        harness.startTurnMode = 'complete';
+        harness.turnId = '';
         delete process.env.CODEX_USE_MCP_SERVER;
     });
 
@@ -162,9 +175,11 @@ describe('codexRemoteLauncher', () => {
             session,
             sessionEvents,
             thinkingChanges,
-            foundSessionIds
+            foundSessionIds,
+            queue
         } = createSessionStub();
 
+        queue.close();
         const exitReason = await codexRemoteLauncher(session as never);
 
         expect(exitReason).toBe('exit');
@@ -173,5 +188,40 @@ describe('codexRemoteLauncher', () => {
         expect(sessionEvents.filter((event) => event.type === 'ready').length).toBeGreaterThanOrEqual(1);
         expect(thinkingChanges).toContain(true);
         expect(session.thinking).toBe(false);
+    });
+
+    it('clears thinking state and emits ready after aborting an app-server turn', async () => {
+        delete process.env.CODEX_USE_MCP_SERVER;
+        harness.startTurnMode = 'pending-abort';
+        harness.turnId = 'turn-abort-1';
+
+        const {
+            session,
+            sessionEvents,
+            rpcHandlers,
+            queue
+        } = createSessionStub();
+
+        const launchPromise = codexRemoteLauncher(session as never);
+        await vi.waitFor(() => {
+            expect(session.thinking).toBe(true);
+        });
+
+        const abortHandler = rpcHandlers.get('abort');
+        expect(abortHandler).toBeTypeOf('function');
+        await abortHandler?.({});
+
+        await vi.waitFor(() => {
+            expect(harness.interruptCalls).toEqual([{ threadId: 'thread-anonymous', turnId: 'turn-abort-1' }]);
+        });
+
+        await vi.waitFor(() => {
+            expect(session.thinking).toBe(false);
+            expect(sessionEvents.some((event) => event.type === 'ready')).toBe(true);
+        });
+
+        queue.close();
+        const exitReason = await launchPromise;
+        expect(exitReason).toBe('exit');
     });
 });

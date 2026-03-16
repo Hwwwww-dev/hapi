@@ -121,6 +121,8 @@ export class ApiClient {
     async upsertNativeSession(opts: {
         tag: string
         metadata: Metadata
+        createdAt: number
+        lastActivityAt: number
         agentState?: AgentState | null
     }): Promise<Session> {
         const response = await axios.post<CreateSessionResponse>(
@@ -128,6 +130,8 @@ export class ApiClient {
             {
                 tag: opts.tag,
                 metadata: opts.metadata,
+                createdAt: opts.createdAt,
+                lastActivityAt: opts.lastActivityAt,
                 agentState: opts.agentState ?? null
             },
             {

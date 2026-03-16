@@ -170,11 +170,8 @@ export function updateSessionMetadata(
     metadata: unknown,
     expectedVersion: number,
     namespace: string,
-    options?: { touchUpdatedAt?: boolean }
+    _options?: { touchUpdatedAt?: boolean }
 ): VersionedUpdateResult<unknown | null> {
-    const now = Date.now()
-    const touchUpdatedAt = options?.touchUpdatedAt !== false
-
     return updateVersionedField({
         db,
         table: 'sessions',
@@ -189,14 +186,7 @@ export function updateSessionMetadata(
             return json === undefined ? null : json
         },
         decode: safeJsonParse,
-        setClauses: [
-            'updated_at = CASE WHEN @touch_updated_at = 1 THEN @updated_at ELSE updated_at END',
-            'seq = seq + 1'
-        ],
-        params: {
-            updated_at: now,
-            touch_updated_at: touchUpdatedAt ? 1 : 0
-        }
+        setClauses: ['seq = seq + 1']
     })
 }
 
@@ -207,7 +197,6 @@ export function updateSessionAgentState(
     expectedVersion: number,
     namespace: string
 ): VersionedUpdateResult<unknown | null> {
-    const now = Date.now()
     const normalized = agentState ?? null
 
     return updateVersionedField({
@@ -221,8 +210,7 @@ export function updateSessionAgentState(
         value: normalized,
         encode: (value) => (value === null ? null : JSON.stringify(value)),
         decode: safeJsonParse,
-        setClauses: ['updated_at = @updated_at', 'seq = seq + 1'],
-        params: { updated_at: now }
+        setClauses: ['seq = seq + 1']
     })
 }
 
@@ -239,7 +227,6 @@ export function setSessionTodos(
             UPDATE sessions
             SET todos = @todos,
                 todos_updated_at = @todos_updated_at,
-                updated_at = CASE WHEN updated_at > @updated_at THEN updated_at ELSE @updated_at END,
                 seq = seq + 1
             WHERE id = @id
               AND namespace = @namespace
@@ -248,7 +235,6 @@ export function setSessionTodos(
             id,
             todos: json,
             todos_updated_at: todosUpdatedAt,
-            updated_at: todosUpdatedAt,
             namespace
         })
 
@@ -271,7 +257,6 @@ export function setSessionTeamState(
             UPDATE sessions
             SET team_state = @team_state,
                 team_state_updated_at = @team_state_updated_at,
-                updated_at = CASE WHEN updated_at > @updated_at THEN updated_at ELSE @updated_at END,
                 seq = seq + 1
             WHERE id = @id
               AND namespace = @namespace
@@ -280,7 +265,6 @@ export function setSessionTeamState(
             id,
             team_state: json,
             team_state_updated_at: updatedAt,
-            updated_at: updatedAt,
             namespace
         })
 
@@ -377,6 +361,54 @@ export function syncNativeAliasesForSessionMetadata(
     for (const alias of aliases) {
         insertAlias.run(namespace, alias.provider, alias.nativeSessionId, sessionId, now, now)
     }
+}
+
+export function reconcileSessionTimestamps(
+    db: Database,
+    id: string,
+    namespace: string,
+    payload: {
+        createdAt: number
+        lastActivityAt: number
+    }
+): StoredSession | null {
+    const session = getSessionByNamespace(db, id, namespace)
+    if (!session) {
+        return null
+    }
+
+    const messageBounds = db.prepare(`
+        SELECT MAX(created_at) AS max_created_at
+        FROM messages
+        WHERE session_id = ?
+    `).get(id) as { max_created_at: number | null } | undefined
+
+    const createdAt = payload.createdAt
+    const updatedAt = Math.max(
+        messageBounds?.max_created_at ?? payload.lastActivityAt ?? createdAt,
+        payload.lastActivityAt ?? createdAt,
+        createdAt
+    )
+
+    if (session.createdAt === createdAt && session.updatedAt === updatedAt) {
+        return session
+    }
+
+    db.prepare(`
+        UPDATE sessions
+        SET created_at = @created_at,
+            updated_at = @updated_at,
+            seq = seq + 1
+        WHERE id = @id
+          AND namespace = @namespace
+    `).run({
+        id,
+        namespace,
+        created_at: createdAt,
+        updated_at: updatedAt
+    })
+
+    return getSessionByNamespace(db, id, namespace)
 }
 
 export function deleteSession(db: Database, id: string, namespace: string): boolean {

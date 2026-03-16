@@ -6,6 +6,8 @@ export type NativeSyncApi = {
     upsertNativeSession(payload: {
         tag: string
         metadata: Record<string, unknown>
+        createdAt: number
+        lastActivityAt: number
         agentState?: unknown | null
     }): Promise<{ id: string }>
     getNativeSyncState(sessionId: string): Promise<NativeSyncState | null>
@@ -151,6 +153,8 @@ export class NativeSyncService {
         const session = await this.api.upsertNativeSession({
             tag: buildStableNativeTag(summary),
             metadata: this.buildSessionMetadata(summary),
+            createdAt: summary.createdAt,
+            lastActivityAt: summary.lastActivityAt,
             agentState: null
         })
         const state = await this.api.getNativeSyncState(session.id)

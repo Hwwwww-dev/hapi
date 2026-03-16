@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { appendFile, mkdir, rm, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -110,6 +110,156 @@ describe('Codex native provider', () => {
         const summaries = await provider.discoverSessions()
 
         expect(summaries[0]?.title).toBe('fix the failing test')
+    })
+
+    it('derives summary chronology from session_meta payload timestamps and non-session activity', async () => {
+        const sessionId = 'codex-session-chronology'
+        const sessionDir = join(tempDir, 'sessions', '2026', '01', '06')
+        const sessionFile = join(sessionDir, `codex-${sessionId}.jsonl`)
+
+        await mkdir(sessionDir, { recursive: true })
+        await writeFile(sessionFile, [
+            JSON.stringify({
+                timestamp: '2026-01-01T00:00:30.000Z',
+                type: 'session_meta',
+                payload: {
+                    id: sessionId,
+                    cwd: '/workspaces/codex-chronology',
+                    timestamp: '2026-01-01T00:00:05.000Z'
+                }
+            }),
+            JSON.stringify({
+                timestamp: 'not-a-date',
+                type: 'event_msg',
+                payload: {
+                    type: 'user_message',
+                    message: 'start here'
+                }
+            }),
+            JSON.stringify({
+                timestamp: '2026-01-01T00:00:20.000Z',
+                type: 'event_msg',
+                payload: {
+                    type: 'agent_message',
+                    message: 'done'
+                }
+            })
+        ].join('\n') + '\n')
+
+        const inflatedMtime = new Date('2026-01-02T00:00:00.000Z')
+        await utimes(sessionFile, inflatedMtime, inflatedMtime)
+
+        const provider = createCodexNativeProvider()
+        const [summary] = await provider.discoverSessions()
+
+        expect(summary).toEqual(expect.objectContaining({
+            createdAt: Date.parse('2026-01-01T00:00:05.000Z'),
+            lastActivityAt: Date.parse('2026-01-01T00:00:20.000Z')
+        }))
+    })
+
+    it('falls back to session_meta payload timestamp when non-session events have no native timestamp', async () => {
+        const sessionId = 'codex-session-meta-fallback'
+        const sessionDir = join(tempDir, 'sessions', '2026', '01', '07')
+        const sessionFile = join(sessionDir, `codex-${sessionId}.jsonl`)
+
+        await mkdir(sessionDir, { recursive: true })
+        await writeFile(sessionFile, [
+            JSON.stringify({
+                type: 'session_meta',
+                payload: {
+                    id: sessionId,
+                    cwd: '/workspaces/codex-meta-fallback',
+                    timestamp: '2026-01-07T00:00:05.000Z'
+                }
+            }),
+            JSON.stringify({
+                type: 'event_msg',
+                payload: {
+                    type: 'user_message',
+                    message: 'hello'
+                }
+            })
+        ].join('\n') + '\n')
+
+        const provider = createCodexNativeProvider()
+        const [summary] = await provider.discoverSessions()
+
+        expect(summary).toEqual(expect.objectContaining({
+            createdAt: Date.parse('2026-01-07T00:00:05.000Z'),
+            lastActivityAt: Date.parse('2026-01-07T00:00:05.000Z')
+        }))
+    })
+
+    it('falls back to file timestamps when neither session_meta nor events provide chronology', async () => {
+        const sessionId = 'codex-session-file-fallback'
+        const sessionDir = join(tempDir, 'sessions', '2026', '01', '08')
+        const sessionFile = join(sessionDir, `codex-${sessionId}.jsonl`)
+
+        await mkdir(sessionDir, { recursive: true })
+        await writeFile(sessionFile, [
+            JSON.stringify({
+                type: 'session_meta',
+                payload: {
+                    id: sessionId,
+                    cwd: '/workspaces/codex-file-fallback'
+                }
+            }),
+            JSON.stringify({
+                type: 'event_msg',
+                payload: {
+                    type: 'user_message',
+                    message: 'hello'
+                }
+            })
+        ].join('\n') + '\n')
+
+        const createdStat = await stat(sessionFile)
+        const laterMtime = new Date(Math.floor((createdStat.birthtimeMs || createdStat.mtimeMs) + 60_000))
+        await utimes(sessionFile, laterMtime, laterMtime)
+        const adjustedStat = await stat(sessionFile)
+
+        const provider = createCodexNativeProvider()
+        const [summary] = await provider.discoverSessions()
+
+        expect(summary).toEqual(expect.objectContaining({
+            createdAt: Math.floor(adjustedStat.birthtimeMs || adjustedStat.mtimeMs),
+            lastActivityAt: Math.floor(adjustedStat.mtimeMs)
+        }))
+    })
+
+    it('clamps lastActivityAt to createdAt when session_meta is newer than the last event timestamp', async () => {
+        const sessionId = 'codex-session-clamp'
+        const sessionDir = join(tempDir, 'sessions', '2026', '01', '09')
+        const sessionFile = join(sessionDir, `codex-${sessionId}.jsonl`)
+
+        await mkdir(sessionDir, { recursive: true })
+        await writeFile(sessionFile, [
+            JSON.stringify({
+                type: 'session_meta',
+                payload: {
+                    id: sessionId,
+                    cwd: '/workspaces/codex-clamp',
+                    timestamp: '2026-01-09T00:00:30.000Z'
+                }
+            }),
+            JSON.stringify({
+                timestamp: '2026-01-09T00:00:20.000Z',
+                type: 'event_msg',
+                payload: {
+                    type: 'agent_message',
+                    message: 'done'
+                }
+            })
+        ].join('\n') + '\n')
+
+        const provider = createCodexNativeProvider()
+        const [summary] = await provider.discoverSessions()
+
+        expect(summary).toEqual(expect.objectContaining({
+            createdAt: Date.parse('2026-01-09T00:00:30.000Z'),
+            lastActivityAt: Date.parse('2026-01-09T00:00:30.000Z')
+        }))
     })
 
     it('imports full history in source order', async () => {
@@ -224,7 +374,7 @@ describe('Codex native provider', () => {
         expect(result.messages).toHaveLength(2)
     })
 
-    it('re-reads a small overlap near the persisted cursor so recent native messages can self-heal', async () => {
+    it('re-reads a small overlap near the persisted cursor only after the native file changes', async () => {
         const sessionId = 'codex-session-3'
         const sessionDir = join(tempDir, 'sessions', '2026', '01', '03')
         const sessionFile = join(sessionDir, `codex-${sessionId}.jsonl`)
@@ -251,7 +401,7 @@ describe('Codex native provider', () => {
         const provider = createCodexNativeProvider()
         const [summary] = await provider.discoverSessions()
         const initial = await provider.readMessages(summary, null)
-        const replay = await provider.readMessages(summary, {
+        const unchanged = await provider.readMessages(summary, {
             sessionId: 'hapi-session-1',
             provider: 'codex',
             nativeSessionId: sessionId,
@@ -264,8 +414,8 @@ describe('Codex native provider', () => {
             lastError: null
         })
 
-        expect(replay.messages).toHaveLength(1)
-        expect(replay.messages[0].sourceKey).toBe('file:2026/01/03/codex-codex-session-3.jsonl:line:1')
+        expect(unchanged.messages).toHaveLength(0)
+        expect(unchanged.cursor).toBe(initial.cursor)
 
         await appendFile(sessionFile, JSON.stringify({
             type: 'response_item',

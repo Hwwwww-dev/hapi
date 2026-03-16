@@ -11,6 +11,7 @@ function createSummary(overrides: Partial<NativeSessionSummary> = {}): NativeSes
         projectPath: '/tmp/project',
         displayPath: '/tmp/project',
         flavor: 'claude',
+        createdAt: 100,
         discoveredAt: 100,
         lastActivityAt: 200,
         title: 'Native session',
@@ -77,6 +78,18 @@ function createApi(options: {
     }
 }
 
+async function advanceTimers(advanceMs: number): Promise<void> {
+    if (typeof vi.advanceTimersByTimeAsync === 'function') {
+        await vi.advanceTimersByTimeAsync(advanceMs)
+        return
+    }
+
+    vi.advanceTimersByTime(advanceMs)
+    for (let index = 0; index < 5; index += 1) {
+        await Promise.resolve()
+    }
+}
+
 describe('buildStableNativeTag', () => {
     it('normalizes project paths before hashing', () => {
         const first = buildStableNativeTag(createSummary({ projectPath: '/tmp/project/' }))
@@ -90,9 +103,9 @@ describe('buildStableNativeTag', () => {
 describe('NativeSyncService', () => {
     it('polls recently active native sessions more aggressively', async () => {
         vi.useFakeTimers()
-        vi.setSystemTime(new Date('2026-03-15T12:00:00.000Z'))
+        let now = Date.parse('2026-03-15T12:00:00.000Z')
 
-        const summary = createSummary({ lastActivityAt: Date.now() })
+        const summary = createSummary({ lastActivityAt: now })
         const provider = createProvider({ summaries: [summary] })
         const api = createApi()
         const service = new NativeSyncService({
@@ -100,16 +113,17 @@ describe('NativeSyncService', () => {
             providers: [provider],
             machineId: 'machine-1',
             host: 'local',
-            now: () => Date.now(),
+            now: () => now,
             pollIntervalMs: 60_000
         })
 
         service.start()
 
-        await vi.advanceTimersByTimeAsync(0)
+        await advanceTimers(0)
         expect(provider.discoverSessions).toHaveBeenCalledTimes(1)
 
-        await vi.advanceTimersByTimeAsync(5_000)
+        now += 5_000
+        await advanceTimers(5_000)
         expect(provider.discoverSessions).toHaveBeenCalledTimes(2)
 
         service.stop()
@@ -118,9 +132,9 @@ describe('NativeSyncService', () => {
 
     it('polls inactive native sessions less frequently', async () => {
         vi.useFakeTimers()
-        vi.setSystemTime(new Date('2026-03-15T12:00:00.000Z'))
+        let now = Date.parse('2026-03-15T12:00:00.000Z')
 
-        const summary = createSummary({ lastActivityAt: Date.now() - (2 * 60 * 60_000) })
+        const summary = createSummary({ lastActivityAt: now - (2 * 60 * 60_000) })
         const provider = createProvider({ summaries: [summary] })
         const api = createApi()
         const service = new NativeSyncService({
@@ -128,19 +142,21 @@ describe('NativeSyncService', () => {
             providers: [provider],
             machineId: 'machine-1',
             host: 'local',
-            now: () => Date.now(),
+            now: () => now,
             pollIntervalMs: 30_000
         })
 
         service.start()
 
-        await vi.advanceTimersByTimeAsync(0)
+        await advanceTimers(0)
         expect(provider.discoverSessions).toHaveBeenCalledTimes(1)
 
-        await vi.advanceTimersByTimeAsync(30_000)
+        now += 30_000
+        await advanceTimers(30_000)
         expect(provider.discoverSessions).toHaveBeenCalledTimes(1)
 
-        await vi.advanceTimersByTimeAsync(90_000)
+        now += 90_000
+        await advanceTimers(90_000)
         expect(provider.discoverSessions).toHaveBeenCalledTimes(2)
 
         service.stop()
@@ -176,6 +192,8 @@ describe('NativeSyncService', () => {
 
         expect(api.upsertNativeSession).toHaveBeenCalledWith(expect.objectContaining({
             tag: buildStableNativeTag(summary),
+            createdAt: summary.createdAt,
+            lastActivityAt: summary.lastActivityAt,
             metadata: expect.objectContaining({
                 path: '/tmp/project',
                 host: 'local',
@@ -228,16 +246,18 @@ describe('NativeSyncService', () => {
             initialState: null,
             nextState: initialState
         })
+        let now = 6_000
         const service = new NativeSyncService({
             api,
             providers: [provider],
             machineId: 'machine-1',
             host: 'local',
-            now: () => 6000,
+            now: () => now,
             pollIntervalMs: 60_000
         })
 
         await service.syncOnce()
+        now = 12_000
         await service.syncOnce()
 
         expect(api.upsertNativeSession).toHaveBeenNthCalledWith(1, expect.objectContaining({
