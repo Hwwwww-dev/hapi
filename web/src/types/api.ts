@@ -1,3 +1,4 @@
+import * as protocol from '@hapi/protocol'
 import type {
     DecryptedMessage as ProtocolDecryptedMessage,
     Session,
@@ -225,3 +226,67 @@ export type VisibilityPayload = {
 }
 
 export type SyncEvent = ProtocolSyncEvent
+
+type SessionTitleMetadata = {
+    name?: string
+    summary?: { text?: string }
+    path?: string
+    nativeProvider?: string | null
+    nativeSessionId?: string
+}
+
+type SessionTitleTarget = {
+    id: string
+    metadata?: SessionTitleMetadata | null
+}
+
+type SharedTitleHelpers = {
+    getExplicitSessionTitle?: (metadata?: SessionTitleMetadata | null) => string | null | undefined
+    getSessionPathFallbackTitle?: (sessionId: string, metadata?: SessionTitleMetadata | null) => string
+    getSessionListFallbackTitle?: (sessionId: string, metadata?: SessionTitleMetadata | null) => string
+}
+
+const sharedTitleHelpers = protocol as typeof protocol & SharedTitleHelpers
+
+function getLocalPathFallbackTitle(session: SessionTitleTarget): string {
+    if (session.metadata?.path) {
+        const parts = session.metadata.path.split('/').filter(Boolean)
+        return parts.length > 0 ? parts[parts.length - 1] : session.id.slice(0, 8)
+    }
+
+    return session.id.slice(0, 8)
+}
+
+function getLocalListFallbackTitle(session: SessionTitleTarget): string {
+    const nativeSessionId = session.metadata?.nativeSessionId?.trim()
+    if (nativeSessionId) {
+        const provider = session.metadata?.nativeProvider?.trim()
+        return provider ? `${provider} ${nativeSessionId.slice(0, 8)}` : nativeSessionId.slice(0, 8)
+    }
+
+    return getLocalPathFallbackTitle(session)
+}
+
+export function getExplicitSessionTitle(session: SessionTitleTarget): string | undefined {
+    if (sharedTitleHelpers.getExplicitSessionTitle) {
+        return sharedTitleHelpers.getExplicitSessionTitle(session.metadata) ?? undefined
+    }
+
+    return session.metadata?.name || session.metadata?.summary?.text || undefined
+}
+
+export function getSessionPathFallbackTitle(session: SessionTitleTarget): string {
+    if (sharedTitleHelpers.getSessionPathFallbackTitle) {
+        return sharedTitleHelpers.getSessionPathFallbackTitle(session.id, session.metadata)
+    }
+
+    return getLocalPathFallbackTitle(session)
+}
+
+export function getSessionListFallbackTitle(session: SessionTitleTarget): string {
+    if (sharedTitleHelpers.getSessionListFallbackTitle) {
+        return sharedTitleHelpers.getSessionListFallbackTitle(session.id, session.metadata)
+    }
+
+    return getLocalListFallbackTitle(session)
+}

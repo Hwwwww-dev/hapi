@@ -201,7 +201,12 @@ describe('NativeSyncService', () => {
                 source: 'native',
                 nativeProvider: 'claude',
                 nativeSessionId: 'native-1',
-                claudeSessionId: 'native-1'
+                claudeSessionId: 'native-1',
+                summary: {
+                    text: 'Native session',
+                    updatedAt: 100,
+                    source: 'first-message'
+                }
             })
         }))
         expect(api.getNativeSyncState).toHaveBeenCalledWith('hapi-session-1')

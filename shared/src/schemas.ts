@@ -6,7 +6,8 @@ export const ModelModeSchema = z.enum(MODEL_MODES)
 
 const MetadataSummarySchema = z.object({
     text: z.string(),
-    updatedAt: z.number()
+    updatedAt: z.number(),
+    source: z.enum(['generated', 'first-message']).optional()
 })
 
 export const WorktreeMetadataSchema = z.object({

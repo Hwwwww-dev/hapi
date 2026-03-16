@@ -1,6 +1,6 @@
 import { unwrapRoleWrappedRecordEnvelope } from '@hapi/protocol/messages'
 import { isObject } from '@hapi/protocol'
-import type { DecryptedMessage, Session } from '@/types/api'
+import { getExplicitSessionTitle, getSessionPathFallbackTitle, type DecryptedMessage, type Session } from '@/types/api'
 import { VOICE_CONFIG } from '../voiceConfig'
 
 interface SessionMetadata {
@@ -166,7 +166,7 @@ export function formatSessionFull(session: Session | null, messages: DecryptedMe
         return 'Session not available'
     }
 
-    const sessionName = session.metadata?.summary?.text
+    const sessionName = getExplicitSessionTitle(session) ?? getSessionPathFallbackTitle(session)
     const sessionPath = session.metadata?.path
     const lines: string[] = []
 

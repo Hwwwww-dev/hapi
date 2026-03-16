@@ -76,6 +76,64 @@ function createSession(overrides: Partial<SessionSummary> = {}): SessionSummary 
 }
 
 describe('SessionList', () => {
+    it('prefers metadata.name over generated summary title and fallbacks', () => {
+        renderWithProviders(
+            <SessionList
+                sessions={[createSession({
+                    metadata: {
+                        path: '/tmp/list-name-fallback',
+                        name: 'Pinned Session',
+                        summary: {
+                            text: 'Generated Session'
+                        },
+                        flavor: 'codex',
+                        source: 'native',
+                        nativeProvider: 'codex',
+                        nativeSessionId: '019cf0eb-e725-7580-8eae-d6daf495d6f1'
+                    }
+                })]}
+                onSelect={vi.fn()}
+                onNewSession={vi.fn()}
+                onRefresh={vi.fn()}
+                isLoading={false}
+                renderHeader={false}
+                api={null}
+            />
+        )
+
+        expect(screen.getByText('Pinned Session')).toBeInTheDocument()
+        expect(screen.queryByText('Generated Session')).not.toBeInTheDocument()
+        expect(screen.queryByText('codex 019cf0eb')).not.toBeInTheDocument()
+    })
+
+    it('uses generated summary title before native short-id fallback', () => {
+        renderWithProviders(
+            <SessionList
+                sessions={[createSession({
+                    metadata: {
+                        path: '/tmp/list-summary-fallback',
+                        summary: {
+                            text: 'Generated Session'
+                        },
+                        flavor: 'codex',
+                        source: 'native',
+                        nativeProvider: 'codex',
+                        nativeSessionId: '019cf0eb-e725-7580-8eae-d6daf495d6f1'
+                    }
+                })]}
+                onSelect={vi.fn()}
+                onNewSession={vi.fn()}
+                onRefresh={vi.fn()}
+                isLoading={false}
+                renderHeader={false}
+                api={null}
+            />
+        )
+
+        expect(screen.getByText('Generated Session')).toBeInTheDocument()
+        expect(screen.queryByText('codex 019cf0eb')).not.toBeInTheDocument()
+    })
+
     it.each(['native', 'hybrid'] as const)(
         'shows native provider and short native session id for %s sessions',
         (source) => {
@@ -102,6 +160,28 @@ describe('SessionList', () => {
             expect(screen.getByText('codex 019cf0eb')).toBeInTheDocument()
         }
     )
+
+    it('falls back to the shared path-based title when native fallback is unavailable', () => {
+        renderWithProviders(
+            <SessionList
+                sessions={[createSession({
+                    metadata: {
+                        path: '/tmp/list-path-fallback-title',
+                        flavor: 'codex',
+                        source: 'hapi'
+                    }
+                })]}
+                onSelect={vi.fn()}
+                onNewSession={vi.fn()}
+                onRefresh={vi.fn()}
+                isLoading={false}
+                renderHeader={false}
+                api={null}
+            />
+        )
+
+        expect(screen.getByText('list-path-fallback-title')).toBeInTheDocument()
+    })
 
     it('shows created and updated relative times together', () => {
         vi.useFakeTimers()

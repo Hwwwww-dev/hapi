@@ -1,5 +1,5 @@
 import { useId, useMemo, useRef, useState } from 'react'
-import type { Session } from '@/types/api'
+import { getExplicitSessionTitle, getSessionPathFallbackTitle, type Session } from '@/types/api'
 import type { ApiClient } from '@/api/client'
 import { isTelegramApp } from '@/hooks/useTelegram'
 import { useSessionActions } from '@/hooks/mutations/useSessionActions'
@@ -10,17 +10,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useTranslation } from '@/lib/use-translation'
 
 function getSessionTitle(session: Session): string {
-    if (session.metadata?.name) {
-        return session.metadata.name
-    }
-    if (session.metadata?.summary?.text) {
-        return session.metadata.summary.text
-    }
-    if (session.metadata?.path) {
-        const parts = session.metadata.path.split('/').filter(Boolean)
-        return parts.length > 0 ? parts[parts.length - 1] : session.id.slice(0, 8)
-    }
-    return session.id.slice(0, 8)
+    return getExplicitSessionTitle(session) ?? getSessionPathFallbackTitle(session)
 }
 
 function FilesIcon(props: { className?: string }) {

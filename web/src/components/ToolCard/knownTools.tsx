@@ -45,6 +45,10 @@ function formatMCPTitle(toolName: string): string {
     return `MCP: ${snakeToTitleWithSpaces(withoutPrefix)}`
 }
 
+function resolveToolName(toolName: string): string {
+    return toolName.replace(/^functions\./, '')
+}
+
 type ToolOpts = {
     toolName: string
     input: unknown
@@ -174,6 +178,46 @@ export const knownTools: Record<string, {
         icon: () => <TerminalIcon className={DEFAULT_ICON_CLASS} />,
         title: (opts) => opts.description ?? 'Terminal',
         subtitle: (opts) => getInputStringAny(opts.input, ['command', 'cmd']),
+        minimal: true
+    },
+    exec_command: {
+        icon: () => <TerminalIcon className={DEFAULT_ICON_CLASS} />,
+        title: (opts) => opts.description ?? 'Terminal',
+        subtitle: (opts) => getInputStringAny(opts.input, ['cmd', 'command']),
+        minimal: true
+    },
+    write_stdin: {
+        icon: () => <TerminalIcon className={DEFAULT_ICON_CLASS} />,
+        title: () => 'Terminal',
+        subtitle: (opts) => getInputStringAny(opts.input, ['chars']),
+        minimal: true
+    },
+    spawn_agent: {
+        icon: () => <RocketIcon className={DEFAULT_ICON_CLASS} />,
+        title: () => 'Spawn agent',
+        subtitle: (opts) => getInputStringAny(opts.input, ['message']) ?? getInputStringAny(opts.input, ['agent_type']),
+        minimal: true
+    },
+    send_input: {
+        icon: () => <MessageSquareIcon className={DEFAULT_ICON_CLASS} />,
+        title: (opts) => isObject(opts.input) && opts.input.interrupt === true ? 'Interrupt agent' : 'Message agent',
+        subtitle: (opts) => getInputStringAny(opts.input, ['message']),
+        minimal: true
+    },
+    wait: {
+        icon: () => <UsersIcon className={DEFAULT_ICON_CLASS} />,
+        title: () => 'Wait',
+        subtitle: (opts) => {
+            if (!isObject(opts.input) || !Array.isArray(opts.input.ids)) return null
+            const count = opts.input.ids.filter((id) => typeof id === 'string').length
+            if (count === 0) return null
+            return count === 1 ? '1 agent' : `${count} agents`
+        },
+        minimal: true
+    },
+    apply_patch: {
+        icon: () => <FileDiffIcon className={DEFAULT_ICON_CLASS} />,
+        title: () => 'Apply changes',
         minimal: true
     },
     Read: {
@@ -422,37 +466,40 @@ export const knownTools: Record<string, {
 }
 
 export function getToolPresentation(opts: Omit<ToolOpts, 'metadata'> & { metadata: SessionMetadataSummary | null }): ToolPresentation {
-    if (opts.toolName.startsWith('mcp__')) {
+    const resolvedToolName = resolveToolName(opts.toolName)
+    const resolvedOpts = { ...opts, toolName: resolvedToolName }
+
+    if (resolvedToolName.startsWith('mcp__')) {
         return {
             icon: <PuzzleIcon className={DEFAULT_ICON_CLASS} />,
-            title: formatMCPTitle(opts.toolName),
+            title: formatMCPTitle(resolvedToolName),
             subtitle: null,
             minimal: true
         }
     }
 
-    const known = knownTools[opts.toolName]
+    const known = knownTools[resolvedToolName]
     if (known) {
-        const minimal = typeof known.minimal === 'function' ? known.minimal(opts) : (known.minimal ?? false)
+        const minimal = typeof known.minimal === 'function' ? known.minimal(resolvedOpts) : (known.minimal ?? false)
         return {
-            icon: known.icon(opts),
-            title: known.title(opts),
-            subtitle: known.subtitle ? known.subtitle(opts) : null,
+            icon: known.icon(resolvedOpts),
+            title: known.title(resolvedOpts),
+            subtitle: known.subtitle ? known.subtitle(resolvedOpts) : null,
             minimal
         }
     }
 
-    const filePath = getInputStringAny(opts.input, ['file_path', 'path', 'filePath', 'file'])
-    const command = getInputStringAny(opts.input, ['command', 'cmd'])
-    const pattern = getInputStringAny(opts.input, ['pattern'])
-    const url = getInputStringAny(opts.input, ['url'])
-    const query = getInputStringAny(opts.input, ['query'])
+    const filePath = getInputStringAny(resolvedOpts.input, ['file_path', 'path', 'filePath', 'file'])
+    const command = getInputStringAny(resolvedOpts.input, ['command', 'cmd'])
+    const pattern = getInputStringAny(resolvedOpts.input, ['pattern'])
+    const url = getInputStringAny(resolvedOpts.input, ['url'])
+    const query = getInputStringAny(resolvedOpts.input, ['query'])
 
     const subtitle = filePath ?? command ?? pattern ?? url ?? query
 
     return {
         icon: <WrenchIcon className={DEFAULT_ICON_CLASS} />,
-        title: opts.toolName,
+        title: resolvedToolName,
         subtitle: subtitle ? truncate(subtitle, 80) : null,
         minimal: true
     }

@@ -2,6 +2,7 @@ import type { AttachmentMetadata, DecryptedMessage } from '@hapi/protocol/types'
 import type { Server } from 'socket.io'
 import type { Store } from '../store'
 import { EventPublisher } from './eventPublisher'
+import { maybeApplyFirstMessageSessionTitle } from './sessionTitle'
 
 export class MessageService {
     constructor(
@@ -87,6 +88,11 @@ export class MessageService {
                 imported += 1
             }
 
+            let sessionTitleUpdated = false
+            if (result.inserted) {
+                sessionTitleUpdated = maybeApplyFirstMessageSessionTitle(this.store, sessionId, result.message.content, result.message.createdAt)
+            }
+
             const message: DecryptedMessage = {
                 id: result.message.id,
                 seq: result.message.seq,
@@ -97,6 +103,10 @@ export class MessageService {
             if (result.inserted) {
                 importedMessages.push(message)
                 this.broadcastNewMessage(sessionId, message)
+            }
+
+            if (sessionTitleUpdated) {
+                this.broadcastSessionUpdated(sessionId)
             }
         }
 
@@ -127,6 +137,7 @@ export class MessageService {
         }
 
         const msg = this.store.messages.addMessage(sessionId, content, payload.localId ?? undefined)
+        maybeApplyFirstMessageSessionTitle(this.store, sessionId, msg.content, msg.createdAt)
         this.broadcastNewMessage(sessionId, {
             id: msg.id,
             seq: msg.seq,

@@ -103,4 +103,92 @@ describe('normalizeDecryptedMessage', () => {
             }
         }))
     })
+
+    it('normalizes role-wrapped legacy tool_call arrays into tool-call blocks', () => {
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'assistant',
+            content: [
+                {
+                    type: 'tool_call',
+                    id: 'call-write-1',
+                    name: 'write_stdin',
+                    input: {
+                        chars: '继续\n'
+                    }
+                }
+            ]
+        }))
+
+        expect(normalized).toEqual(expect.objectContaining({
+            role: 'agent',
+            content: [
+                expect.objectContaining({
+                    type: 'tool-call',
+                    id: 'call-write-1',
+                    name: 'write_stdin'
+                })
+            ]
+        }))
+    })
+
+    it('normalizes Codex legacy tool_call messages into tool-call blocks', () => {
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'agent',
+            content: {
+                type: 'codex',
+                data: {
+                    type: 'tool_call',
+                    id: 'call-spawn-1',
+                    name: 'spawn_agent',
+                    input: {
+                        agent_type: 'worker',
+                        message: 'inspect logs'
+                    }
+                }
+            }
+        }))
+
+        expect(normalized).toEqual(expect.objectContaining({
+            role: 'agent',
+            content: [
+                expect.objectContaining({
+                    type: 'tool-call',
+                    id: 'call-spawn-1',
+                    name: 'spawn_agent'
+                })
+            ]
+        }))
+    })
+
+    it('normalizes Codex plan messages into update_plan tool blocks', () => {
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'agent',
+            content: {
+                type: 'codex',
+                data: {
+                    type: 'plan',
+                    entries: [
+                        { content: '定位问题', priority: 'high', status: 'in_progress' },
+                        { content: '修复问题', priority: 'high', status: 'pending' }
+                    ]
+                }
+            }
+        }))
+
+        expect(normalized).toEqual(expect.objectContaining({
+            role: 'agent',
+            content: [
+                expect.objectContaining({
+                    type: 'tool-call',
+                    name: 'update_plan',
+                    input: {
+                        plan: [
+                            { content: '定位问题', priority: 'high', status: 'in_progress' },
+                            { content: '修复问题', priority: 'high', status: 'pending' }
+                        ]
+                    }
+                })
+            ]
+        }))
+    })
 })

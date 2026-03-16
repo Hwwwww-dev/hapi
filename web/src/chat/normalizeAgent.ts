@@ -135,7 +135,7 @@ function normalizeAssistantBlocks(
             normalized.push({ type: 'reasoning', text: block.thinking, uuid: fallbackUuid, parentUUID: fallbackParentUUID })
             continue
         }
-        if (block.type === 'tool_use' && typeof block.id === 'string') {
+        if ((block.type === 'tool_use' || block.type === 'tool_call') && typeof block.id === 'string') {
             const name = asString(block.name) ?? 'Tool'
             const input = 'input' in block ? (block as Record<string, unknown>).input : undefined
             const description = isObject(input) && typeof input.description === 'string' ? input.description : null
@@ -200,11 +200,23 @@ function normalizeAssistantOutput(
                 blocks.push({ type: 'reasoning', text: block.thinking, uuid, parentUUID })
                 continue
             }
-            if (block.type === 'tool_use' && typeof block.id === 'string') {
+            if ((block.type === 'tool_use' || block.type === 'tool_call') && typeof block.id === 'string') {
                 const name = asString(block.name) ?? 'Tool'
                 const input = 'input' in block ? (block as Record<string, unknown>).input : undefined
                 const description = isObject(input) && typeof input.description === 'string' ? input.description : null
                 blocks.push({ type: 'tool-call', id: block.id, name, input, description, uuid, parentUUID })
+                continue
+            }
+            if (block.type === 'tool_result' && typeof block.tool_use_id === 'string') {
+                blocks.push({
+                    type: 'tool-result',
+                    tool_use_id: block.tool_use_id,
+                    content: 'content' in block ? (block as Record<string, unknown>).content : undefined,
+                    is_error: Boolean(block.is_error),
+                    uuid,
+                    parentUUID,
+                    permissions: normalizeToolResultPermissions(block.permissions)
+                })
             }
         }
     }
@@ -319,6 +331,13 @@ export function isSkippableAgentContent(content: unknown): boolean {
 
 export function isCodexContent(content: unknown): boolean {
     return isObject(content) && content.type === 'codex'
+}
+
+function getCodexToolCallId(data: Record<string, unknown>): string | null {
+    return asString(data.callId)
+        ?? asString(data.id)
+        ?? asString(data.tool_use_id)
+        ?? asString(data.toolUseId)
 }
 
 export function normalizeAgentRecord(
@@ -489,7 +508,9 @@ export function normalizeAgentRecord(
             }
         }
 
-        if (data.type === 'tool-call' && typeof data.callId === 'string') {
+        if ((data.type === 'tool-call' || data.type === 'tool_call')) {
+            const callId = getCodexToolCallId(data)
+            if (!callId) return null
             const uuid = asString(data.id) ?? messageId
             return {
                 id: messageId,
@@ -499,7 +520,7 @@ export function normalizeAgentRecord(
                 isSidechain: false,
                 content: [{
                     type: 'tool-call',
-                    id: data.callId,
+                    id: callId,
                     name: asString(data.name) ?? 'unknown',
                     input: data.input,
                     description: null,
@@ -510,7 +531,9 @@ export function normalizeAgentRecord(
             }
         }
 
-        if (data.type === 'tool-call-result' && typeof data.callId === 'string') {
+        if ((data.type === 'tool-call-result' || data.type === 'tool_result')) {
+            const callId = getCodexToolCallId(data)
+            if (!callId) return null
             const uuid = asString(data.id) ?? messageId
             return {
                 id: messageId,
@@ -520,9 +543,30 @@ export function normalizeAgentRecord(
                 isSidechain: false,
                 content: [{
                     type: 'tool-result',
-                    tool_use_id: data.callId,
-                    content: data.output,
-                    is_error: false,
+                    tool_use_id: callId,
+                    content: data.output ?? data.content,
+                    is_error: Boolean(data.is_error),
+                    uuid,
+                    parentUUID: null
+                }],
+                meta
+            }
+        }
+
+        if (data.type === 'plan' && Array.isArray(data.entries)) {
+            const uuid = asString(data.id) ?? messageId
+            return {
+                id: messageId,
+                localId,
+                createdAt,
+                role: 'agent',
+                isSidechain: false,
+                content: [{
+                    type: 'tool-call',
+                    id: `plan:${messageId}`,
+                    name: 'update_plan',
+                    input: { plan: data.entries },
+                    description: null,
                     uuid,
                     parentUUID: null
                 }],

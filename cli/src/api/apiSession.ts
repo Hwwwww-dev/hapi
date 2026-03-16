@@ -11,6 +11,7 @@ import type { RawJSONLines } from '@/claude/types'
 import { configuration } from '@/configuration'
 import type { ClientToServerEvents, ServerToClientEvents, Update } from '@hapi/protocol'
 import {
+    createSessionTitleSummary,
     TerminalClosePayloadSchema,
     TerminalOpenPayloadSchema,
     TerminalResizePayloadSchema,
@@ -370,10 +371,7 @@ export class ApiSessionClient extends EventEmitter {
         if (body.type === 'summary' && 'summary' in body && 'leafUuid' in body) {
             this.updateMetadata((metadata) => ({
                 ...metadata,
-                summary: {
-                    text: body.summary,
-                    updatedAt: Date.now()
-                }
+                summary: createSessionTitleSummary(body.summary, Date.now(), 'generated')
             }))
         }
     }

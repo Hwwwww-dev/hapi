@@ -6,6 +6,7 @@ import type { Store, StoredSession } from '../../../store'
 import type { SyncEvent } from '../../../sync/syncEngine'
 import { extractTodoWriteTodosFromMessageContent } from '../../../sync/todos'
 import { extractTeamStateFromMessageContent, applyTeamStateDelta } from '../../../sync/teams'
+import { maybeApplyFirstMessageSessionTitle } from '../../../sync/sessionTitle'
 import type { CliSocketWithData } from '../../socketTypes'
 import type { AccessErrorReason, AccessResult } from './types'
 
@@ -87,6 +88,7 @@ export function registerSessionHandlers(socket: CliSocketWithData, deps: Session
         const session = sessionAccess.value
 
         const msg = store.messages.addMessage(sid, content, localId)
+        const sessionTitleUpdated = maybeApplyFirstMessageSessionTitle(store, sid, msg.content, msg.createdAt)
 
         const todos = extractTodoWriteTodosFromMessageContent(content)
         if (todos) {
@@ -136,6 +138,10 @@ export function registerSessionHandlers(socket: CliSocketWithData, deps: Session
                 createdAt: msg.createdAt
             }
         })
+
+        if (sessionTitleUpdated) {
+            onWebappEvent?.({ type: 'session-updated', sessionId: sid, data: { sid } })
+        }
     })
 
     const handleUpdateMetadata: UpdateMetadataHandler = (data, cb) => {

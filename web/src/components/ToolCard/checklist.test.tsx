@@ -133,6 +133,77 @@ describe('update_plan tool presentation', () => {
     })
 })
 
+describe('developer tool presentation aliases', () => {
+    it('renders exec_command as Terminal', () => {
+        const presentation = getToolPresentation({
+            toolName: 'exec_command',
+            input: { cmd: 'bun run typecheck' },
+            result: undefined,
+            childrenCount: 0,
+            description: null,
+            metadata: null
+        })
+
+        expect(presentation.title).toBe('Terminal')
+        expect(presentation.subtitle).toBe('bun run typecheck')
+    })
+
+    it('renders functions.exec_command with the same title alias', () => {
+        const presentation = getToolPresentation({
+            toolName: 'functions.exec_command',
+            input: { cmd: 'git status --short' },
+            result: undefined,
+            childrenCount: 0,
+            description: null,
+            metadata: null
+        })
+
+        expect(presentation.title).toBe('Terminal')
+        expect(presentation.subtitle).toBe('git status --short')
+    })
+
+    it('renders write_stdin as terminal continuation', () => {
+        const presentation = getToolPresentation({
+            toolName: 'write_stdin',
+            input: { chars: '继续\\n' },
+            result: undefined,
+            childrenCount: 0,
+            description: null,
+            metadata: null
+        })
+
+        expect(presentation.title).toBe('Terminal')
+        expect(presentation.subtitle).toBe('继续\\n')
+    })
+
+    it('renders spawn_agent with a friendly title', () => {
+        const presentation = getToolPresentation({
+            toolName: 'spawn_agent',
+            input: { agent_type: 'worker', message: 'inspect logs' },
+            result: undefined,
+            childrenCount: 0,
+            description: null,
+            metadata: null
+        })
+
+        expect(presentation.title).toBe('Spawn agent')
+        expect(presentation.subtitle).toBe('inspect logs')
+    })
+
+    it('renders apply_patch as Apply changes', () => {
+        const presentation = getToolPresentation({
+            toolName: 'apply_patch',
+            input: { patch: '*** Begin Patch' },
+            result: undefined,
+            childrenCount: 0,
+            description: null,
+            metadata: null
+        })
+
+        expect(presentation.title).toBe('Apply changes')
+    })
+})
+
 describe('UpdatePlanView', () => {
     it('renders checklist rows with status styling', () => {
         render(

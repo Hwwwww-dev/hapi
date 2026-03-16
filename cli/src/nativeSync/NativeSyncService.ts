@@ -1,6 +1,7 @@
 import type { NativeSyncProvider } from './providers/provider'
 import { buildStableNativeTag } from './providers/provider'
 import type { NativeMessageImport, NativeSyncState, NativeSessionSummary } from './types'
+import { createSessionTitleSummary } from '@hapi/protocol'
 
 export type NativeSyncApi = {
     upsertNativeSession(payload: {
@@ -203,7 +204,6 @@ export class NativeSyncService {
         const metadata: Record<string, unknown> = {
             path: summary.projectPath,
             host: this.host,
-            name: summary.title,
             machineId: this.machineId,
             flavor: summary.flavor,
             source: 'native',
@@ -211,6 +211,10 @@ export class NativeSyncService {
             nativeSessionId: summary.nativeSessionId,
             nativeProjectPath: summary.projectPath,
             nativeDiscoveredAt: summary.discoveredAt
+        }
+
+        if (summary.title) {
+            metadata.summary = createSessionTitleSummary(summary.title, summary.createdAt, 'first-message')
         }
 
         if (summary.flavor === 'claude') {
