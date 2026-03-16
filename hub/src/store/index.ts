@@ -6,14 +6,17 @@ import { MachineStore } from './machineStore'
 import { MessageStore } from './messageStore'
 import { NativeSyncStateStore } from './nativeSyncStateStore'
 import { PushStore } from './pushStore'
+import { RawEventStore } from './rawEventStore'
 import { SessionStore } from './sessionStore'
 import { UserStore } from './userStore'
 
 export type {
+    RawEventIngestResult,
     StoredMachine,
     StoredMessage,
     StoredNativeSyncState,
     StoredPushSubscription,
+    StoredRawEvent,
     StoredSession,
     StoredUser,
     VersionedUpdateResult
@@ -22,15 +25,17 @@ export { MachineStore } from './machineStore'
 export { MessageStore } from './messageStore'
 export { NativeSyncStateStore } from './nativeSyncStateStore'
 export { PushStore } from './pushStore'
+export { RawEventStore } from './rawEventStore'
 export { SessionStore } from './sessionStore'
 export { UserStore } from './userStore'
 
-const SCHEMA_VERSION: number = 6
+const SCHEMA_VERSION: number = 7
 const REQUIRED_TABLES = [
     'sessions',
     'session_native_aliases',
     'machines',
     'messages',
+    'raw_events',
     'native_sync_state',
     'users',
     'push_subscriptions'
@@ -43,6 +48,7 @@ export class Store {
     readonly sessions: SessionStore
     readonly machines: MachineStore
     readonly messages: MessageStore
+    readonly rawEvents: RawEventStore
     readonly nativeSyncState: NativeSyncStateStore
     readonly users: UserStore
     readonly push: PushStore
@@ -85,6 +91,7 @@ export class Store {
         this.sessions = new SessionStore(this.db)
         this.machines = new MachineStore(this.db)
         this.messages = new MessageStore(this.db)
+        this.rawEvents = new RawEventStore(this.db)
         this.nativeSyncState = new NativeSyncStateStore(this.db)
         this.users = new UserStore(this.db)
         this.push = new PushStore(this.db)
@@ -94,10 +101,7 @@ export class Store {
         const currentVersion = this.getUserVersion()
         if (currentVersion === 0) {
             if (this.hasAnyUserTables()) {
-                this.migrateLegacySchemaIfNeeded()
-                this.createSchema()
-                this.setUserVersion(SCHEMA_VERSION)
-                return
+                throw this.buildSchemaResetRequiredError('legacy or partially initialized schema detected')
             }
 
             this.createSchema()
@@ -105,60 +109,8 @@ export class Store {
             return
         }
 
-        if (currentVersion === 1 && SCHEMA_VERSION === 2) {
-            this.migrateFromV1ToV2()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
-        if (currentVersion === 2 && SCHEMA_VERSION === 3) {
-            this.migrateFromV2ToV3()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
-        if (currentVersion === 3 && SCHEMA_VERSION === 4) {
-            this.migrateFromV3ToV4()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
-        if (currentVersion === 3 && SCHEMA_VERSION === 5) {
-            this.migrateFromV3ToV4()
-            this.migrateFromV4ToV5()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
-        if (currentVersion === 4 && SCHEMA_VERSION === 5) {
-            this.migrateFromV4ToV5()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
-        if (currentVersion === 3 && SCHEMA_VERSION === 6) {
-            this.migrateFromV3ToV4()
-            this.migrateFromV4ToV5()
-            this.migrateFromV5ToV6()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
-        if (currentVersion === 4 && SCHEMA_VERSION === 6) {
-            this.migrateFromV4ToV5()
-            this.migrateFromV5ToV6()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
-        if (currentVersion === 5 && SCHEMA_VERSION === 6) {
-            this.migrateFromV5ToV6()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
         if (currentVersion !== SCHEMA_VERSION) {
-            throw this.buildSchemaMismatchError(currentVersion)
+            throw this.buildSchemaResetRequiredError(`expected schema version ${SCHEMA_VERSION}, found ${currentVersion}`)
         }
 
         this.assertRequiredTablesPresent()
@@ -235,6 +187,29 @@ export class Store {
             CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_native_source
             ON messages(session_id, source_provider, source_session_id, source_key)
             WHERE source_key IS NOT NULL;
+
+            CREATE TABLE IF NOT EXISTS raw_events (
+                ingest_seq INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT NOT NULL UNIQUE,
+                session_id TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                source TEXT NOT NULL,
+                source_session_id TEXT NOT NULL,
+                source_key TEXT NOT NULL,
+                observation_key TEXT,
+                channel TEXT NOT NULL,
+                source_order INTEGER NOT NULL,
+                occurred_at INTEGER NOT NULL,
+                ingested_at INTEGER NOT NULL,
+                raw_type TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                ingest_schema_version INTEGER NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_raw_events_identity
+            ON raw_events(provider, source, source_session_id, source_key);
+            CREATE INDEX IF NOT EXISTS idx_raw_events_session_ingest_seq
+            ON raw_events(session_id, ingest_seq);
 
             CREATE TABLE IF NOT EXISTS native_sync_state (
                 session_id TEXT PRIMARY KEY,
@@ -479,20 +454,19 @@ export class Store {
         if (missing.length > 0) {
             throw new Error(
                 `SQLite schema is missing required tables (${missing.join(', ')}). ` +
-                'Back up and rebuild the database, or run an offline migration to the expected schema version.'
+                'Reset the database and let HAPI rebuild the canonical store schema.'
             )
         }
     }
 
-    private buildSchemaMismatchError(currentVersion: number): Error {
+    private buildSchemaResetRequiredError(reason: string): Error {
         const location = (this.dbPath === ':memory:' || this.dbPath.startsWith('file::memory:'))
             ? 'in-memory database'
             : this.dbPath
         return new Error(
-            `SQLite schema version mismatch for ${location}. ` +
-            `Expected ${SCHEMA_VERSION}, found ${currentVersion}. ` +
-            'This build does not run compatibility migrations. ' +
-            'Back up and rebuild the database, or run an offline migration to the expected schema version.'
+            `SQLite schema reset required for ${location}: ${reason}. ` +
+            `This build expects canonical store schema version ${SCHEMA_VERSION} and does not migrate pre-canonical databases. ` +
+            'Delete the database and let HAPI rebuild it, or restore from a compatible backup.'
         )
     }
 }

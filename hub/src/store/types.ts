@@ -1,3 +1,5 @@
+import type { RawEventEnvelope } from '@hapi/protocol'
+
 export type StoredSession = {
     id: string
     tag: string | null
@@ -42,6 +44,17 @@ export type StoredMessage = {
     sourceProvider: 'claude' | 'codex' | null
     sourceSessionId: string | null
     sourceKey: string | null
+}
+
+export type StoredRawEvent = Omit<RawEventEnvelope, 'observationKey'> & {
+    observationKey: string | null
+    ingestSeq: number
+    sortKey: string
+}
+
+export type RawEventIngestResult = {
+    event: StoredRawEvent
+    inserted: boolean
 }
 
 export type StoredNativeSyncState = {
