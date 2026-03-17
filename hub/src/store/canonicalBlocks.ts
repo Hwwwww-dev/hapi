@@ -342,19 +342,65 @@ export function getCanonicalRootsPage(
         ? null
         : Math.trunc(options.beforeTimelineSeq)
 
-    const roots = buildCanonicalRoots(listCanonicalBlocksByGeneration(db, sessionId, generation))
-    const startIndex = beforeTimelineSeq === null
-        ? 0
-        : roots.findIndex((root) => root.timelineSeq >= beforeTimelineSeq)
-    const normalizedStartIndex = startIndex === -1 ? roots.length : startIndex
-    const items = roots.slice(normalizedStartIndex, normalizedStartIndex + limit)
-    const hasMore = normalizedStartIndex + limit < roots.length
-    const nextBeforeTimelineSeq = hasMore
-        ? (roots[normalizedStartIndex + limit]?.timelineSeq ?? null)
-        : null
+    // 分页查询：beforeTimelineSeq=null 时取最新 limit 条；
+    // 否则取 < beforeTimelineSeq 的最新 limit 条（DESC 后 reverse 为升序）
+    let rootRows: DbCanonicalBlockRow[]
+
+    if (beforeTimelineSeq === null) {
+        // 取最新 limit 条 root blocks（DESC 后 reverse 为升序）
+        rootRows = db.prepare(`
+            SELECT * FROM canonical_blocks
+            WHERE session_id = ? AND generation = ? AND depth = 0
+            ORDER BY timeline_seq DESC
+            LIMIT ?
+        `).all(sessionId, generation, limit) as DbCanonicalBlockRow[]
+    } else {
+        // 取 timeline_seq < beforeTimelineSeq 的最新 limit 条（DESC 后 reverse 为升序）
+        rootRows = db.prepare(`
+            SELECT * FROM canonical_blocks
+            WHERE session_id = ? AND generation = ? AND depth = 0
+              AND timeline_seq < ?
+            ORDER BY timeline_seq DESC
+            LIMIT ?
+        `).all(sessionId, generation, beforeTimelineSeq, limit) as DbCanonicalBlockRow[]
+    }
+    rootRows.reverse()
+
+    if (rootRows.length === 0) {
+        return {
+            items: [],
+            page: { generation, limit, beforeTimelineSeq, nextBeforeTimelineSeq: null, hasMore: false }
+        }
+    }
+
+    const rootIds = rootRows.map((r) => r.id)
+    const pageStartSeq = rootRows[0]!.timeline_seq
+
+    // 批量加载这些 root blocks 的所有子节点
+    const placeholders = rootIds.map(() => '?').join(',')
+    const childRows = db.prepare(`
+        SELECT * FROM canonical_blocks
+        WHERE session_id = ? AND generation = ? AND depth > 0
+          AND root_block_id IN (${placeholders})
+        ORDER BY timeline_seq ASC, depth ASC, sibling_seq ASC, id ASC
+    `).all(sessionId, generation, ...rootIds) as DbCanonicalBlockRow[]
+
+    const allRows = [...rootRows, ...childRows]
+    const roots = buildCanonicalRoots(allRows.map(toStoredCanonicalBlock))
+
+    // 判断是否还有更旧的数据（timeline_seq < pageStartSeq）
+    const hasMore = pageStartSeq !== null && (db.prepare(`
+        SELECT 1 FROM canonical_blocks
+        WHERE session_id = ? AND generation = ? AND depth = 0
+          AND timeline_seq < ?
+        LIMIT 1
+    `).get(sessionId, generation, pageStartSeq) !== null)
+
+    // nextBeforeTimelineSeq：向前翻页的游标（当前页起始 seq，传入后取更旧的数据）
+    const nextBeforeTimelineSeq = hasMore ? (pageStartSeq ?? null) : null
 
     return {
-        items,
+        items: roots,
         page: {
             generation,
             limit,

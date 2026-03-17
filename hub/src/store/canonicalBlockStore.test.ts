@@ -51,7 +51,7 @@ function createCanonicalRoot(overrides: Partial<CanonicalRootBlock> = {}): Canon
 }
 
 describe('CanonicalBlockStore', () => {
-    it('pages roots by generation and keeps inline children attached', () => {
+    it('pages latest roots first by generation and keeps inline children attached', () => {
         const store = new Store(':memory:')
         const session = store.sessions.getOrCreateSession(
             'canonical-session-1',
@@ -103,8 +103,7 @@ describe('CanonicalBlockStore', () => {
             limit: 1
         })
 
-        expect(firstPage.items.map((root) => root.id)).toEqual(['root-a'])
-        expect(firstPage.items[0]?.children.map((child) => child.id)).toEqual(['child-a-1'])
+        expect(firstPage.items.map((root) => root.id)).toEqual(['root-b'])
         expect(firstPage.page.generation).toBe(3)
         expect(firstPage.page.nextBeforeTimelineSeq).toBe(2)
         expect(firstPage.page.hasMore).toBe(true)
@@ -115,7 +114,8 @@ describe('CanonicalBlockStore', () => {
             limit: 1
         })
 
-        expect(secondPage.items.map((root) => root.id)).toEqual(['root-b'])
+        expect(secondPage.items.map((root) => root.id)).toEqual(['root-a'])
+        expect(secondPage.items[0]?.children.map((child) => child.id)).toEqual(['child-a-1'])
         expect(secondPage.page.nextBeforeTimelineSeq).toBeNull()
         expect(secondPage.page.hasMore).toBe(false)
 
@@ -164,5 +164,74 @@ describe('CanonicalBlockStore', () => {
 
         expect(page.items.map((root) => root.id)).toEqual(['root-b'])
         expect(page.page.hasMore).toBe(false)
+    })
+
+    it('getRootsPage with beforeTimelineSeq only queries needed rows', () => {
+        const store = new Store(':memory:')
+        const session = store.sessions.getOrCreateSession(
+            'canonical-session-page-cursor',
+            { path: '/tmp/project', host: 'local' },
+            null,
+            'default'
+        )
+
+        // 插入 200 条 root blocks
+        const roots = Array.from({ length: 200 }, (_, i) =>
+            createCanonicalRoot({
+                id: `root-${i + 1}`,
+                sessionId: session.id,
+                generation: 1,
+                timelineSeq: i + 1,
+                state: 'complete'
+            })
+        )
+        store.canonicalBlocks.replaceGeneration(session.id, 1, roots)
+
+        // 请求第 2 页（beforeTimelineSeq=51, limit=50）
+        const page = store.canonicalBlocks.getRootsPage(session.id, {
+            generation: 1,
+            beforeTimelineSeq: 51,
+            limit: 50
+        })
+
+        expect(page.items).toHaveLength(50)
+        expect(page.items[0]!.timelineSeq).toBe(1)
+        expect(page.items[49]!.timelineSeq).toBe(50)
+        expect(page.page.hasMore).toBe(false)
+        expect(page.page.nextBeforeTimelineSeq).toBeNull()
+    })
+
+    it('getRootsPage with beforeTimelineSeq=null returns latest page', () => {
+        const store = new Store(':memory:')
+        const session = store.sessions.getOrCreateSession(
+            'canonical-session-latest-page',
+            { path: '/tmp/project', host: 'local' },
+            null,
+            'default'
+        )
+
+        const roots200 = Array.from({ length: 200 }, (_, i) =>
+            createCanonicalRoot({
+                id: `root-lp-${i + 1}`,
+                sessionId: session.id,
+                generation: 1,
+                timelineSeq: i + 1,
+                state: 'complete'
+            })
+        )
+        store.canonicalBlocks.replaceGeneration(session.id, 1, roots200)
+
+        const page = store.canonicalBlocks.getRootsPage(session.id, {
+            generation: 1,
+            beforeTimelineSeq: null,
+            limit: 50
+        })
+
+        // beforeTimelineSeq=null 应返回最新的 50 条（timelineSeq 151-200）
+        expect(page.items).toHaveLength(50)
+        expect(page.items[0]!.timelineSeq).toBe(151)
+        expect(page.items[49]!.timelineSeq).toBe(200)
+        expect(page.page.hasMore).toBe(true)
+        expect(page.page.nextBeforeTimelineSeq).toBe(151) // 向前翻页的游标
     })
 })
