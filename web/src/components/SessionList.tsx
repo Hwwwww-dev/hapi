@@ -74,7 +74,7 @@ function groupNativeChildren(sessions: SessionSummary[]): SessionWithChildren[] 
     const childrenByParentId = new Map<string, SessionSummary[]>()
     for (const s of sessions) {
         if (s.metadata?.source !== 'native') continue
-        const parentNativeId = (s.metadata?.parentNativeSessionId as string | null | undefined)?.trim()
+        const parentNativeId = s.metadata?.parentNativeSessionId?.trim()
         if (!parentNativeId) continue
         const parent = sessionByNativeId.get(parentNativeId)
         if (!parent) continue

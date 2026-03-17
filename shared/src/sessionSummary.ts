@@ -9,6 +9,7 @@ export type SessionSummaryMetadata = {
     source?: 'hapi' | 'native' | 'hybrid'
     nativeProvider?: 'claude' | 'codex'
     nativeSessionId?: string
+    parentNativeSessionId?: string | null
     worktree?: WorktreeMetadata
 }
 
@@ -37,6 +38,7 @@ export function toSessionSummary(session: Session): SessionSummary {
         source: session.metadata.source ?? undefined,
         nativeProvider: session.metadata.nativeProvider ?? undefined,
         nativeSessionId: session.metadata.nativeSessionId ?? undefined,
+        parentNativeSessionId: session.metadata.parentNativeSessionId ?? null,
         worktree: session.metadata.worktree
     } : null
 
