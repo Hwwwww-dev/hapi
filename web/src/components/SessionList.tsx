@@ -9,6 +9,7 @@ import { SessionSourceBadge } from '@/components/SessionSourceBadge'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { SESSION_AGENT_TABS, filterSessionsByAgentTab, type SessionAgentTab } from '@/lib/agentFlavorUtils'
+import { getSessionModelLabel } from '@/lib/sessionModelLabel'
 import { useTranslation } from '@/lib/use-translation'
 
 type SessionGroup = {
@@ -334,6 +335,7 @@ function SessionItem(props: {
     const nativeSessionId = s.metadata?.nativeSessionId?.trim() || null
     const relativeSessionPath = getRelativeSessionPath(s, groupDirectory)
     const sessionTimes = formatSessionTimes(s, t)
+    const modelLabel = getSessionModelLabel(s)
     const statusDotClass = s.active
         ? (s.thinking ? 'bg-[#007AFF]' : 'bg-[var(--app-badge-success-text)]')
         : 'bg-[var(--app-hint)]'
@@ -407,7 +409,9 @@ function SessionItem(props: {
                         </span>
                         {getAgentLabel(s)}
                     </span>
-                    <span>{t('session.item.modelMode')}: {s.modelMode || 'default'}</span>
+                    {modelLabel ? (
+                        <span>{t(modelLabel.key)}: {modelLabel.value}</span>
+                    ) : null}
                     {s.metadata?.worktree?.branch ? (
                         <span>{t('session.item.worktree')}: {s.metadata.worktree.branch}</span>
                     ) : null}

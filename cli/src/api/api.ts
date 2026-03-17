@@ -30,6 +30,7 @@ export class ApiClient {
         existingSessionId?: string
         metadata: Metadata
         state: AgentState | null
+        model?: string
     }): Promise<Session> {
         const response = await axios.post<CreateSessionResponse>(
             `${configuration.apiUrl}/cli/sessions`,
@@ -37,7 +38,8 @@ export class ApiClient {
                 tag: opts.tag,
                 existingSessionId: opts.existingSessionId,
                 metadata: opts.metadata,
-                agentState: opts.state
+                agentState: opts.state,
+                model: opts.model
             },
             {
                 headers: {
@@ -53,7 +55,38 @@ export class ApiClient {
             throw apiValidationError('Invalid /cli/sessions response', response)
         }
 
-        return this.parseSession(parsed.data.session)
+        const raw = parsed.data.session
+
+        const metadata = (() => {
+            if (raw.metadata == null) return null
+            const parsedMetadata = MetadataSchema.safeParse(raw.metadata)
+            return parsedMetadata.success ? parsedMetadata.data : null
+        })()
+
+        const agentState = (() => {
+            if (raw.agentState == null) return null
+            const parsedAgentState = AgentStateSchema.safeParse(raw.agentState)
+            return parsedAgentState.success ? parsedAgentState.data : null
+        })()
+
+        return {
+            id: raw.id,
+            namespace: raw.namespace,
+            seq: raw.seq,
+            createdAt: raw.createdAt,
+            updatedAt: raw.updatedAt,
+            active: raw.active,
+            activeAt: raw.activeAt,
+            metadata,
+            metadataVersion: raw.metadataVersion,
+            agentState,
+            agentStateVersion: raw.agentStateVersion,
+            thinking: raw.thinking,
+            thinkingAt: raw.thinkingAt,
+            todos: raw.todos,
+            model: raw.model,
+            permissionMode: raw.permissionMode
+        }
     }
 
     async getOrCreateMachine(opts: {

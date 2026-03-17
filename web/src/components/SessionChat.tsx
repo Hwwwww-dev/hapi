@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { AssistantRuntimeProvider } from '@assistant-ui/react'
 import type { ApiClient } from '@/api/client'
-import type { AttachmentMetadata, DecryptedMessage, ModelMode, PermissionMode, Session } from '@/types/api'
+import type { AttachmentMetadata, CodexCollaborationMode, DecryptedMessage, PermissionMode, Session } from '@/types/api'
 import type { ChatBlock, NormalizedMessage } from '@/chat/types'
 import type { Suggestion } from '@/hooks/useActiveSuggestions'
 import { normalizeDecryptedMessage } from '@/chat/normalize'
@@ -51,10 +51,13 @@ export function SessionChat(props: {
     const [forceScrollToken, setForceScrollToken] = useState(0)
     const [statusActionPending, setStatusActionPending] = useState<'resume' | 'disconnect' | 'refresh' | null>(null)
     const agentFlavor = props.session.metadata?.flavor ?? null
-    const { abortSession, archiveSession, switchSession, setPermissionMode, setModelMode } = useSessionActions(
+    const controlledByUser = props.session.agentState?.controlledByUser === true
+    const codexCollaborationModeSupported = agentFlavor === 'codex' && !controlledByUser
+    const { abortSession, archiveSession, switchSession, setPermissionMode, setCollaborationMode, setModel } = useSessionActions(
         props.api,
         props.session.id,
-        agentFlavor
+        agentFlavor,
+        codexCollaborationModeSupported
     )
 
     // Voice assistant integration
@@ -214,17 +217,28 @@ export function SessionChat(props: {
         }
     }, [setPermissionMode, props.onRefresh, haptic])
 
-    // Model mode change handler
-    const handleModelModeChange = useCallback(async (mode: ModelMode) => {
+    const handleCollaborationModeChange = useCallback(async (mode: CodexCollaborationMode) => {
         try {
-            await setModelMode(mode)
+            await setCollaborationMode(mode)
             haptic.notification('success')
             props.onRefresh()
         } catch (e) {
             haptic.notification('error')
-            console.error('Failed to set model mode:', e)
+            console.error('Failed to set collaboration mode:', e)
         }
-    }, [setModelMode, props.onRefresh, haptic])
+    }, [setCollaborationMode, props.onRefresh, haptic])
+
+    // Model mode change handler
+    const handleModelChange = useCallback(async (model: string | null) => {
+        try {
+            await setModel(model)
+            haptic.notification('success')
+            props.onRefresh()
+        } catch (e) {
+            haptic.notification('error')
+            console.error('Failed to set model:', e)
+        }
+    }, [setModel, props.onRefresh, haptic])
 
     // Abort handler
     const handleAbort = useCallback(async () => {
@@ -367,16 +381,22 @@ export function SessionChat(props: {
                     <HappyComposer
                         disabled={props.isSending}
                         permissionMode={props.session.permissionMode}
-                        modelMode={props.session.modelMode}
+                        collaborationMode={codexCollaborationModeSupported ? props.session.collaborationMode : undefined}
+                        model={props.session.model}
                         agentFlavor={agentFlavor}
                         active={props.session.active}
                         allowSendWhenInactive
                         thinking={props.session.thinking}
                         agentState={props.session.agentState}
                         contextSize={reduced.latestUsage?.contextSize}
-                        controlledByUser={props.session.agentState?.controlledByUser === true}
+                        controlledByUser={controlledByUser}
+                        onCollaborationModeChange={
+                            codexCollaborationModeSupported && props.session.active && !controlledByUser
+                                ? handleCollaborationModeChange
+                                : undefined
+                        }
                         onPermissionModeChange={handlePermissionModeChange}
-                        onModelModeChange={handleModelModeChange}
+                        onModelChange={handleModelChange}
                         onSwitchToRemote={handleSwitchToRemote}
                         onTerminal={props.session.active ? handleViewTerminal : undefined}
                         autocompleteSuggestions={props.autocompleteSuggestions}

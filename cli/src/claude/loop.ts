@@ -6,7 +6,7 @@ import { Session } from "./session"
 import { claudeLocalLauncher } from "./claudeLocalLauncher"
 import { claudeRemoteLauncher } from "./claudeRemoteLauncher"
 import { ApiClient } from "@/lib"
-import type { SessionModelMode } from "@/api/types"
+import type { SessionModel } from "@/api/types"
 import type { ClaudePermissionMode } from "@hapi/protocol/types"
 
 export type PermissionMode = ClaudePermissionMode;
@@ -23,7 +23,7 @@ export interface EnhancedMode {
 
 interface LoopOptions {
     path: string
-    model?: string
+    model?: SessionModel
     permissionMode?: PermissionMode
     startingMode?: 'local' | 'remote'
     startedBy?: 'runner' | 'terminal'
@@ -45,9 +45,6 @@ export async function loop(opts: LoopOptions) {
     const logPath = logger.logFilePath;
     const startedBy = opts.startedBy ?? 'terminal';
     const startingMode = opts.startingMode ?? 'local';
-    const modelMode: SessionModelMode = opts.model === 'sonnet' || opts.model === 'opus'
-        ? opts.model
-        : 'default';
     const session = new Session({
         api: opts.api,
         client: opts.session,
@@ -65,7 +62,7 @@ export async function loop(opts: LoopOptions) {
         startingMode,
         hookSettingsPath: opts.hookSettingsPath,
         permissionMode: opts.permissionMode ?? 'default',
-        modelMode
+        model: opts.model
     });
 
     await runLocalRemoteSession({

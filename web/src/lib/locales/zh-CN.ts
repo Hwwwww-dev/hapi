@@ -54,7 +54,6 @@ export default {
   'session.item.path': '路径',
   'session.item.agent': '代理',
   'session.item.model': '模型',
-  'session.item.modelMode': '模型',
   'session.item.worktree': '工作树',
   'session.item.nativeSource': '原生',
   'session.item.pending': '待处理',
@@ -299,6 +298,7 @@ export default {
   // Misc
   'misc.noMachines': '无可用机器',
   'misc.machine': '机器',
+  'misc.collaborationMode': '协作模式',
   'misc.permissionMode': '权限模式',
   'misc.model': '模型',
   'misc.loading': '加载中…',

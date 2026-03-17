@@ -38,7 +38,8 @@ export async function runCursor(opts: {
         flavor: 'cursor',
         startedBy,
         workingDirectory,
-        agentState: state
+        agentState: state,
+        model: opts.model
     });
 
     const startingMode: 'local' | 'remote' = startedBy === 'runner' ? 'remote' : 'local';

@@ -177,6 +177,7 @@ export class Store {
                 metadata_version INTEGER DEFAULT 1,
                 agent_state TEXT,
                 agent_state_version INTEGER DEFAULT 1,
+                model TEXT,
                 todos TEXT,
                 todos_updated_at INTEGER,
                 team_state TEXT,
@@ -377,14 +378,19 @@ export class Store {
     }
 
     private migrateFromV4ToV5(): void {
-        const columns = this.getMessageColumnNames()
-        if (!columns.has('source_provider')) {
+        const sessionColumns = this.getSessionColumnNames()
+        if (!sessionColumns.has('model')) {
+            this.db.exec('ALTER TABLE sessions ADD COLUMN model TEXT')
+        }
+
+        const messageColumns = this.getMessageColumnNames()
+        if (!messageColumns.has('source_provider')) {
             this.db.exec('ALTER TABLE messages ADD COLUMN source_provider TEXT')
         }
-        if (!columns.has('source_session_id')) {
+        if (!messageColumns.has('source_session_id')) {
             this.db.exec('ALTER TABLE messages ADD COLUMN source_session_id TEXT')
         }
-        if (!columns.has('source_key')) {
+        if (!messageColumns.has('source_key')) {
             this.db.exec('ALTER TABLE messages ADD COLUMN source_key TEXT')
         }
 

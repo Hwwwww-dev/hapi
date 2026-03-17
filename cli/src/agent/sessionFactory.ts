@@ -22,6 +22,8 @@ export type SessionBootstrapOptions = {
     tag?: string
     existingSessionId?: string
     agentState?: AgentState | null
+    model?: string
+    metadataOverrides?: Partial<Metadata>
 }
 
 export type SessionBootstrapResult = {
@@ -51,6 +53,7 @@ export function buildSessionMetadata(options: {
     workingDirectory: string
     machineId: string
     now?: number
+    metadataOverrides?: Partial<Metadata>
 }): Metadata {
     const happyLibDir = runtimePath()
     const worktreeInfo = readWorktreeEnv()
@@ -72,7 +75,8 @@ export function buildSessionMetadata(options: {
         lifecycleState: 'running',
         lifecycleStateSince: now,
         flavor: options.flavor,
-        worktree: worktreeInfo ?? undefined
+        worktree: worktreeInfo ?? undefined,
+        ...options.metadataOverrides
     }
 }
 
@@ -123,14 +127,16 @@ export async function bootstrapSession(options: SessionBootstrapOptions): Promis
         flavor: options.flavor,
         startedBy,
         workingDirectory,
-        machineId
+        machineId,
+        metadataOverrides: options.metadataOverrides
     })
 
     const sessionInfo = await api.getOrCreateSession({
         tag: sessionTag,
         existingSessionId,
         metadata,
-        state: agentState
+        state: agentState,
+        model: options.model
     })
 
     const session = api.sessionSyncClient(sessionInfo)

@@ -7,7 +7,8 @@ const harness = vi.hoisted(() => ({
     registerRequestCalls: [] as string[],
     interruptCalls: [] as Array<{ threadId: string; turnId: string }>,
     startTurnMode: 'complete' as 'complete' | 'pending-abort',
-    turnId: ''
+    turnId: '',
+    initializeCalls: [] as unknown[]
 }));
 
 vi.mock('./codexAppServerClient', () => {
@@ -16,7 +17,8 @@ vi.mock('./codexAppServerClient', () => {
 
         async connect(): Promise<void> {}
 
-        async initialize(): Promise<{ protocolVersion: number }> {
+        async initialize(params: unknown): Promise<{ protocolVersion: number }> {
+            harness.initializeCalls.push(params);
             return { protocolVersion: 1 };
         }
 
@@ -28,12 +30,12 @@ vi.mock('./codexAppServerClient', () => {
             harness.registerRequestCalls.push(method);
         }
 
-        async startThread(): Promise<{ thread: { id: string } }> {
-            return { thread: { id: 'thread-anonymous' } };
+        async startThread(): Promise<{ thread: { id: string }; model: string }> {
+            return { thread: { id: 'thread-anonymous' }, model: 'gpt-5.4' };
         }
 
-        async resumeThread(): Promise<{ thread: { id: string } }> {
-            return { thread: { id: 'thread-anonymous' } };
+        async resumeThread(): Promise<{ thread: { id: string }; model: string }> {
+            return { thread: { id: 'thread-anonymous' }, model: 'gpt-5.4' };
         }
 
         async startTurn(): Promise<{ turn: Record<string, never> }> {
@@ -83,7 +85,8 @@ type FakeAgentState = {
 
 function createMode(): EnhancedMode {
     return {
-        permissionMode: 'default'
+        permissionMode: 'default',
+        collaborationMode: 'default'
     };
 }
 
@@ -95,6 +98,7 @@ function createSessionStub() {
     const codexMessages: unknown[] = [];
     const thinkingChanges: boolean[] = [];
     const foundSessionIds: string[] = [];
+    let currentModel: string | null | undefined;
     let agentState: FakeAgentState = {
         requests: {},
         completedRequests: {}
@@ -128,6 +132,15 @@ function createSessionStub() {
         codexCliOverrides: undefined,
         sessionId: null as string | null,
         thinking: false,
+        getPermissionMode() {
+            return 'default' as const;
+        },
+        setModel(nextModel: string | null) {
+            currentModel = nextModel;
+        },
+        getModel() {
+            return currentModel;
+        },
         onThinkingChange(nextThinking: boolean) {
             session.thinking = nextThinking;
             thinkingChanges.push(nextThinking);
@@ -155,6 +168,7 @@ function createSessionStub() {
         foundSessionIds,
         rpcHandlers,
         queue,
+        getModel: () => currentModel,
         getAgentState: () => agentState
     };
 }
@@ -167,16 +181,17 @@ describe('codexRemoteLauncher', () => {
         harness.startTurnMode = 'complete';
         harness.turnId = '';
         delete process.env.CODEX_USE_MCP_SERVER;
+        harness.initializeCalls = [];
     });
 
     it('finishes a turn and emits ready when task lifecycle events omit turn_id', async () => {
-        delete process.env.CODEX_USE_MCP_SERVER;
         const {
             session,
             sessionEvents,
             thinkingChanges,
             foundSessionIds,
-            queue
+            queue,
+            getModel
         } = createSessionStub();
 
         queue.close();
@@ -184,6 +199,16 @@ describe('codexRemoteLauncher', () => {
 
         expect(exitReason).toBe('exit');
         expect(foundSessionIds).toContain('thread-anonymous');
+        expect(getModel()).toBe('gpt-5.4');
+        expect(harness.initializeCalls).toEqual([{
+            clientInfo: {
+                name: 'hapi-codex-client',
+                version: '1.0.0'
+            },
+            capabilities: {
+                experimentalApi: true
+            }
+        }]);
         expect(harness.notifications.map((entry) => entry.method)).toEqual(['turn/started', 'turn/completed']);
         expect(sessionEvents.filter((event) => event.type === 'ready').length).toBeGreaterThanOrEqual(1);
         expect(thinkingChanges).toContain(true);

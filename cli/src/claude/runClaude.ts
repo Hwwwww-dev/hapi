@@ -1,6 +1,6 @@
 import { logger } from '@/ui/logger';
 import { loop } from '@/claude/loop';
-import { AgentState, SessionModelMode } from '@/api/types';
+import { AgentState, SessionModel } from '@/api/types';
 import { EnhancedMode, PermissionMode } from './loop';
 import { MessageQueue2 } from '@/utils/MessageQueue2';
 import { hashObject } from '@/utils/deterministicJson';
@@ -14,9 +14,10 @@ import { registerKillSessionHandler } from './registerKillSessionHandler';
 import type { Session } from './session';
 import { bootstrapSession } from '@/agent/sessionFactory';
 import { createModeChangeHandler, createRunnerLifecycle, setControlledByUser } from '@/agent/runnerLifecycle';
-import { isModelModeAllowedForFlavor, isPermissionModeAllowedForFlavor } from '@hapi/protocol';
-import { ModelModeSchema, PermissionModeSchema } from '@hapi/protocol/schemas';
+import { isPermissionModeAllowedForFlavor } from '@hapi/protocol';
+import { PermissionModeSchema } from '@hapi/protocol/schemas';
 import { formatMessageWithAttachments } from '@/utils/attachmentFormatter';
+import { normalizeClaudeSessionModel } from './model';
 
 export interface StartOptions {
     model?: string
@@ -45,11 +46,13 @@ export async function runClaude(options: StartOptions = {}): Promise<void> {
     }
 
     const initialState: AgentState = {};
+    const initialModel = normalizeClaudeSessionModel(options.model);
     const { api, session, sessionInfo } = await bootstrapSession({
         flavor: 'claude',
         startedBy,
         workingDirectory,
-        agentState: initialState
+        agentState: initialState,
+        model: initialModel ?? undefined
     });
     logger.debug(`Session created: ${sessionInfo.id}`);
 
@@ -143,7 +146,7 @@ export async function runClaude(options: StartOptions = {}): Promise<void> {
 
     // Forward messages to the queue
     let currentPermissionMode: PermissionMode = options.permissionMode ?? 'default';
-    let currentModelMode: SessionModelMode = options.model === 'sonnet' || options.model === 'opus' ? options.model : 'default';
+    let currentModel: SessionModel = initialModel;
     let currentFallbackModel: string | undefined = undefined; // Track current fallback model
     let currentCustomSystemPrompt: string | undefined = undefined; // Track current custom system prompt
     let currentAppendSystemPrompt: string | undefined = undefined; // Track current append system prompt
@@ -156,17 +159,21 @@ export async function runClaude(options: StartOptions = {}): Promise<void> {
             return;
         }
         sessionInstance.setPermissionMode(currentPermissionMode);
-        sessionInstance.setModelMode(currentModelMode);
-        logger.debug(`[loop] Synced session modes for keepalive: permissionMode=${currentPermissionMode}, modelMode=${currentModelMode}`);
+        sessionInstance.setModel(currentModel);
+        logger.debug(`[loop] Synced session config for keepalive: permissionMode=${currentPermissionMode}, model=${currentModel ?? 'auto'}`);
     };
     session.onUserMessage((message) => {
         const sessionPermissionMode = currentSessionRef.current?.getPermissionMode();
         if (sessionPermissionMode && isPermissionModeAllowedForFlavor(sessionPermissionMode, 'claude')) {
             currentPermissionMode = sessionPermissionMode as PermissionMode;
         }
+        const sessionModel = currentSessionRef.current?.getModel();
+        if (sessionModel !== undefined) {
+            currentModel = sessionModel;
+        }
         const messagePermissionMode = currentPermissionMode;
-        const messageModel = currentModelMode === 'default' ? undefined : currentModelMode;
-        logger.debug(`[loop] User message received with permission mode: ${currentPermissionMode}, model: ${currentModelMode}`);
+        const messageModel = currentModel ?? undefined;
+        logger.debug(`[loop] User message received with permission mode: ${currentPermissionMode}, model: ${currentModel ?? 'auto'}`);
 
         // Resolve custom system prompt - use message.meta.customSystemPrompt if provided, otherwise use current
         let messageCustomSystemPrompt = currentCustomSystemPrompt;
@@ -282,31 +289,34 @@ export async function runClaude(options: StartOptions = {}): Promise<void> {
         return parsed.data as PermissionMode;
     };
 
-    const resolveModelMode = (value: unknown): SessionModelMode => {
-        const parsed = ModelModeSchema.safeParse(value);
-        if (!parsed.success || !isModelModeAllowedForFlavor(parsed.data, 'claude')) {
-            throw new Error('Invalid model mode');
+    const resolveModel = (value: unknown): SessionModel => {
+        if (value === null) {
+            return null;
         }
-        return parsed.data;
+
+        if (typeof value !== 'string') {
+            throw new Error('Invalid model');
+        }
+
+        return normalizeClaudeSessionModel(value);
     };
 
     session.rpcHandlerManager.registerHandler('set-session-config', async (payload: unknown) => {
         if (!payload || typeof payload !== 'object') {
             throw new Error('Invalid session config payload');
         }
-        const config = payload as { permissionMode?: unknown; modelMode?: unknown };
+        const config = payload as { permissionMode?: unknown; model?: unknown };
 
         if (config.permissionMode !== undefined) {
             currentPermissionMode = resolvePermissionMode(config.permissionMode);
         }
 
-        if (config.modelMode !== undefined) {
-            const resolvedModelMode = resolveModelMode(config.modelMode);
-            currentModelMode = resolvedModelMode;
+        if (config.model !== undefined) {
+            currentModel = resolveModel(config.model);
         }
 
         syncSessionModes();
-        return { applied: { permissionMode: currentPermissionMode, modelMode: currentModelMode } };
+        return { applied: { permissionMode: currentPermissionMode, model: currentModel } };
     });
 
     let loopError: unknown = null;
@@ -314,7 +324,7 @@ export async function runClaude(options: StartOptions = {}): Promise<void> {
     try {
         await loop({
             path: workingDirectory,
-            model: options.model,
+            model: currentModel,
             permissionMode: options.permissionMode,
             startingMode,
             messageQueue,

@@ -1,12 +1,12 @@
 import {
     AgentStateSchema,
     AttachmentMetadataSchema,
+    CodexCollaborationModeSchema,
     MetadataSchema,
-    ModelModeSchema,
     PermissionModeSchema,
     TodosSchema
 } from '@hapi/protocol/schemas'
-import type { ModelMode, PermissionMode } from '@hapi/protocol/types'
+import type { CodexCollaborationMode, PermissionMode } from '@hapi/protocol/types'
 import { z } from 'zod'
 import { UsageSchema } from '@/claude/types'
 import type { NativeSyncState } from '@/nativeSync/types'
@@ -17,12 +17,14 @@ export type {
     AgentState,
     AttachmentMetadata,
     ClaudePermissionMode,
+    CodexCollaborationMode,
     CodexPermissionMode,
     Metadata,
     Session
 } from '@hapi/protocol/types'
 export type SessionPermissionMode = PermissionMode
-export type SessionModelMode = ModelMode
+export type SessionCollaborationMode = CodexCollaborationMode
+export type SessionModel = string | null
 
 export { AgentStateSchema, AttachmentMetadataSchema, MetadataSchema }
 
@@ -97,8 +99,9 @@ export const CreateSessionResponseSchema = z.object({
         thinking: z.boolean(),
         thinkingAt: z.number(),
         todos: TodosSchema.optional(),
+        model: z.string().nullable(),
         permissionMode: PermissionModeSchema.optional(),
-        modelMode: ModelModeSchema.optional()
+        collaborationMode: CodexCollaborationModeSchema.optional()
     })
 })
 
