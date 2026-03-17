@@ -9,8 +9,6 @@ import {
     getSessionByNamespace,
     getSessions,
     getSessionsByNamespace,
-    insertDeletedNativeAlias,
-    isNativeAliasDeleted,
     reconcileSessionTimestamps,
     setSessionModel,
     setSessionTeamState,
@@ -92,14 +90,6 @@ export class SessionStore {
 
     syncNativeAliasesForSessionMetadata(id: string, namespace: string, metadata: unknown): void {
         syncNativeAliasesForSessionMetadata(this.db, id, namespace, metadata)
-    }
-
-    insertDeletedNativeAlias(namespace: string, provider: 'claude' | 'codex', nativeSessionId: string, deletedAt: number): void {
-        insertDeletedNativeAlias(this.db, namespace, provider, nativeSessionId, deletedAt)
-    }
-
-    isNativeAliasDeleted(namespace: string, provider: 'claude' | 'codex', nativeSessionId: string): boolean {
-        return isNativeAliasDeleted(this.db, namespace, provider, nativeSessionId)
     }
 
     reconcileSessionTimestamps(

@@ -157,7 +157,7 @@ export class ApiClient {
         createdAt: number
         lastActivityAt: number
         agentState?: AgentState | null
-    }): Promise<Session | null> {
+    }): Promise<Session> {
         const response = await axios.post<CreateSessionResponse>(
             `${configuration.apiUrl}/cli/native/sessions/upsert`,
             {
@@ -179,10 +179,6 @@ export class ApiClient {
         const parsed = CreateSessionResponseSchema.safeParse(response.data)
         if (!parsed.success) {
             throw apiValidationError('Invalid /cli/native/sessions/upsert response', response)
-        }
-
-        if (parsed.data.session === null) {
-            return null
         }
 
         return this.parseSession(parsed.data.session)

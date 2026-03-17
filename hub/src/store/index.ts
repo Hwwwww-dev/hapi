@@ -25,11 +25,10 @@ export { PushStore } from './pushStore'
 export { SessionStore } from './sessionStore'
 export { UserStore } from './userStore'
 
-const SCHEMA_VERSION: number = 7
+const SCHEMA_VERSION: number = 6
 const REQUIRED_TABLES = [
     'sessions',
     'session_native_aliases',
-    'deleted_native_aliases',
     'machines',
     'messages',
     'native_sync_state',
@@ -158,12 +157,6 @@ export class Store {
             return
         }
 
-        if (currentVersion === 6 && SCHEMA_VERSION === 7) {
-            this.migrateFromV6ToV7()
-            this.setUserVersion(SCHEMA_VERSION)
-            return
-        }
-
         if (currentVersion !== SCHEMA_VERSION) {
             throw this.buildSchemaMismatchError(currentVersion)
         }
@@ -281,14 +274,6 @@ export class Store {
                 UNIQUE(namespace, endpoint)
             );
             CREATE INDEX IF NOT EXISTS idx_push_subscriptions_namespace ON push_subscriptions(namespace);
-
-            CREATE TABLE IF NOT EXISTS deleted_native_aliases (
-                namespace TEXT NOT NULL,
-                provider TEXT NOT NULL,
-                native_session_id TEXT NOT NULL,
-                deleted_at INTEGER NOT NULL,
-                PRIMARY KEY (namespace, provider, native_session_id)
-            );
         `)
     }
 
@@ -455,18 +440,6 @@ export class Store {
         this.db.exec(`
             CREATE INDEX IF NOT EXISTS idx_session_native_aliases_session_id
             ON session_native_aliases(session_id)
-        `)
-    }
-
-    private migrateFromV6ToV7(): void {
-        this.db.exec(`
-            CREATE TABLE IF NOT EXISTS deleted_native_aliases (
-                namespace TEXT NOT NULL,
-                provider TEXT NOT NULL,
-                native_session_id TEXT NOT NULL,
-                deleted_at INTEGER NOT NULL,
-                PRIMARY KEY (namespace, provider, native_session_id)
-            )
         `)
     }
 

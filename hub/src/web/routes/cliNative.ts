@@ -84,10 +84,6 @@ export function createCliNativeRoutes(getSyncEngine: () => SyncEngine | null): H
             namespace: c.get('namespace')
         })
 
-        if (session === null) {
-            return c.json({ session: null, skipped: true })
-        }
-
         return c.json({ session })
     })
 
