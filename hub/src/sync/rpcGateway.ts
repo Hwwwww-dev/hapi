@@ -225,6 +225,10 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-pull', options) as RpcCommandResponse
     }
 
+    async gitRollbackFile(sessionId: string, options: { cwd?: string; filePath: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-rollback-file', options) as RpcCommandResponse
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.sessionRpc(sessionId, 'readFile', { path }) as RpcReadFileResponse
     }

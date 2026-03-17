@@ -242,8 +242,14 @@ export class SyncEngine {
         createdAt: number
         lastActivityAt: number
         agentState?: unknown | null
-    }): Session {
+    }): Session | null {
         const nativeIdentity = this.resolveNativeSessionIdentity(payload.metadata)
+
+        // If the native session was previously deleted, skip re-importing it
+        if (nativeIdentity && this.store.sessions.isSessionSoftDeleted(nativeIdentity.nativeSessionId)) {
+            return null
+        }
+
         const aliasMatchedSession = nativeIdentity
             ? this.resolveSessionByNativeAlias(payload.namespace, nativeIdentity.provider, nativeIdentity.nativeSessionId)
             : null
@@ -260,8 +266,15 @@ export class SyncEngine {
                 payload.tag,
                 payload.metadata,
                 payload.agentState ?? null,
-                payload.namespace
+                payload.namespace,
+                undefined,
+                nativeIdentity?.nativeSessionId  // use native session id as hapi session id
             )
+
+        if (!session) {
+            console.warn(`[syncEngine] upsertNativeSession: session is null for tag=${payload.tag}`)
+            return null
+        }
 
         let current = this.getSession(session.id) ?? session
         current = this.updateSessionMetadataIfNeeded(
@@ -934,6 +947,10 @@ export class SyncEngine {
 
     async gitPull(sessionId: string, options: { cwd?: string; remote?: string; branch?: string }): Promise<RpcCommandResponse> {
         return await this.rpcGateway.gitPull(sessionId, options)
+    }
+
+    async gitRollbackFile(sessionId: string, options: { cwd?: string; filePath: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitRollbackFile(sessionId, options)
     }
 
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {

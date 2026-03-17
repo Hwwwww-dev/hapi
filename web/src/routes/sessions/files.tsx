@@ -162,25 +162,38 @@ function GitFileRow(props: {
     file: GitFileStatus
     onOpen: () => void
     showDivider: boolean
+    onRollback?: () => void
 }) {
     const subtitle = props.file.filePath || 'project root'
 
     return (
-        <button
-            type="button"
-            onClick={props.onOpen}
-            className={`flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-[var(--app-subtle-bg)] transition-colors ${props.showDivider ? 'border-b border-[var(--app-divider)]' : ''}`}
-        >
-            <FileIcon fileName={props.file.fileName} size={22} />
-            <div className="min-w-0 flex-1">
-                <div className="truncate font-medium">{props.file.fileName}</div>
-                <div className="truncate text-xs text-[var(--app-hint)]">{subtitle}</div>
-            </div>
-            <div className="flex items-center gap-2">
-                <LineChanges added={props.file.linesAdded} removed={props.file.linesRemoved} />
-                <StatusBadge status={props.file.status} />
-            </div>
-        </button>
+        <div className={`flex w-full items-center gap-3 px-3 py-2 ${props.showDivider ? 'border-b border-[var(--app-divider)]' : ''}`}>
+            <button
+                type="button"
+                onClick={props.onOpen}
+                className="flex min-w-0 flex-1 items-center gap-3 text-left hover:bg-[var(--app-subtle-bg)] transition-colors rounded"
+            >
+                <FileIcon fileName={props.file.fileName} size={22} />
+                <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{props.file.fileName}</div>
+                    <div className="truncate text-xs text-[var(--app-hint)]">{subtitle}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <LineChanges added={props.file.linesAdded} removed={props.file.linesRemoved} />
+                    <StatusBadge status={props.file.status} />
+                </div>
+            </button>
+            {props.onRollback ? (
+                <button
+                    type="button"
+                    onClick={props.onRollback}
+                    className="shrink-0 text-xs px-2 py-0.5 rounded border border-[var(--app-border)] text-red-500 hover:bg-red-500/10 transition-colors"
+                    title="Rollback file"
+                >
+                    Rollback
+                </button>
+            ) : null}
+        </div>
     )
 }
 
@@ -339,6 +352,18 @@ export default function FilesPage() {
             setGitActionError(res.stderr ?? res.error ?? 'Pull failed')
         }
     }, [api, gitActionLoading, sessionId, refetchGit])
+
+    const handleRollbackFile = useCallback(async (fullPath: string) => {
+        if (!api) return
+        const confirmed = window.confirm(`Rollback changes to ${fullPath}? This cannot be undone.`)
+        if (!confirmed) return
+        const res = await api.gitRollbackFile(sessionId, fullPath)
+        if (res.success) {
+            void refetchGit()
+        } else {
+            setGitActionError(res.stderr ?? res.error ?? 'Rollback failed')
+        }
+    }, [api, sessionId, refetchGit])
 
     return (
         <div className="flex h-full flex-col">
@@ -528,6 +553,7 @@ export default function FilesPage() {
                                             file={file}
                                             onOpen={() => handleOpenFile(file.fullPath, file.isStaged)}
                                             showDivider={index < gitStatus.unstagedFiles.length - 1}
+                                            onRollback={file.status !== 'untracked' ? () => void handleRollbackFile(file.fullPath) : undefined}
                                         />
                                     ))}
                                 </div>

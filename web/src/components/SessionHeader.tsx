@@ -82,12 +82,13 @@ export function SessionHeader(props: {
     const { archiveSession, renameSession, deleteSession, isPending } = useSessionActions(
         api,
         session.id,
-        session.metadata?.flavor ?? null
+        session.metadata?.flavor ?? null,
+        undefined,
+        onSessionDeleted
     )
 
     const handleDelete = async () => {
         await deleteSession()
-        onSessionDeleted?.()
     }
 
     const handleMenuToggle = () => {

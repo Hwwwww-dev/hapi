@@ -296,5 +296,18 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         return c.json(result)
     })
 
+    app.post('/sessions/:id/git-rollback-file', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = z.object({ filePath: z.string().min(1) }).safeParse(await c.req.json())
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitRollbackFile(sessionResult.sessionId, { cwd: sessionPath, filePath: body.data.filePath }))
+        return c.json(result)
+    })
+
     return app
 }

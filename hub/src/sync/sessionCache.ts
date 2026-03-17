@@ -55,8 +55,9 @@ export class SessionCache {
         return this.getSessions().filter((session) => session.active)
     }
 
-    getOrCreateSession(tag: string, metadata: unknown, agentState: unknown, namespace: string, model?: string): Session {
-        const stored = this.store.sessions.getOrCreateSession(tag, metadata, agentState, namespace, model)
+    getOrCreateSession(tag: string, metadata: unknown, agentState: unknown, namespace: string, model?: string, overrideId?: string): Session | null {
+        const stored = this.store.sessions.getOrCreateSession(tag, metadata, agentState, namespace, model, overrideId)
+        if (!stored) return null
         return this.refreshSession(stored.id) ?? (() => { throw new Error('Failed to load session') })()
     }
 
@@ -304,7 +305,8 @@ export class SessionCache {
     async deleteSession(sessionId: string): Promise<void> {
         const session = this.sessions.get(sessionId)
         if (!session) {
-            throw new Error('Session not found')
+            // Already deleted or not found — treat as success (idempotent)
+            return
         }
 
         if (session.active) {
@@ -313,7 +315,7 @@ export class SessionCache {
 
         const deleted = this.store.sessions.deleteSession(sessionId, session.namespace)
         if (!deleted) {
-            throw new Error('Failed to delete session')
+            // May have already been soft-deleted — still clean up memory
         }
 
         this.sessions.delete(sessionId)

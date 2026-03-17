@@ -84,6 +84,10 @@ export function createCliNativeRoutes(getSyncEngine: () => SyncEngine | null): H
             namespace: c.get('namespace')
         })
 
+        if (session === null) {
+            return c.json({ error: 'Session has been deleted' }, 410)
+        }
+
         return c.json({ session })
     })
 

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { getExplicitSessionTitle, getSessionListFallbackTitle, type SessionSummary } from '@/types/api'
 import type { ApiClient } from '@/api/client'
 import { useLongPress } from '@/hooks/useLongPress'
@@ -285,6 +286,7 @@ function SessionItem(props: {
     const { t } = useTranslation()
     const { session: s, onSelect, groupDirectory, api, selected = false } = props
     const { haptic } = usePlatform()
+    const navigate = useNavigate()
     const [menuOpen, setMenuOpen] = useState(false)
     const [menuAnchorPoint, setMenuAnchorPoint] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
     const [renameOpen, setRenameOpen] = useState(false)
@@ -297,7 +299,9 @@ function SessionItem(props: {
     const { archiveSession, renameSession, deleteSession, isPending } = useSessionActions(
         api,
         s.id,
-        s.metadata?.flavor ?? null
+        s.metadata?.flavor ?? null,
+        undefined,
+        selected ? () => navigate({ to: '/' }) : undefined
     )
 
     const longPressHandlers = useLongPress({

@@ -428,6 +428,7 @@ describe('native sync integration', () => {
                         lastActivityAt: Number(payload.lastActivityAt),
                         agentState: null
                     })
+                    if (!session) throw new Error('Session deleted')
                     return { id: session.id }
                 },
                 async getNativeSyncState() {

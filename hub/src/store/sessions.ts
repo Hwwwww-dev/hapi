@@ -24,6 +24,7 @@ type DbSessionRow = {
     active: number
     active_at: number | null
     seq: number
+    deleted_at: number | null
 }
 
 type NativeProvider = 'claude' | 'codex'
@@ -120,10 +121,16 @@ export function getOrCreateSession(
     metadata: unknown,
     agentState: unknown,
     namespace: string,
-    model?: string
-): StoredSession {
+    model?: string,
+    overrideId?: string
+): StoredSession | null {
+    // If overrideId is given, check if it's soft-deleted first
+    if (overrideId && isSessionSoftDeleted(db, overrideId)) {
+        return null
+    }
+
     const existing = db.prepare(
-        'SELECT * FROM sessions WHERE tag = ? AND namespace = ? ORDER BY created_at DESC LIMIT 1'
+        'SELECT * FROM sessions WHERE tag = ? AND namespace = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1'
     ).get(tag, namespace) as DbSessionRow | undefined
 
     if (existing) {
@@ -131,7 +138,7 @@ export function getOrCreateSession(
     }
 
     const now = Date.now()
-    const id = randomUUID()
+    const id = overrideId ?? randomUUID()
 
     const metadataJson = JSON.stringify(metadata)
     const agentStateJson = agentState === null || agentState === undefined ? null : JSON.stringify(agentState)
@@ -314,25 +321,30 @@ export function setSessionModel(
 }
 
 export function getSession(db: Database, id: string): StoredSession | null {
-    const row = db.prepare('SELECT * FROM sessions WHERE id = ?').get(id) as DbSessionRow | undefined
+    const row = db.prepare('SELECT * FROM sessions WHERE id = ? AND deleted_at IS NULL').get(id) as DbSessionRow | undefined
     return row ? toStoredSession(row) : null
+}
+
+export function isSessionSoftDeleted(db: Database, id: string): boolean {
+    const row = db.prepare('SELECT id FROM sessions WHERE id = ? AND deleted_at IS NOT NULL').get(id)
+    return row !== undefined && row !== null
 }
 
 export function getSessionByNamespace(db: Database, id: string, namespace: string): StoredSession | null {
     const row = db.prepare(
-        'SELECT * FROM sessions WHERE id = ? AND namespace = ?'
+        'SELECT * FROM sessions WHERE id = ? AND namespace = ? AND deleted_at IS NULL'
     ).get(id, namespace) as DbSessionRow | undefined
     return row ? toStoredSession(row) : null
 }
 
 export function getSessions(db: Database): StoredSession[] {
-    const rows = db.prepare('SELECT * FROM sessions ORDER BY updated_at DESC').all() as DbSessionRow[]
+    const rows = db.prepare('SELECT * FROM sessions WHERE deleted_at IS NULL ORDER BY updated_at DESC').all() as DbSessionRow[]
     return rows.map(toStoredSession)
 }
 
 export function getSessionsByNamespace(db: Database, namespace: string): StoredSession[] {
     const rows = db.prepare(
-        'SELECT * FROM sessions WHERE namespace = ? ORDER BY updated_at DESC'
+        'SELECT * FROM sessions WHERE namespace = ? AND deleted_at IS NULL ORDER BY updated_at DESC'
     ).all(namespace) as DbSessionRow[]
     return rows.map(toStoredSession)
 }
@@ -350,6 +362,7 @@ export function getSessionByNativeAlias(
         WHERE a.namespace = ?
           AND a.provider = ?
           AND a.native_session_id = ?
+          AND s.deleted_at IS NULL
         LIMIT 1
     `).get(namespace, provider, nativeSessionId) as DbSessionRow | undefined
 
@@ -452,7 +465,7 @@ export function reconcileSessionTimestamps(
 
 export function deleteSession(db: Database, id: string, namespace: string): boolean {
     const result = db.prepare(
-        'DELETE FROM sessions WHERE id = ? AND namespace = ?'
-    ).run(id, namespace)
+        'UPDATE sessions SET deleted_at = ? WHERE id = ? AND namespace = ? AND deleted_at IS NULL'
+    ).run(Date.now(), id, namespace)
     return result.changes > 0
 }

@@ -298,6 +298,14 @@ export class ApiClient {
         })
     }
 
+    async gitRollbackFile(sessionId: string, filePath: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-rollback-file`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filePath })
+        })
+    }
+
     async searchSessionFiles(sessionId: string, query: string, limit?: number): Promise<FileSearchResponse> {
         const params = new URLSearchParams()
         if (query) {

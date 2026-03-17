@@ -116,8 +116,6 @@ export function NewSession(props: {
             return () => { cancelled = true }
         }
 
-        setPathExistence((prev) => Object.keys(prev).length === 0 ? prev : {})
-
         void props.api.checkMachinePathsExists(machineId, pathsToCheck)
             .then((result) => {
                 if (cancelled) return

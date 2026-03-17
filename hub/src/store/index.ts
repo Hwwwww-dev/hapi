@@ -25,7 +25,7 @@ export { PushStore } from './pushStore'
 export { SessionStore } from './sessionStore'
 export { UserStore } from './userStore'
 
-const SCHEMA_VERSION: number = 6
+const SCHEMA_VERSION: number = 7
 const REQUIRED_TABLES = [
     'sessions',
     'session_native_aliases',
@@ -157,6 +157,19 @@ export class Store {
             return
         }
 
+        if (currentVersion === 5 && SCHEMA_VERSION === 7) {
+            this.migrateFromV5ToV6()
+            this.migrateFromV6ToV7()
+            this.setUserVersion(SCHEMA_VERSION)
+            return
+        }
+
+        if (currentVersion === 6 && SCHEMA_VERSION === 7) {
+            this.migrateFromV6ToV7()
+            this.setUserVersion(SCHEMA_VERSION)
+            return
+        }
+
         if (currentVersion !== SCHEMA_VERSION) {
             throw this.buildSchemaMismatchError(currentVersion)
         }
@@ -184,7 +197,8 @@ export class Store {
                 team_state_updated_at INTEGER,
                 active INTEGER DEFAULT 0,
                 active_at INTEGER,
-                seq INTEGER DEFAULT 0
+                seq INTEGER DEFAULT 0,
+                deleted_at INTEGER DEFAULT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_sessions_tag ON sessions(tag);
             CREATE INDEX IF NOT EXISTS idx_sessions_tag_namespace ON sessions(tag, namespace);
@@ -440,6 +454,12 @@ export class Store {
         this.db.exec(`
             CREATE INDEX IF NOT EXISTS idx_session_native_aliases_session_id
             ON session_native_aliases(session_id)
+        `)
+    }
+
+    private migrateFromV6ToV7(): void {
+        this.db.exec(`
+            ALTER TABLE sessions ADD COLUMN deleted_at INTEGER DEFAULT NULL
         `)
     }
 

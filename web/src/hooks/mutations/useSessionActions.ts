@@ -10,7 +10,8 @@ export function useSessionActions(
     api: ApiClient | null,
     sessionId: string | null,
     agentFlavor?: string | null,
-    codexCollaborationModeSupported?: boolean
+    codexCollaborationModeSupported?: boolean,
+    onDeleted?: () => void
 ): {
     abortSession: () => Promise<void>
     archiveSession: () => Promise<void>
@@ -121,6 +122,7 @@ export function useSessionActions(
             queryClient.removeQueries({ queryKey: queryKeys.session(sessionId) })
             clearMessageWindow(sessionId)
             await queryClient.invalidateQueries({ queryKey: queryKeys.sessions })
+            onDeleted?.()
         },
     })
 

@@ -53,7 +53,7 @@ describe('native import resume takeover', () => {
                 claudeSessionId: 'native-active'
             },
             agentState: null
-        })
+        })!
 
         engine.handleSessionAlive({ sid: imported.id, time: Date.now(), thinking: true })
 
@@ -104,7 +104,7 @@ describe('native import resume takeover', () => {
                 claudeSessionId: 'native-1'
             },
             agentState: null
-        })
+        })!
 
         engine.importNativeMessages(imported.id, [{
             content: { role: 'assistant', content: 'native-history' },
@@ -208,7 +208,7 @@ describe('native import resume takeover', () => {
                 codexSessionId: 'native-2'
             },
             agentState: null
-        })
+        })!
 
         engine.handleSessionAlive({ sid: imported.id, time: Date.now(), thinking: false })
         ;(engine as any).rpcGateway.spawnSession = async () => ({
@@ -262,7 +262,7 @@ describe('native import resume takeover', () => {
                 claudeSessionId: 'native-3'
             },
             agentState: null
-        })
+        })!
 
         const resumed = engine.getOrCreateSession('runner-resume-tag-2', {
             path: '/tmp/project',
