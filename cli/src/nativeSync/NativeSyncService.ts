@@ -158,6 +158,9 @@ export class NativeSyncService {
             lastActivityAt: summary.lastActivityAt,
             agentState: null
         })
+        if (session === null) {
+            return
+        }
         const state = await this.api.getNativeSyncState(session.id)
 
         try {

@@ -102,7 +102,8 @@ export const CreateSessionResponseSchema = z.object({
         model: z.string().nullable(),
         permissionMode: PermissionModeSchema.optional(),
         collaborationMode: CodexCollaborationModeSchema.optional()
-    })
+    }).nullable(),
+    skipped: z.boolean().optional()
 })
 
 export type CreateSessionResponse = z.infer<typeof CreateSessionResponseSchema>

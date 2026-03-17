@@ -456,3 +456,30 @@ export function deleteSession(db: Database, id: string, namespace: string): bool
     ).run(id, namespace)
     return result.changes > 0
 }
+
+export function insertDeletedNativeAlias(
+    db: Database,
+    namespace: string,
+    provider: NativeProvider,
+    nativeSessionId: string,
+    deletedAt: number
+): void {
+    db.prepare(`
+        INSERT OR REPLACE INTO deleted_native_aliases (namespace, provider, native_session_id, deleted_at)
+        VALUES (?, ?, ?, ?)
+    `).run(namespace, provider, nativeSessionId, deletedAt)
+}
+
+export function isNativeAliasDeleted(
+    db: Database,
+    namespace: string,
+    provider: NativeProvider,
+    nativeSessionId: string
+): boolean {
+    const row = db.prepare(`
+        SELECT 1 FROM deleted_native_aliases
+        WHERE namespace = ? AND provider = ? AND native_session_id = ?
+        LIMIT 1
+    `).get(namespace, provider, nativeSessionId)
+    return row !== undefined
+}

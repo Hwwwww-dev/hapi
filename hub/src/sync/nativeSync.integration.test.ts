@@ -428,7 +428,7 @@ describe('native sync integration', () => {
                         lastActivityAt: Number(payload.lastActivityAt),
                         agentState: null
                     })
-                    return { id: session.id }
+                    return { id: session!.id }
                 },
                 async getNativeSyncState() {
                     return null

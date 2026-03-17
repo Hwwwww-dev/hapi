@@ -242,8 +242,20 @@ export class SyncEngine {
         createdAt: number
         lastActivityAt: number
         agentState?: unknown | null
-    }): Session {
+    }): Session | null {
         const nativeIdentity = this.resolveNativeSessionIdentity(payload.metadata)
+
+        if (nativeIdentity) {
+            const isDeleted = this.store.sessions.isNativeAliasDeleted(
+                payload.namespace,
+                nativeIdentity.provider,
+                nativeIdentity.nativeSessionId
+            )
+            if (isDeleted) {
+                return null
+            }
+        }
+
         const aliasMatchedSession = nativeIdentity
             ? this.resolveSessionByNativeAlias(payload.namespace, nativeIdentity.provider, nativeIdentity.nativeSessionId)
             : null
@@ -601,12 +613,33 @@ export class SyncEngine {
         return this.mergeNativeSessionMetadata(session.metadata, incomingMetadata)
     }
 
+    private blacklistNativeAlias(session: Session, namespace: string): void {
+        const nativeSessionId = session.metadata?.nativeSessionId
+        const nativeProvider = session.metadata?.nativeProvider
+        if (
+            typeof nativeSessionId === 'string' && nativeSessionId.length > 0
+            && (nativeProvider === 'claude' || nativeProvider === 'codex')
+        ) {
+            this.store.sessions.insertDeletedNativeAlias(
+                namespace,
+                nativeProvider,
+                nativeSessionId,
+                Date.now()
+            )
+        }
+    }
+
     private dropSessionIfPresent(sessionId: string, namespace: string): void {
+        // Collect native aliases before CASCADE delete removes them
+        const session = this.getSession(sessionId)
         const deleted = this.store.sessions.deleteSession(sessionId, namespace)
         if (!deleted) {
             return
         }
-
+        // Blacklist the native alias so it won't be re-imported
+        if (session) {
+            this.blacklistNativeAlias(session, namespace)
+        }
         this.sessionCache.refreshSession(sessionId)
     }
 
@@ -732,6 +765,11 @@ export class SyncEngine {
     }
 
     async deleteSession(sessionId: string): Promise<void> {
+        // Blacklist native alias before deletion
+        const session = this.getSession(sessionId)
+        if (session) {
+            this.blacklistNativeAlias(session, session.namespace ?? 'default')
+        }
         await this.sessionCache.deleteSession(sessionId)
     }
 
