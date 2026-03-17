@@ -15,7 +15,6 @@ import {
     clearMessageWindow,
     ingestCanonicalReset,
     ingestCanonicalRootUpsert,
-    ingestIncomingMessages,
 } from '@/lib/message-window-store'
 
 type SSESubscription = {
@@ -484,10 +483,6 @@ export function useSSE(options: {
             if (event.type === 'toast') {
                 onToastRef.current?.(event)
                 return
-            }
-
-            if (event.type === 'message-received') {
-                ingestIncomingMessages(event.sessionId, [event.message])
             }
 
             if (event.type === 'canonical-root-upsert') {

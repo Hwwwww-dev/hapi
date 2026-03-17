@@ -195,10 +195,6 @@ export class ApiClient {
         }
     }
 
-    async importNativeMessages(sessionId: string, events: RawEventEnvelope[]): Promise<{ imported: number; session: Session }> {
-        return this.importNativeRawEvents(sessionId, events)
-    }
-
     async updateNativeSyncState(state: NativeSyncState): Promise<NativeSyncState> {
         const response = await axios.post(
             `${configuration.apiUrl}/cli/native/sessions/${encodeURIComponent(state.sessionId)}/sync-state`,

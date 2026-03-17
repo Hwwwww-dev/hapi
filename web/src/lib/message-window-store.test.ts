@@ -4,6 +4,7 @@ import type { ApiClient } from '@/api/client'
 import { ApiError } from '@/api/client'
 import type { MessagesResponse } from '@/types/api'
 import {
+    appendOptimisticMessage,
     clearMessageWindow,
     fetchLatestMessages,
     fetchOlderMessages,
@@ -76,11 +77,11 @@ describe('message-window-store canonical history', () => {
         clearMessageWindow(SESSION_ID)
     })
 
-    it('bootstraps canonical history into roots and keeps the latest window visible', async () => {
+    it('bootstraps only the latest canonical page instead of crawling the full snapshot', async () => {
         const getMessages = vi.fn<ApiClient['getMessages']>()
             .mockResolvedValueOnce(createPage([
-                createRoot(1),
-                createRoot(2),
+                createRoot(3),
+                createRoot(4),
             ], {
                 generation: 1,
                 latestStreamSeq: 9,
@@ -88,61 +89,96 @@ describe('message-window-store canonical history', () => {
                 nextBeforeTimelineSeq: 3,
                 hasMore: true,
             }))
+
+        await fetchLatestMessages(createApiClient(getMessages), SESSION_ID)
+
+        const state = getMessageWindowState(SESSION_ID)
+        expect(getMessages).toHaveBeenCalledTimes(1)
+        expect(state.generation).toBe(1)
+        expect(state.latestStreamSeq).toBe(9)
+        expect(state.roots.map((root) => root.id)).toEqual(['root-3', 'root-4'])
+        expect(state.items.map((root) => root.id)).toEqual(['root-3', 'root-4'])
+        expect(state.renderBlocks.map((block) => block.id)).toEqual(['root-3', 'root-4'])
+        expect(state.hasMore).toBe(true)
+        expect(state.beforeTimelineSeq).toBe(3)
+    })
+
+    it('requests older canonical pages from the API instead of relying on a full in-memory snapshot', async () => {
+        const getMessages = vi.fn<ApiClient['getMessages']>()
             .mockResolvedValueOnce(createPage([
                 createRoot(3),
                 createRoot(4),
             ], {
                 generation: 1,
-                latestStreamSeq: 9,
+                latestStreamSeq: 12,
+                beforeTimelineSeq: null,
+                nextBeforeTimelineSeq: 3,
+                hasMore: true,
+            }))
+            .mockResolvedValueOnce(createPage([
+                createRoot(1),
+                createRoot(2),
+            ], {
+                generation: 1,
+                latestStreamSeq: 12,
                 beforeTimelineSeq: 3,
                 nextBeforeTimelineSeq: null,
                 hasMore: false,
             }))
 
-        await fetchLatestMessages(createApiClient(getMessages), SESSION_ID)
-
-        const state = getMessageWindowState(SESSION_ID)
-        expect(getMessages).toHaveBeenCalledTimes(2)
-        expect(state.generation).toBe(1)
-        expect(state.latestStreamSeq).toBe(9)
-        expect(state.roots.map((root) => root.id)).toEqual(['root-1', 'root-2', 'root-3', 'root-4'])
-        expect(state.items.map((root) => root.id)).toEqual(['root-1', 'root-2', 'root-3', 'root-4'])
-        expect(state.messages).toHaveLength(4)
-        expect(state.hasMore).toBe(false)
-        expect(state.beforeTimelineSeq).toBeNull()
-    })
-
-    it('shifts the canonical window backward locally when loading older history', async () => {
-        const roots = Array.from({ length: 450 }, (_, index) => createRoot(index + 1))
-        const getMessages = vi.fn<ApiClient['getMessages']>()
-
-        for (let start = 0; start < roots.length; start += 50) {
-            const items = roots.slice(start, start + 50)
-            const next = roots[start + 50]?.timelineSeq ?? null
-            getMessages.mockResolvedValueOnce(createPage(items, {
-                generation: 1,
-                latestStreamSeq: 12,
-                beforeTimelineSeq: start === 0 ? null : roots[start]?.timelineSeq ?? null,
-                nextBeforeTimelineSeq: next,
-                hasMore: next !== null,
-            }))
-        }
-
         const api = createApiClient(getMessages)
         await fetchLatestMessages(api, SESSION_ID)
 
         let state = getMessageWindowState(SESSION_ID)
-        expect(state.items[0]?.timelineSeq).toBe(51)
-        expect(state.items.at(-1)?.timelineSeq).toBe(450)
+        expect(state.items.map((root) => root.timelineSeq)).toEqual([3, 4])
         expect(state.hasMore).toBe(true)
 
         await fetchOlderMessages(api, SESSION_ID)
 
         state = getMessageWindowState(SESSION_ID)
-        expect(getMessages).toHaveBeenCalledTimes(9)
-        expect(state.items[0]?.timelineSeq).toBe(1)
-        expect(state.items.at(-1)?.timelineSeq).toBe(400)
+        expect(getMessages).toHaveBeenCalledTimes(2)
+        expect(state.items.map((root) => root.timelineSeq)).toEqual([1, 2, 3, 4])
         expect(state.hasMore).toBe(false)
+        expect(state.beforeTimelineSeq).toBeNull()
+    })
+
+    it('exposes optimistic overlay entries as render blocks without rematerializing canonical history', async () => {
+        const getMessages = vi.fn<ApiClient['getMessages']>()
+            .mockResolvedValueOnce(createPage([
+                createRoot(1, {
+                    kind: 'agent-text',
+                    payload: { text: 'server reply' }
+                })
+            ], {
+                generation: 1,
+                latestStreamSeq: 10,
+            }))
+
+        await fetchLatestMessages(createApiClient(getMessages), SESSION_ID)
+
+        appendOptimisticMessage(SESSION_ID, {
+            id: 'local-user-1',
+            localId: 'local-user-1',
+            seq: null,
+            createdAt: 2_000,
+            status: 'sending',
+            originalText: 'optimistic hello',
+            content: {
+                role: 'user',
+                content: {
+                    type: 'text',
+                    text: 'optimistic hello'
+                }
+            }
+        })
+
+        const state = getMessageWindowState(SESSION_ID)
+        expect(state.renderBlocks.map((block) => block.id)).toEqual(['root-1', 'local-user-1'])
+        expect(state.renderBlocks.at(-1)).toMatchObject({
+            id: 'local-user-1',
+            kind: 'user-text',
+            text: 'optimistic hello'
+        })
     })
 
     it('ignores stale canonical realtime ops and keeps newer roots pending while away from bottom', async () => {
@@ -186,12 +222,14 @@ describe('message-window-store canonical history', () => {
         state = getMessageWindowState(SESSION_ID)
         expect(state.roots.map((root) => root.id)).toEqual(['root-1', 'root-2', 'root-3', 'root-4'])
         expect(state.items.map((root) => root.id)).toEqual(['root-1', 'root-2', 'root-3'])
+        expect(state.renderBlocks.map((block) => block.id)).toEqual(['root-1', 'root-2', 'root-3'])
         expect(state.pendingCount).toBe(1)
 
         const needsRefresh = flushPendingMessages(SESSION_ID)
         state = getMessageWindowState(SESSION_ID)
         expect(needsRefresh).toBe(false)
         expect(state.items.map((root) => root.id)).toEqual(['root-1', 'root-2', 'root-3', 'root-4'])
+        expect(state.renderBlocks.map((block) => block.id)).toEqual(['root-1', 'root-2', 'root-3', 'root-4'])
         expect(state.pendingCount).toBe(0)
     })
 

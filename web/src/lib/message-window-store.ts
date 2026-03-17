@@ -1,8 +1,7 @@
-import { safeStringify } from '@hapi/protocol'
 import type { ApiClient } from '@/api/client'
 import { extractMessagesResetRequired } from '@/api/client'
-import { canonicalRootsToRenderBlocks, type CanonicalRenderBlock } from '@/chat/canonical'
-import { normalizeDecryptedMessage } from '@/chat/normalize'
+import { canonicalRootsToRenderBlocks } from '@/chat/canonical'
+import type { HappyRenderBlock } from '@/lib/assistant-runtime'
 import type {
     CanonicalResetEvent,
     CanonicalRootBlock,
@@ -12,14 +11,12 @@ import type {
     MessagesResponse,
 } from '@/types/api'
 import { applyCanonicalReset, applyCanonicalRootUpsert } from '@/lib/canonical-realtime'
-import { isUserMessage, mergeMessages } from '@/lib/messages'
 
 export type MessageWindowState = {
     sessionId: string
     roots: CanonicalRootBlock[]
     items: CanonicalRootBlock[]
-    messages: DecryptedMessage[]
-    pending: DecryptedMessage[]
+    renderBlocks: HappyRenderBlock[]
     pendingCount: number
     generation: number | null
     latestStreamSeq: number
@@ -34,23 +31,17 @@ export type MessageWindowState = {
 }
 
 export const VISIBLE_WINDOW_SIZE = 400
-export const PENDING_WINDOW_SIZE = 200
 const PAGE_SIZE = 50
-const PENDING_OVERFLOW_WARNING = 'New messages arrived while you were away. Scroll to bottom to refresh.'
+
+const states = new Map<string, InternalState>()
+const listeners = new Map<string, Set<() => void>>()
 
 type InternalState = MessageWindowState & {
-    overlayMessages: DecryptedMessage[]
-    pendingOverflowCount: number
-    pendingVisibleCount: number
-    pendingOverflowVisibleCount: number
+    canonicalItems: CanonicalRootBlock[]
+    optimisticRoots: CanonicalRootBlock[]
     hiddenCanonicalCount: number
     windowStartIndex: number
     refreshGenerationHint: number | null
-}
-
-type PendingVisibilityCacheEntry = {
-    source: DecryptedMessage
-    visible: boolean
 }
 
 type WindowSelection = {
@@ -60,56 +51,35 @@ type WindowSelection = {
     hasMore: boolean
 }
 
-const states = new Map<string, InternalState>()
-const listeners = new Map<string, Set<() => void>>()
-const pendingVisibilityCacheBySession = new Map<string, Map<string, PendingVisibilityCacheEntry>>()
-
-function getPendingVisibilityCache(sessionId: string): Map<string, PendingVisibilityCacheEntry> {
-    const existing = pendingVisibilityCacheBySession.get(sessionId)
-    if (existing) {
-        return existing
-    }
-    const created = new Map<string, PendingVisibilityCacheEntry>()
-    pendingVisibilityCacheBySession.set(sessionId, created)
-    return created
+function isObject(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function clearPendingVisibilityCache(sessionId: string): void {
-    pendingVisibilityCacheBySession.delete(sessionId)
+function getPayloadRecord(root: CanonicalRootBlock): Record<string, unknown> {
+    return isObject(root.payload) ? root.payload : {}
 }
 
-function isVisiblePendingMessage(sessionId: string, message: DecryptedMessage): boolean {
-    const cache = getPendingVisibilityCache(sessionId)
-    const cached = cache.get(message.id)
-    if (cached && cached.source === message) {
-        return cached.visible
-    }
-    const visible = normalizeDecryptedMessage(message) !== null
-    cache.set(message.id, { source: message, visible })
-    return visible
+function getRootLocalId(root: CanonicalRootBlock): string | null {
+    const payload = getPayloadRecord(root)
+    return typeof payload.localId === 'string' && payload.localId.length > 0
+        ? payload.localId
+        : null
 }
 
-function countVisiblePendingMessages(sessionId: string, messages: DecryptedMessage[]): number {
-    let count = 0
-    for (const message of messages) {
-        if (isVisiblePendingMessage(sessionId, message)) {
-            count += 1
-        }
-    }
-    return count
+function getRootStatus(root: CanonicalRootBlock): MessageStatus | undefined {
+    const payload = getPayloadRecord(root)
+    return payload.status === 'sending' || payload.status === 'sent' || payload.status === 'failed'
+        ? payload.status
+        : undefined
 }
 
-function syncPendingVisibilityCache(sessionId: string, pending: DecryptedMessage[]): void {
-    const cache = pendingVisibilityCacheBySession.get(sessionId)
-    if (!cache) {
-        return
-    }
-    const keep = new Set(pending.map((message) => message.id))
-    for (const id of cache.keys()) {
-        if (!keep.has(id)) {
-            cache.delete(id)
-        }
-    }
+function getRootText(root: CanonicalRootBlock): string {
+    const payload = getPayloadRecord(root)
+    return typeof payload.text === 'string' ? payload.text : ''
+}
+
+function isUserTextRoot(root: CanonicalRootBlock): boolean {
+    return root.kind === 'user-text'
 }
 
 function compareRoots(left: CanonicalRootBlock, right: CanonicalRootBlock): number {
@@ -118,6 +88,16 @@ function compareRoots(left: CanonicalRootBlock, right: CanonicalRootBlock): numb
     }
     if (left.createdAt !== right.createdAt) {
         return left.createdAt - right.createdAt
+    }
+    return left.id.localeCompare(right.id)
+}
+
+function compareRenderableRoots(left: CanonicalRootBlock, right: CanonicalRootBlock): number {
+    if (left.createdAt !== right.createdAt) {
+        return left.createdAt - right.createdAt
+    }
+    if (left.timelineSeq !== right.timelineSeq) {
+        return left.timelineSeq - right.timelineSeq
     }
     return left.id.localeCompare(right.id)
 }
@@ -142,6 +122,59 @@ function mergeCanonicalRoots(
     }
 
     return Array.from(byId.values()).sort(compareRoots)
+}
+
+function filterConfirmedOptimisticRoots(
+    optimisticRoots: readonly CanonicalRootBlock[],
+    canonicalRoots: readonly CanonicalRootBlock[]
+): CanonicalRootBlock[] {
+    if (optimisticRoots.length === 0 || canonicalRoots.length === 0) {
+        return [...optimisticRoots]
+    }
+
+    const canonicalUserRoots = canonicalRoots.filter(isUserTextRoot)
+    const canonicalLocalIds = new Set(
+        canonicalUserRoots
+            .map(getRootLocalId)
+            .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    )
+
+    return optimisticRoots.filter((root) => {
+        const localId = getRootLocalId(root)
+        if (localId && canonicalLocalIds.has(localId)) {
+            return false
+        }
+
+        if (getRootStatus(root) !== 'sent') {
+            return true
+        }
+
+        const text = getRootText(root).trim()
+        if (!text) {
+            return true
+        }
+
+        return !canonicalUserRoots.some((candidate) => {
+            return getRootText(candidate).trim() === text
+                && Math.abs(candidate.createdAt - root.createdAt) < 10_000
+        })
+    })
+}
+
+function mergeVisibleRoots(
+    canonicalItems: readonly CanonicalRootBlock[],
+    optimisticRoots: readonly CanonicalRootBlock[]
+): CanonicalRootBlock[] {
+    if (optimisticRoots.length === 0) {
+        return [...canonicalItems]
+    }
+
+    const merged = [...canonicalItems, ...optimisticRoots]
+    const byId = new Map<string, CanonicalRootBlock>()
+    for (const root of merged) {
+        byId.set(root.id, root)
+    }
+    return Array.from(byId.values()).sort(compareRenderableRoots)
 }
 
 function getWindowMaxStart(roots: readonly CanonicalRootBlock[]): number {
@@ -172,8 +205,8 @@ function selectBottomWindow(roots: readonly CanonicalRootBlock[]): WindowSelecti
 }
 
 function selectPreservedWindow(prev: InternalState, roots: readonly CanonicalRootBlock[]): WindowSelection {
-    const anchorId = prev.items[0]?.id
-    const visibleCount = prev.items.length > 0 ? prev.items.length : VISIBLE_WINDOW_SIZE
+    const anchorId = prev.canonicalItems[0]?.id
+    const visibleCount = prev.canonicalItems.length > 0 ? prev.canonicalItems.length : VISIBLE_WINDOW_SIZE
     if (!anchorId) {
         return selectBottomWindow(roots)
     }
@@ -186,139 +219,37 @@ function selectPreservedWindow(prev: InternalState, roots: readonly CanonicalRoo
     return applyWindow(roots, prev.windowStartIndex, visibleCount)
 }
 
-function formatCanonicalLabel(block: CanonicalRenderBlock): string {
-    switch (block.kind) {
-        case 'event':
-            return block.text
-        case 'subagent-root':
-            return block.title ?? block.description ?? 'Subagent'
-        case 'fallback-raw':
-            return block.summary ?? safeStringify(block.preview)
-        case 'tool-call':
-        case 'tool-result':
-            return `${block.tool.name}: ${safeStringify(block.tool.result ?? block.tool.input ?? block.payload)}`
-        default:
-            return block.text
-    }
-}
-
-function appendLegacyAssistantBlocks(
-    block: CanonicalRenderBlock,
-    target: Array<Record<string, unknown>>
-): void {
-    switch (block.kind) {
-        case 'user-text':
-        case 'agent-text':
-            target.push({ type: 'text', text: block.text })
-            break
-        case 'reasoning':
-            target.push({ type: 'thinking', thinking: block.text })
-            break
-        case 'event':
-            target.push({ type: 'text', text: block.text })
-            break
-        case 'tool-call':
-            target.push({
-                type: 'tool_use',
-                id: block.tool.id,
-                name: block.tool.name,
-                input: block.tool.input,
-            })
-            break
-        case 'tool-result':
-            target.push({
-                type: 'tool_result',
-                tool_use_id: block.tool.id,
-                content: block.tool.result,
-                is_error: block.tool.state === 'error',
-            })
-            break
-        case 'subagent-root':
-        case 'fallback-raw':
-            target.push({ type: 'text', text: formatCanonicalLabel(block) })
-            break
-    }
-
-    for (const child of block.children) {
-        appendLegacyAssistantBlocks(child, target)
-    }
-}
-
-function toLegacyEvent(block: Extract<CanonicalRenderBlock, { kind: 'event' }>): Record<string, unknown> {
-    const subtype = block.subtype?.trim().toLowerCase() ?? ''
-    if (subtype === 'title-changed') {
-        const title = typeof block.payload.title === 'string' ? block.payload.title : undefined
-        return { type: 'title-changed', title }
-    }
-    if (subtype === 'turn-duration') {
-        const durationMs = typeof block.payload.durationMs === 'number'
-            ? block.payload.durationMs
-            : typeof block.payload.duration_ms === 'number'
-                ? block.payload.duration_ms
-                : 0
-        return { type: 'turn-duration', durationMs }
-    }
-    if (subtype === 'compact') {
-        return { type: 'compact', trigger: 'canonical', preTokens: 0 }
-    }
-    if (subtype === 'microcompact') {
-        return { type: 'microcompact', trigger: 'canonical', preTokens: 0, tokensSaved: 0 }
-    }
-    return { type: 'message', message: block.text }
-}
-
-function renderBlockToLegacyMessage(block: CanonicalRenderBlock): DecryptedMessage {
-    if (block.kind === 'user-text') {
-        return {
-            id: block.id,
-            seq: null,
-            localId: null,
-            content: {
-                role: 'user',
-                content: {
-                    type: 'text',
-                    text: block.text,
-                    attachments: block.attachments,
-                }
-            },
-            createdAt: block.createdAt,
-        }
-    }
-
-    if (block.kind === 'event') {
-        return {
-            id: block.id,
-            seq: null,
-            localId: null,
-            content: {
-                type: 'event',
-                data: toLegacyEvent(block),
-            },
-            createdAt: block.createdAt,
-        }
-    }
-
-    const content: Array<Record<string, unknown>> = []
-    appendLegacyAssistantBlocks(block, content)
-
-    if (content.length === 0) {
-        content.push({ type: 'text', text: formatCanonicalLabel(block) })
-    }
+function createOptimisticUserRoot(message: DecryptedMessage, generation: number | null): CanonicalRootBlock {
+    const content = isObject(message.content) ? message.content : null
+    const body = content && isObject(content.content) ? content.content : null
+    const text = typeof body?.text === 'string' ? body.text : message.originalText ?? ''
+    const attachments = Array.isArray(body?.attachments) ? body.attachments : undefined
 
     return {
-        id: block.id,
-        seq: null,
-        localId: null,
-        content: {
-            role: 'assistant',
-            content,
+        id: message.id,
+        sessionId: 'optimistic',
+        timelineSeq: Number.MAX_SAFE_INTEGER,
+        siblingSeq: 0,
+        parentBlockId: null,
+        rootBlockId: message.id,
+        depth: 0,
+        kind: 'user-text',
+        createdAt: message.createdAt,
+        updatedAt: message.createdAt,
+        state: 'completed',
+        payload: {
+            text,
+            ...(attachments ? { attachments } : {}),
+            ...(message.localId ? { localId: message.localId } : {}),
+            ...(message.status ? { status: message.status } : {}),
+            ...(message.originalText ? { originalText: message.originalText } : {}),
+            clientSynthetic: true,
         },
-        createdAt: block.createdAt,
+        sourceRawEventIds: [`optimistic:${message.id}`],
+        parserVersion: 1,
+        generation: generation ?? 1,
+        children: []
     }
-}
-
-function materializeCanonicalMessages(items: readonly CanonicalRootBlock[]): DecryptedMessage[] {
-    return canonicalRootsToRenderBlocks(items).map(renderBlockToLegacyMessage)
 }
 
 function createState(sessionId: string): InternalState {
@@ -326,9 +257,8 @@ function createState(sessionId: string): InternalState {
         sessionId,
         roots: [],
         items: [],
-        messages: [],
-        overlayMessages: [],
-        pending: [],
+        canonicalItems: [],
+        optimisticRoots: [],
         pendingCount: 0,
         generation: null,
         latestStreamSeq: 0,
@@ -339,10 +269,8 @@ function createState(sessionId: string): InternalState {
         warning: null,
         atBottom: true,
         needsRefresh: false,
+        renderBlocks: [],
         messagesVersion: 0,
-        pendingOverflowCount: 0,
-        pendingVisibleCount: 0,
-        pendingOverflowVisibleCount: 0,
         hiddenCanonicalCount: 0,
         windowStartIndex: 0,
         refreshGenerationHint: null,
@@ -380,52 +308,12 @@ function updateState(sessionId: string, updater: (prev: InternalState) => Intern
     }
 }
 
-function trimVisibleMessages(messages: DecryptedMessage[], mode: 'append' | 'prepend'): DecryptedMessage[] {
-    if (messages.length <= VISIBLE_WINDOW_SIZE) {
-        return messages
-    }
-    if (mode === 'prepend') {
-        return messages.slice(0, VISIBLE_WINDOW_SIZE)
-    }
-    return messages.slice(messages.length - VISIBLE_WINDOW_SIZE)
-}
-
-function trimPending(
-    sessionId: string,
-    messages: DecryptedMessage[]
-): { pending: DecryptedMessage[]; dropped: number; droppedVisible: number } {
-    if (messages.length <= PENDING_WINDOW_SIZE) {
-        return { pending: messages, dropped: 0, droppedVisible: 0 }
-    }
-    const cutoff = messages.length - PENDING_WINDOW_SIZE
-    const droppedMessages = messages.slice(0, cutoff)
-    const pending = messages.slice(cutoff)
-    const droppedVisible = countVisiblePendingMessages(sessionId, droppedMessages)
-    return { pending, dropped: droppedMessages.length, droppedVisible }
-}
-
-function filterPendingAgainstVisible(pending: DecryptedMessage[], visible: DecryptedMessage[]): DecryptedMessage[] {
-    if (pending.length === 0 || visible.length === 0) {
-        return pending
-    }
-    const visibleIds = new Set(visible.map((message) => message.id))
-    return pending.filter((message) => !visibleIds.has(message.id))
-}
-
-function isOptimisticMessage(message: DecryptedMessage): boolean {
-    return Boolean(message.localId && message.id === message.localId)
-}
-
 function buildState(
     prev: InternalState,
     updates: {
         roots?: CanonicalRootBlock[]
-        items?: CanonicalRootBlock[]
-        overlayMessages?: DecryptedMessage[]
-        pending?: DecryptedMessage[]
-        pendingOverflowCount?: number
-        pendingVisibleCount?: number
-        pendingOverflowVisibleCount?: number
+        canonicalItems?: CanonicalRootBlock[]
+        optimisticRoots?: CanonicalRootBlock[]
         hiddenCanonicalCount?: number
         windowStartIndex?: number
         generation?: number | null
@@ -440,46 +328,27 @@ function buildState(
     }
 ): InternalState {
     const roots = updates.roots ?? prev.roots
-    const items = updates.items ?? prev.items
-    const overlayMessages = updates.overlayMessages ?? prev.overlayMessages
-    const pending = updates.pending ?? prev.pending
-    const pendingChanged = pending !== prev.pending
-    let pendingVisibleCount = updates.pendingVisibleCount ?? prev.pendingVisibleCount
-    if (pendingChanged && updates.pendingVisibleCount === undefined) {
-        pendingVisibleCount = countVisiblePendingMessages(prev.sessionId, pending)
-    }
-    if (pendingChanged) {
-        syncPendingVisibilityCache(prev.sessionId, pending)
-    }
-
-    const pendingOverflowCount = updates.pendingOverflowCount ?? prev.pendingOverflowCount
-    const pendingOverflowVisibleCount = updates.pendingOverflowVisibleCount ?? prev.pendingOverflowVisibleCount
-    const windowStartIndex = updates.windowStartIndex ?? prev.windowStartIndex
+    const canonicalItems = updates.canonicalItems ?? prev.canonicalItems
+    const optimisticRoots = filterConfirmedOptimisticRoots(
+        updates.optimisticRoots ?? prev.optimisticRoots,
+        roots
+    )
+    const items = mergeVisibleRoots(canonicalItems, optimisticRoots)
+    const renderBlocks = canonicalRootsToRenderBlocks(items)
     const hiddenCanonicalCount = updates.hiddenCanonicalCount ?? prev.hiddenCanonicalCount
-
-    let messages = prev.messages
-    if (items !== prev.items || overlayMessages !== prev.overlayMessages) {
-        messages = mergeMessages(materializeCanonicalMessages(items), overlayMessages)
-    }
-    const pendingCount = pendingVisibleCount + pendingOverflowVisibleCount + hiddenCanonicalCount
-    const messagesVersion = messages === prev.messages ? prev.messagesVersion : prev.messagesVersion + 1
+    const messagesVersion = items === prev.items ? prev.messagesVersion : prev.messagesVersion + 1
 
     return {
         ...prev,
         roots,
         items,
-        messages,
-        overlayMessages,
-        pending,
-        pendingOverflowCount,
-        pendingVisibleCount,
-        pendingOverflowVisibleCount,
-        hiddenCanonicalCount,
-        windowStartIndex,
-        pendingCount,
+        renderBlocks,
+        canonicalItems,
+        optimisticRoots,
+        pendingCount: hiddenCanonicalCount,
         generation: updates.generation !== undefined ? updates.generation : prev.generation,
         latestStreamSeq: updates.latestStreamSeq !== undefined ? updates.latestStreamSeq : prev.latestStreamSeq,
-        hasMore: windowStartIndex > 0,
+        hasMore: (updates.windowStartIndex ?? prev.windowStartIndex) > 0,
         beforeTimelineSeq: updates.beforeTimelineSeq !== undefined ? updates.beforeTimelineSeq : prev.beforeTimelineSeq,
         isLoading: updates.isLoading !== undefined ? updates.isLoading : prev.isLoading,
         isLoadingMore: updates.isLoadingMore !== undefined ? updates.isLoadingMore : prev.isLoadingMore,
@@ -487,46 +356,11 @@ function buildState(
         atBottom: updates.atBottom !== undefined ? updates.atBottom : prev.atBottom,
         needsRefresh: updates.needsRefresh !== undefined ? updates.needsRefresh : prev.needsRefresh,
         messagesVersion,
+        hiddenCanonicalCount,
+        windowStartIndex: updates.windowStartIndex ?? prev.windowStartIndex,
         refreshGenerationHint: updates.refreshGenerationHint !== undefined
             ? updates.refreshGenerationHint
             : prev.refreshGenerationHint,
-    }
-}
-
-function mergeIntoPending(
-    prev: InternalState,
-    incoming: DecryptedMessage[]
-): {
-    pending: DecryptedMessage[]
-    pendingVisibleCount: number
-    pendingOverflowCount: number
-    pendingOverflowVisibleCount: number
-    warning: string | null
-} {
-    if (incoming.length === 0) {
-        return {
-            pending: prev.pending,
-            pendingVisibleCount: prev.pendingVisibleCount,
-            pendingOverflowCount: prev.pendingOverflowCount,
-            pendingOverflowVisibleCount: prev.pendingOverflowVisibleCount,
-            warning: prev.warning,
-        }
-    }
-
-    const mergedPending = mergeMessages(prev.pending, incoming)
-    const filtered = filterPendingAgainstVisible(mergedPending, prev.messages)
-    const { pending, dropped, droppedVisible } = trimPending(prev.sessionId, filtered)
-    const pendingVisibleCount = countVisiblePendingMessages(prev.sessionId, pending)
-    const pendingOverflowCount = prev.pendingOverflowCount + dropped
-    const pendingOverflowVisibleCount = prev.pendingOverflowVisibleCount + droppedVisible
-    const warning = droppedVisible > 0 && !prev.warning ? PENDING_OVERFLOW_WARNING : prev.warning
-
-    return {
-        pending,
-        pendingVisibleCount,
-        pendingOverflowCount,
-        pendingOverflowVisibleCount,
-        warning,
     }
 }
 
@@ -634,13 +468,11 @@ export function subscribeMessageWindow(sessionId: string, listener: () => void):
         if (current.size === 0) {
             listeners.delete(sessionId)
             states.delete(sessionId)
-            clearPendingVisibilityCache(sessionId)
         }
     }
 }
 
 export function clearMessageWindow(sessionId: string): void {
-    clearPendingVisibilityCache(sessionId)
     if (!states.has(sessionId)) {
         return
     }
@@ -656,12 +488,8 @@ export function seedMessageWindowFromSession(fromSessionId: string, toSessionId:
     const base = createState(toSessionId)
     const next = buildState(base, {
         roots: [...source.roots],
-        items: [...source.items],
-        overlayMessages: [...source.overlayMessages],
-        pending: [...source.pending],
-        pendingOverflowCount: source.pendingOverflowCount,
-        pendingOverflowVisibleCount: source.pendingOverflowVisibleCount,
-        pendingVisibleCount: source.pendingVisibleCount,
+        canonicalItems: [...source.canonicalItems],
+        optimisticRoots: [...source.optimisticRoots],
         hiddenCanonicalCount: source.hiddenCanonicalCount,
         windowStartIndex: source.windowStartIndex,
         generation: source.generation,
@@ -715,20 +543,14 @@ export async function fetchLatestMessages(api: ApiClient, sessionId: string): Pr
 
         const snapshot = await loadCanonicalSnapshot(api, sessionId, headGeneration, head)
         updateState(sessionId, (prev) => {
-            const window = !prev.atBottom && prev.generation === snapshot.generation && prev.items.length > 0 && !prev.needsRefresh
+            const window = !prev.atBottom && prev.generation === snapshot.generation && prev.canonicalItems.length > 0 && !prev.needsRefresh
                 ? selectPreservedWindow(prev, snapshot.roots)
                 : selectBottomWindow(snapshot.roots)
-            const visibleMessages = mergeMessages(
-                materializeCanonicalMessages(window.items),
-                prev.overlayMessages
-            )
-            const pending = filterPendingAgainstVisible(prev.pending, visibleMessages)
             return buildState(prev, {
                 roots: snapshot.roots,
-                items: window.items,
+                canonicalItems: window.items,
                 hiddenCanonicalCount: window.hiddenCanonicalCount,
                 windowStartIndex: window.windowStartIndex,
-                pending,
                 generation: snapshot.generation,
                 latestStreamSeq: snapshot.latestStreamSeq,
                 beforeTimelineSeq: null,
@@ -757,18 +579,12 @@ export async function fetchOlderMessages(_: ApiClient, sessionId: string): Promi
 
     try {
         updateState(sessionId, (prev) => {
-            const visibleCount = prev.items.length > 0 ? prev.items.length : VISIBLE_WINDOW_SIZE
+            const visibleCount = prev.canonicalItems.length > 0 ? prev.canonicalItems.length : VISIBLE_WINDOW_SIZE
             const window = applyWindow(prev.roots, prev.windowStartIndex - PAGE_SIZE, visibleCount)
-            const visibleMessages = mergeMessages(
-                materializeCanonicalMessages(window.items),
-                prev.overlayMessages
-            )
-            const pending = filterPendingAgainstVisible(prev.pending, visibleMessages)
             return buildState(prev, {
-                items: window.items,
+                canonicalItems: window.items,
                 hiddenCanonicalCount: window.hiddenCanonicalCount,
                 windowStartIndex: window.windowStartIndex,
-                pending,
                 isLoadingMore: false,
             })
         })
@@ -792,7 +608,7 @@ export function ingestCanonicalRootUpsert(sessionId: string, event: CanonicalRoo
         if (result.needsRefresh) {
             return buildState(prev, {
                 roots: [],
-                items: [],
+                canonicalItems: [],
                 hiddenCanonicalCount: 0,
                 windowStartIndex: 0,
                 generation: result.generation,
@@ -809,17 +625,11 @@ export function ingestCanonicalRootUpsert(sessionId: string, event: CanonicalRoo
         const window = prev.atBottom
             ? selectBottomWindow(result.roots)
             : selectPreservedWindow(prev, result.roots)
-        const visibleMessages = mergeMessages(
-            materializeCanonicalMessages(window.items),
-            prev.overlayMessages
-        )
-        const pending = filterPendingAgainstVisible(prev.pending, visibleMessages)
         return buildState(prev, {
             roots: result.roots,
-            items: window.items,
+            canonicalItems: window.items,
             hiddenCanonicalCount: window.hiddenCanonicalCount,
             windowStartIndex: window.windowStartIndex,
-            pending,
             generation: result.generation,
             latestStreamSeq: result.latestStreamSeq,
             beforeTimelineSeq: null,
@@ -843,7 +653,7 @@ export function ingestCanonicalReset(sessionId: string, event: CanonicalResetEve
 
         return buildState(prev, {
             roots: [],
-            items: [],
+            canonicalItems: [],
             hiddenCanonicalCount: 0,
             windowStartIndex: 0,
             generation: result.generation,
@@ -855,71 +665,23 @@ export function ingestCanonicalReset(sessionId: string, event: CanonicalResetEve
     })
 }
 
-export function ingestIncomingMessages(sessionId: string, incoming: DecryptedMessage[]): void {
-    if (incoming.length === 0) {
-        return
-    }
-
-    updateState(sessionId, (prev) => {
-        if (prev.atBottom) {
-            const overlayMessages = trimVisibleMessages(mergeMessages(prev.overlayMessages, incoming), 'append')
-            const visibleMessages = mergeMessages(materializeCanonicalMessages(prev.items), overlayMessages)
-            const pending = filterPendingAgainstVisible(prev.pending, visibleMessages)
-            return buildState(prev, { overlayMessages, pending })
-        }
-
-        const agentMessages = incoming.filter((message) => !isUserMessage(message))
-        const userMessages = incoming.filter((message) => isUserMessage(message))
-
-        let state = prev
-        if (agentMessages.length > 0) {
-            const overlayMessages = trimVisibleMessages(mergeMessages(state.overlayMessages, agentMessages), 'append')
-            const visibleMessages = mergeMessages(materializeCanonicalMessages(state.items), overlayMessages)
-            const pending = filterPendingAgainstVisible(state.pending, visibleMessages)
-            state = buildState(state, { overlayMessages, pending })
-        }
-        if (userMessages.length > 0) {
-            const pendingResult = mergeIntoPending(state, userMessages)
-            state = buildState(state, {
-                pending: pendingResult.pending,
-                pendingVisibleCount: pendingResult.pendingVisibleCount,
-                pendingOverflowCount: pendingResult.pendingOverflowCount,
-                pendingOverflowVisibleCount: pendingResult.pendingOverflowVisibleCount,
-                warning: pendingResult.warning,
-            })
-        }
-        return state
-    })
-}
-
 export function flushPendingMessages(sessionId: string): boolean {
     const current = getState(sessionId)
-    const hasHiddenCanonical = current.hiddenCanonicalCount > 0
-    if (current.pending.length === 0 && current.pendingOverflowVisibleCount === 0 && !hasHiddenCanonical) {
+    if (current.hiddenCanonicalCount === 0) {
         return false
     }
 
-    const needsRefresh = current.pendingOverflowVisibleCount > 0
     updateState(sessionId, (prev) => {
         const window = selectBottomWindow(prev.roots)
-        const overlayMessages = prev.pending.length > 0
-            ? trimVisibleMessages(mergeMessages(prev.overlayMessages, prev.pending), 'append')
-            : prev.overlayMessages
         return buildState(prev, {
-            items: window.items,
+            canonicalItems: window.items,
             hiddenCanonicalCount: window.hiddenCanonicalCount,
             windowStartIndex: window.windowStartIndex,
-            overlayMessages,
-            pending: [],
-            pendingOverflowCount: 0,
-            pendingVisibleCount: 0,
-            pendingOverflowVisibleCount: 0,
-            warning: needsRefresh ? (prev.warning ?? PENDING_OVERFLOW_WARNING) : prev.warning,
             atBottom: true,
         })
     })
 
-    return needsRefresh
+    return false
 }
 
 export function setAtBottom(sessionId: string, atBottom: boolean): void {
@@ -932,20 +694,10 @@ export function setAtBottom(sessionId: string, atBottom: boolean): void {
 }
 
 export function appendOptimisticMessage(sessionId: string, message: DecryptedMessage): void {
-    updateState(sessionId, (prev) => {
-        const window = selectBottomWindow(prev.roots)
-        const overlayMessages = trimVisibleMessages(mergeMessages(prev.overlayMessages, [message]), 'append')
-        const visibleMessages = mergeMessages(materializeCanonicalMessages(window.items), overlayMessages)
-        const pending = filterPendingAgainstVisible(prev.pending, visibleMessages)
-        return buildState(prev, {
-            items: window.items,
-            hiddenCanonicalCount: window.hiddenCanonicalCount,
-            windowStartIndex: window.windowStartIndex,
-            overlayMessages,
-            pending,
-            atBottom: true,
-        })
-    })
+    updateState(sessionId, (prev) => buildState(prev, {
+        optimisticRoots: mergeCanonicalRoots(prev.optimisticRoots, [createOptimisticUserRoot(message, prev.generation)]),
+        atBottom: true,
+    }))
 }
 
 export function updateMessageStatus(sessionId: string, localId: string, status: MessageStatus): void {
@@ -955,24 +707,28 @@ export function updateMessageStatus(sessionId: string, localId: string, status: 
 
     updateState(sessionId, (prev) => {
         let changed = false
-        const updateList = (list: DecryptedMessage[]) => {
-            return list.map((message) => {
-                if (message.localId !== localId || !isOptimisticMessage(message)) {
-                    return message
+        const optimisticRoots = prev.optimisticRoots.map((root) => {
+            if (getRootLocalId(root) !== localId) {
+                return root
+            }
+            const payload = getPayloadRecord(root)
+            if (payload.status === status) {
+                return root
+            }
+            changed = true
+            return {
+                ...root,
+                payload: {
+                    ...payload,
+                    status
                 }
-                if (message.status === status) {
-                    return message
-                }
-                changed = true
-                return { ...message, status }
-            })
-        }
+            }
+        })
 
-        const overlayMessages = updateList(prev.overlayMessages)
-        const pending = updateList(prev.pending)
         if (!changed) {
             return prev
         }
-        return buildState(prev, { overlayMessages, pending })
+
+        return buildState(prev, { optimisticRoots })
     })
 }

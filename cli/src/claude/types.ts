@@ -75,6 +75,12 @@ export const RawJSONLinesSchema = z.discriminatedUnion("type", [
     error: z.unknown().optional(),
     durationMs: z.number().optional(),
   }),
+
+  // last-prompt: metadata record of the last user prompt, silently ignored by parser
+  RawJSONLinesBaseSchema.extend({
+    type: z.literal("last-prompt"),
+    lastPrompt: z.string().optional(),
+  }),
 ]);
 
 export type RawJSONLines = z.infer<typeof RawJSONLinesSchema>;

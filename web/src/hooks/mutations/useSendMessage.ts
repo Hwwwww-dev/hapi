@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import type { ApiClient } from '@/api/client'
-import type { AttachmentMetadata, DecryptedMessage } from '@/types/api'
+import type { AttachmentMetadata, CanonicalRootBlock, DecryptedMessage } from '@/types/api'
 import { makeClientSideId } from '@/lib/messages'
 import {
     appendOptimisticMessage,
@@ -26,17 +26,53 @@ type UseSendMessageOptions = {
     onBlocked?: (reason: BlockedReason) => void
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function getOptimisticMessagePayload(root: CanonicalRootBlock): {
+    localId: string | null
+    originalText: string | null
+} {
+    const payload = isObject(root.payload) ? root.payload : null
+    return {
+        localId: typeof payload?.localId === 'string' ? payload.localId : null,
+        originalText: typeof payload?.originalText === 'string'
+            ? payload.originalText
+            : typeof payload?.text === 'string'
+                ? payload.text
+                : null
+    }
+}
+
 function findMessageByLocalId(
     sessionId: string,
     localId: string,
 ): DecryptedMessage | null {
     const state = getMessageWindowState(sessionId)
-    for (const message of state.messages) {
-        if (message.localId === localId) return message
+
+    for (const root of state.items) {
+        const payload = getOptimisticMessagePayload(root)
+        if (payload.localId !== localId || !payload.originalText) {
+            continue
+        }
+
+        return {
+            id: root.id,
+            seq: null,
+            localId: payload.localId,
+            createdAt: root.createdAt,
+            content: {
+                role: 'user',
+                content: {
+                    type: 'text',
+                    text: payload.originalText
+                }
+            },
+            originalText: payload.originalText
+        }
     }
-    for (const message of state.pending) {
-        if (message.localId === localId) return message
-    }
+
     return null
 }
 

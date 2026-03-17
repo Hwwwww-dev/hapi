@@ -218,7 +218,7 @@ function SessionPage() {
     } = useSession(api, sessionId)
     const {
         canonicalItems,
-        messages,
+        renderBlocks,
         warning: messagesWarning,
         isLoading: messagesLoading,
         isLoadingMore: messagesLoadingMore,
@@ -326,7 +326,7 @@ function SessionPage() {
             api={api}
             session={session}
             canonicalItems={canonicalItems}
-            messages={messages}
+            renderBlocks={renderBlocks}
             messagesWarning={messagesWarning}
             hasMoreMessages={messagesHasMore}
             isLoadingMessages={messagesLoading}

@@ -315,4 +315,37 @@ describe('ApiSessionClient keepAlive reconnect state', () => {
             })
         })
     })
+
+    it('emits non-message session events through runtime-event fallback envelopes', () => {
+        const client = new ApiSessionClient('token', createSession({
+            metadata: {
+                path: '/tmp/project',
+                host: 'local',
+                claudeSessionId: 'claude-native-3',
+                flavor: 'claude'
+            }
+        }))
+
+        client.sendSessionEvent({ type: 'ready' })
+
+        expect(harness.emits).not.toContainEqual(expect.objectContaining({
+            event: 'message'
+        }))
+        expect(harness.emits).toContainEqual({
+            event: 'runtime-event',
+            payload: expect.objectContaining({
+                sid: 'session-1',
+                event: expect.objectContaining({
+                    provider: 'claude',
+                    source: 'runtime',
+                    sourceSessionId: 'claude-native-3',
+                    rawType: 'ready',
+                    payload: expect.objectContaining({
+                        type: 'ready',
+                        summary: 'Session ready'
+                    })
+                })
+            })
+        })
+    })
 })

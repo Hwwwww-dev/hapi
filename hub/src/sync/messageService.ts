@@ -42,6 +42,7 @@ type RawEventsStoreIngestOutcome = {
     result: CanonicalIngestResult
     mode: 'noop' | 'incremental' | 'rebuild'
     emittedOps: ParserEmittedOp[]
+    insertedEvents: StoredRawEvent[]
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -315,7 +316,8 @@ export async function ingestRawEventsIntoCanonicalStore(
                 resetReason: null
             },
             mode: 'noop',
-            emittedOps: []
+            emittedOps: [],
+            insertedEvents: []
         }
     }
 
@@ -343,7 +345,8 @@ export async function ingestRawEventsIntoCanonicalStore(
                 resetReason: rebuilt.resetReason
             },
             mode: 'rebuild',
-            emittedOps: []
+            emittedOps: [],
+            insertedEvents: inserted
         }
     }
 
@@ -381,7 +384,8 @@ export async function ingestRawEventsIntoCanonicalStore(
             resetReason: null
         },
         mode: 'incremental',
-        emittedOps: parsed.emittedOps
+        emittedOps: parsed.emittedOps,
+        insertedEvents: inserted
     }
 }
 
@@ -392,58 +396,6 @@ export class MessageService {
         private readonly publisher: EventPublisher,
         private readonly onSessionTouched: (sessionId: string) => void
     ) {
-    }
-
-    getMessagesPage(sessionId: string, options: { limit: number; beforeSeq: number | null }): {
-        messages: DecryptedMessage[]
-        page: {
-            limit: number
-            beforeSeq: number | null
-            nextBeforeSeq: number | null
-            hasMore: boolean
-        }
-    } {
-        const stored = this.store.messages.getMessages(sessionId, options.limit, options.beforeSeq ?? undefined)
-        const messages: DecryptedMessage[] = stored.map((message) => ({
-            id: message.id,
-            seq: message.seq,
-            localId: message.localId,
-            content: message.content,
-            createdAt: message.createdAt
-        }))
-
-        let oldestSeq: number | null = null
-        for (const message of messages) {
-            if (typeof message.seq !== 'number') continue
-            if (oldestSeq === null || message.seq < oldestSeq) {
-                oldestSeq = message.seq
-            }
-        }
-
-        const nextBeforeSeq = oldestSeq
-        const hasMore = nextBeforeSeq !== null
-            && this.store.messages.getMessages(sessionId, 1, nextBeforeSeq).length > 0
-
-        return {
-            messages,
-            page: {
-                limit: options.limit,
-                beforeSeq: options.beforeSeq,
-                nextBeforeSeq,
-                hasMore
-            }
-        }
-    }
-
-    getMessagesAfter(sessionId: string, options: { afterSeq: number; limit: number }): DecryptedMessage[] {
-        const stored = this.store.messages.getMessagesAfter(sessionId, options.afterSeq, options.limit)
-        return stored.map((message) => ({
-            id: message.id,
-            seq: message.seq,
-            localId: message.localId,
-            content: message.content,
-            createdAt: message.createdAt
-        }))
     }
 
     getCliBackfillMessagesAfter(sessionId: string, options: { afterSeq: number; limit: number }): DecryptedMessage[] {
@@ -554,6 +506,9 @@ export class MessageService {
 
     async ingestRawEvents(sessionId: string, events: RawEventEnvelope[]): Promise<CanonicalIngestResult> {
         const outcome = await ingestRawEventsIntoCanonicalStore(this.store, sessionId, events)
+        if (outcome.insertedEvents.length > 0) {
+            this.touchSessionTimeline(sessionId, outcome.insertedEvents)
+        }
 
         if (outcome.mode === 'rebuild') {
             this.publisher.emit({
@@ -584,54 +539,6 @@ export class MessageService {
         return outcome.result
     }
 
-    importNativeMessages(
-        sessionId: string,
-        messages: Array<{
-            content: unknown
-            createdAt: number
-            sourceProvider: 'claude' | 'codex'
-            sourceSessionId: string
-            sourceKey: string
-        }>
-    ): { imported: number; messages: DecryptedMessage[] } {
-        let imported = 0
-        const importedMessages: DecryptedMessage[] = []
-
-        for (const item of messages) {
-            const result = this.store.messages.importNativeMessage(sessionId, item)
-            if (!result.inserted && !result.updated) {
-                continue
-            }
-
-            if (result.inserted) {
-                imported += 1
-            }
-
-            let sessionTitleUpdated = false
-            if (result.inserted) {
-                sessionTitleUpdated = maybeApplyFirstMessageSessionTitle(this.store, sessionId, result.message.content, result.message.createdAt)
-            }
-
-            const message: DecryptedMessage = {
-                id: result.message.id,
-                seq: result.message.seq,
-                localId: result.message.localId,
-                content: result.message.content,
-                createdAt: result.message.createdAt
-            }
-            if (result.inserted) {
-                importedMessages.push(message)
-                this.broadcastNewMessage(sessionId, message)
-            }
-
-            if (sessionTitleUpdated) {
-                this.broadcastSessionUpdated(sessionId)
-            }
-        }
-
-        return { imported, messages: importedMessages }
-    }
-
     async sendMessage(
         sessionId: string,
         payload: {
@@ -655,29 +562,33 @@ export class MessageService {
             }
         }
 
-        const msg = this.store.messages.addMessage(sessionId, content, payload.localId ?? undefined)
-        maybeApplyFirstMessageSessionTitle(this.store, sessionId, msg.content, msg.createdAt)
+        const transientMessage: DecryptedMessage = {
+            id: payload.localId ?? `outbound-user:${sessionId}:${Date.now()}`,
+            seq: null,
+            localId: payload.localId ?? null,
+            content,
+            createdAt: Date.now()
+        }
+        maybeApplyFirstMessageSessionTitle(this.store, sessionId, transientMessage.content, transientMessage.createdAt)
 
         const session = this.store.sessions.getSession(sessionId)
         await this.ingestRawEvents(sessionId, [buildOutboundUserRawEvent({
             sessionId,
             sessionMetadata: session?.metadata ?? null,
-            message: {
-                id: msg.id,
-                seq: msg.seq,
-                localId: msg.localId,
-                content: msg.content,
-                createdAt: msg.createdAt
-            },
+            message: transientMessage,
             sentFrom
         })])
 
+        const storedRawEvent = this.store.rawEvents
+            .listBySession(sessionId)
+            .find((event) => event.id === `hub:${sessionId}:outbound-user:${sentFrom}:${transientMessage.id}`)
+
         this.broadcastNewMessage(sessionId, {
-            id: msg.id,
-            seq: msg.seq,
-            localId: msg.localId,
-            content: msg.content,
-            createdAt: msg.createdAt
+            id: transientMessage.id,
+            seq: storedRawEvent?.ingestSeq ?? null,
+            localId: transientMessage.localId,
+            content: transientMessage.content,
+            createdAt: transientMessage.createdAt
         })
     }
 
@@ -728,5 +639,30 @@ export class MessageService {
 
     private broadcastSessionUpdated(sessionId: string): void {
         this.onSessionTouched(sessionId)
+    }
+
+    private touchSessionTimeline(sessionId: string, rawEvents: readonly StoredRawEvent[]): void {
+        if (rawEvents.length === 0) {
+            return
+        }
+
+        const session = this.store.sessions.getSession(sessionId)
+        if (!session) {
+            return
+        }
+
+        const earliestOccurredAt = rawEvents.reduce(
+            (minTimestamp, event) => Math.min(minTimestamp, event.occurredAt),
+            rawEvents[0]?.occurredAt ?? session.createdAt
+        )
+        const latestOccurredAt = rawEvents.reduce(
+            (maxTimestamp, event) => Math.max(maxTimestamp, event.occurredAt),
+            rawEvents[0]?.occurredAt ?? session.updatedAt
+        )
+
+        this.store.sessions.reconcileSessionTimestamps(sessionId, session.namespace, {
+            createdAt: Math.min(session.createdAt, earliestOccurredAt),
+            lastActivityAt: Math.max(session.updatedAt, latestOccurredAt)
+        })
     }
 }

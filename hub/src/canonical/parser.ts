@@ -112,11 +112,31 @@ function parseGenericUserRawEvent(event: ParserRawEvent): ProviderParseResult | 
     }
 
     let text: string | null = null
+    let payload: Record<string, unknown> | undefined
 
     if (event.payload.role === 'user' && isObject(event.payload.content)) {
         const content = event.payload.content
+        const attachments = Array.isArray(content.attachments) ? content.attachments : undefined
         if (content.type === 'text' && typeof content.text === 'string' && content.text.trim().length > 0) {
             text = content.text.trim()
+            payload = {
+                text,
+                ...(attachments ? { attachments } : {}),
+                ...(typeof event.payload.localId === 'string' && event.payload.localId.length > 0
+                    ? { localId: event.payload.localId }
+                    : {}),
+                ...(isObject(event.payload.meta) ? { meta: event.payload.meta } : {})
+            }
+        } else if (attachments && attachments.length > 0) {
+            text = ''
+            payload = {
+                text,
+                attachments,
+                ...(typeof event.payload.localId === 'string' && event.payload.localId.length > 0
+                    ? { localId: event.payload.localId }
+                    : {}),
+                ...(isObject(event.payload.meta) ? { meta: event.payload.meta } : {})
+            }
         }
     }
 
@@ -124,6 +144,13 @@ function parseGenericUserRawEvent(event: ParserRawEvent): ProviderParseResult | 
         const content = event.payload.message.content.trim()
         if (content.length > 0) {
             text = content
+            payload = {
+                text,
+                ...(typeof event.payload.localId === 'string' && event.payload.localId.length > 0
+                    ? { localId: event.payload.localId }
+                    : {}),
+                ...(isObject(event.payload.meta) ? { meta: event.payload.meta } : {})
+            }
         }
     }
 
@@ -143,8 +170,43 @@ function parseGenericUserRawEvent(event: ParserRawEvent): ProviderParseResult | 
             observationKey: event.observationKey ?? null,
             kind: 'user-text',
             text,
+            ...(payload ? { payload } : {}),
             scopeKey: `${event.channel}:user`,
             partKey: `${event.id}:user`,
+            mode: 'one-shot',
+            state: 'completed'
+        }],
+        explicitChildLinks: []
+    }
+}
+
+function parseGenericAgentTextRawEvent(event: ParserRawEvent): ProviderParseResult | null {
+    if (!isObject(event.payload)) {
+        return null
+    }
+    if (event.payload.type !== 'message' || typeof event.payload.message !== 'string') {
+        return null
+    }
+
+    const text = event.payload.message.trim()
+    if (text.length === 0) {
+        return null
+    }
+
+    return {
+        seeds: [{
+            rawEventId: event.id,
+            provider: event.provider,
+            source: event.source,
+            sourceSessionId: event.sourceSessionId,
+            sourceKey: event.sourceKey,
+            channel: event.channel,
+            occurredAt: event.occurredAt,
+            observationKey: event.observationKey ?? null,
+            kind: 'agent-text',
+            text,
+            scopeKey: `${event.channel}:assistant`,
+            partKey: `${event.id}:message`,
             mode: 'one-shot',
             state: 'completed'
         }],
@@ -156,6 +218,11 @@ function parseProviderRawEvent(event: ParserRawEvent): ProviderParseResult {
     const genericUser = parseGenericUserRawEvent(event)
     if (genericUser) {
         return genericUser
+    }
+
+    const genericAgentText = parseGenericAgentTextRawEvent(event)
+    if (genericAgentText) {
+        return genericAgentText
     }
 
     if (event.provider === 'claude') {
@@ -305,7 +372,7 @@ function processTextSeed(
         createdAt: seed.occurredAt,
         updatedAt: seed.occurredAt,
         state: seed.state,
-        payload: { text: seed.text },
+        payload: { text: seed.text, ...(seed.payload ?? {}) },
         sourceRawEventIds: [seed.rawEventId],
         sourceRank: rank,
         firstSortKey
@@ -748,7 +815,11 @@ export function parseSessionRawEvents(input: ParseSessionRawEventsInput): {
         parentEvents.push(event)
     }
 
-    const parentMutableRoots = parseFlatRawEventsToMutableRoots(input.sessionId, parentEvents)
+    const parentMutableRoots = parseFlatRawEventsToMutableRoots(
+        input.sessionId,
+        parentEvents,
+        input.previousState?.roots ?? []
+    )
     const generation = input.previousState?.generation ?? 1
     const parentCanonicalRoots = toCanonicalRoots(input.sessionId, input.parserVersion, generation, parentMutableRoots)
     const subagentMutableRoots = buildSubagentRoots(

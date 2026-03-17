@@ -1,5 +1,5 @@
 import type { CanonicalBlock, CanonicalRootBlock } from '@hapi/protocol'
-import type { AttachmentMetadata } from '@/types/api'
+import type { AttachmentMetadata, MessageStatus } from '@/types/api'
 import type { ChatToolCall, ToolPermission } from '@/chat/types'
 import { isObject, safeStringify } from '@hapi/protocol'
 
@@ -28,6 +28,9 @@ export type CanonicalUserTextRenderBlock = CanonicalRenderBlockBase & {
     kind: 'user-text'
     text: string
     attachments?: AttachmentMetadata[]
+    localId?: string | null
+    status?: MessageStatus
+    originalText?: string
 }
 
 export type CanonicalAgentTextRenderBlock = CanonicalRenderBlockBase & {
@@ -138,6 +141,13 @@ function getAttachments(payload: Record<string, unknown>): AttachmentMetadata[] 
     return attachments.length > 0 ? attachments : undefined
 }
 
+function getMessageStatus(payload: Record<string, unknown>): MessageStatus | undefined {
+    const value = getUnknown(payload, 'status')
+    return value === 'sending' || value === 'sent' || value === 'failed'
+        ? value
+        : undefined
+}
+
 function getText(payload: Record<string, unknown>): string {
     const text = getString(payload, 'text', 'summary', 'message')
     if (text) return text
@@ -148,6 +158,14 @@ function getText(payload: Record<string, unknown>): string {
     }
 
     return safeStringify(payload)
+}
+
+function getTextAllowEmpty(payload: Record<string, unknown>): string {
+    const direct = getUnknown(payload, 'text')
+    if (typeof direct === 'string') {
+        return direct
+    }
+    return getText(payload)
 }
 
 function normalizeToolState(rawState: string | null | undefined): ChatToolCall['state'] {
@@ -275,14 +293,19 @@ function canonicalBlockToRenderBlock(block: CanonicalBlock): CanonicalRenderBloc
     const payload = common.payload
 
     switch (block.kind) {
-        case 'user-text':
+        case 'user-text': {
+            const originalText = getString(payload, 'originalText')
             return {
                 ...common,
                 kind: 'user-text',
-                text: getText(payload),
+                text: getTextAllowEmpty(payload),
                 attachments: getAttachments(payload),
+                localId: getString(payload, 'localId'),
+                status: getMessageStatus(payload),
+                ...(originalText ? { originalText } : {}),
                 children
             }
+        }
         case 'agent-text':
             return {
                 ...common,

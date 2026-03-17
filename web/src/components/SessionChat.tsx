@@ -1,18 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { AssistantRuntimeProvider } from '@assistant-ui/react'
-import { unwrapRoleWrappedRecordEnvelope } from '@hapi/protocol/messages'
 import type { ApiClient } from '@/api/client'
 import { canonicalRootsToRenderBlocks } from '@/chat/canonical'
-import type { AttachmentMetadata, CanonicalRootBlock, DecryptedMessage, ModelMode, PermissionMode, Session } from '@/types/api'
-import type { ChatBlock, NormalizedMessage } from '@/chat/types'
+import type { AttachmentMetadata, CanonicalRootBlock, ModelMode, PermissionMode, Session } from '@/types/api'
 import type { Suggestion } from '@/hooks/useActiveSuggestions'
-import { normalizeDecryptedMessage } from '@/chat/normalize'
-import { reduceChatBlocks } from '@/chat/reducer'
-import { reconcileChatBlocks } from '@/chat/reconcile'
 import { HappyComposer } from '@/components/AssistantChat/HappyComposer'
 import { HappyThread } from '@/components/AssistantChat/HappyThread'
-import { useHappyRuntime } from '@/lib/assistant-runtime'
+import { useHappyRuntime, type HappyRenderBlock } from '@/lib/assistant-runtime'
 import { createAttachmentAdapter } from '@/lib/attachmentAdapter'
 import { SessionHeader } from '@/components/SessionHeader'
 import { TeamPanel } from '@/components/TeamPanel'
@@ -22,33 +17,58 @@ import { useTranslation } from '@/lib/use-translation'
 import { useVoiceOptional } from '@/lib/voice-context'
 import { RealtimeVoiceSession, registerSessionStore, registerVoiceHooksStore, voiceHooks } from '@/realtime'
 
-const SESSION_CHAT_RENDERER_INSTANCE_ID = Date.now()
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object'
+}
 
-function extractUserText(message: DecryptedMessage): string | null {
-    const record = unwrapRoleWrappedRecordEnvelope(message.content)
-    if (!record || record.role !== 'user') {
+function asNumber(value: unknown): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function getTokenCountPayload(item: CanonicalRootBlock): Record<string, unknown> | null {
+    if (item.kind !== 'event' || !isRecord(item.payload)) {
         return null
     }
 
-    if (
-        record.content
-        && typeof record.content === 'object'
-        && 'type' in record.content
-        && (record.content as { type?: unknown }).type === 'text'
-        && typeof (record.content as { text?: unknown }).text === 'string'
-    ) {
-        const text = (record.content as unknown as { text: string }).text.trim()
-        return text.length > 0 ? text : null
+    const subtype = typeof item.payload.subtype === 'string'
+        ? item.payload.subtype.trim().toLowerCase()
+        : ''
+    if (subtype !== 'token-count') {
+        return null
     }
 
-    return null
+    if (isRecord(item.payload.info)) {
+        return item.payload.info
+    }
+
+    return item.payload
+}
+
+function extractLatestContextSize(items: readonly CanonicalRootBlock[]): number | undefined {
+    for (let index = items.length - 1; index >= 0; index -= 1) {
+        const payload = getTokenCountPayload(items[index])
+        if (!payload) {
+            continue
+        }
+
+        const inputTokens = asNumber(payload.input_tokens)
+        if (inputTokens === null) {
+            continue
+        }
+
+        return inputTokens
+            + (asNumber(payload.cache_creation_input_tokens) ?? 0)
+            + (asNumber(payload.cache_read_input_tokens) ?? 0)
+    }
+
+    return undefined
 }
 
 export function SessionChat(props: {
     api: ApiClient
     session: Session
     canonicalItems: CanonicalRootBlock[]
-    messages: DecryptedMessage[]
+    renderBlocks: HappyRenderBlock[]
     messagesWarning: string | null
     hasMoreMessages: boolean
     isLoadingMessages: boolean
@@ -69,8 +89,6 @@ export function SessionChat(props: {
     const { haptic } = usePlatform()
     const navigate = useNavigate()
     const sessionInactive = !props.session.active
-    const normalizedCacheRef = useRef<Map<string, { source: DecryptedMessage; normalized: NormalizedMessage | null }>>(new Map())
-    const legacyBlocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
     const [statusActionPending, setStatusActionPending] = useState<'resume' | 'disconnect' | 'refresh' | null>(null)
     const agentFlavor = props.session.metadata?.flavor ?? null
@@ -102,22 +120,27 @@ export function SessionChat(props: {
     useEffect(() => {
         registerVoiceHooksStore(
             (sessionId) => (sessionId === props.session.id ? props.session : null),
-            (sessionId) => (sessionId === props.session.id ? props.messages : [])
+            (sessionId) => (sessionId === props.session.id ? props.canonicalItems : [])
         )
-    }, [props.session, props.messages])
+    }, [props.session, props.canonicalItems])
 
-    const prevMessagesRef = useRef<DecryptedMessage[]>([])
+    const canonicalBlocks = useMemo(
+        () => canonicalRootsToRenderBlocks(props.canonicalItems),
+        [props.canonicalItems]
+    )
+    const prevCanonicalBlockIdsRef = useRef<Set<string>>(new Set())
 
     useEffect(() => {
-        const prevIds = new Set(prevMessagesRef.current.map(m => m.id))
-        const newMessages = props.messages.filter(m => !prevIds.has(m.id))
+        prevCanonicalBlockIdsRef.current = new Set()
+    }, [props.session.id])
 
-        if (newMessages.length > 0) {
-            voiceHooks.onMessages(props.session.id, newMessages)
+    useEffect(() => {
+        const newBlocks = canonicalBlocks.filter((block) => !prevCanonicalBlockIdsRef.current.has(block.id))
+        if (newBlocks.length > 0) {
+            voiceHooks.onBlocks(props.session.id, newBlocks)
         }
-
-        prevMessagesRef.current = props.messages
-    }, [props.messages, props.session.id])
+        prevCanonicalBlockIdsRef.current = new Set(canonicalBlocks.map((block) => block.id))
+    }, [canonicalBlocks, props.session.id])
 
     const prevThinkingRef = useRef(props.session.thinking)
 
@@ -131,16 +154,6 @@ export function SessionChat(props: {
     }, [props.session.thinking, props.session.id])
 
     const prevRequestIdsRef = useRef<Set<string>>(new Set())
-    const rendererInstanceIdRef = useRef(SESSION_CHAT_RENDERER_INSTANCE_ID)
-
-    if (rendererInstanceIdRef.current !== SESSION_CHAT_RENDERER_INSTANCE_ID) {
-        normalizedCacheRef.current.clear()
-        legacyBlocksByIdRef.current.clear()
-        prevMessagesRef.current = []
-        prevRequestIdsRef.current = new Set()
-        prevThinkingRef.current = props.session.thinking
-        rendererInstanceIdRef.current = SESSION_CHAT_RENDERER_INSTANCE_ID
-    }
 
     useEffect(() => {
         const requests = props.session.agentState?.requests ?? {}
@@ -173,114 +186,11 @@ export function SessionChat(props: {
         if (!voice) return
         voice.toggleMic()
     }, [voice])
-
-    // Track session id to clear caches when it changes
-    const prevSessionIdRef = useRef<string | null>(null)
-
-    useEffect(() => {
-        normalizedCacheRef.current.clear()
-        legacyBlocksByIdRef.current.clear()
-    }, [props.session.id])
-
-    const normalizedMessages: NormalizedMessage[] = useMemo(() => {
-        // Clear caches immediately when session changes (before useEffect runs)
-        if (prevSessionIdRef.current !== null && prevSessionIdRef.current !== props.session.id) {
-            normalizedCacheRef.current.clear()
-            legacyBlocksByIdRef.current.clear()
-        }
-        prevSessionIdRef.current = props.session.id
-
-        const cache = normalizedCacheRef.current
-        const normalized: NormalizedMessage[] = []
-        const seen = new Set<string>()
-        for (const message of props.messages) {
-            seen.add(message.id)
-            const cached = cache.get(message.id)
-            if (cached && cached.source === message) {
-                if (cached.normalized) normalized.push(cached.normalized)
-                continue
-            }
-            const next = normalizeDecryptedMessage(message)
-            cache.set(message.id, { source: message, normalized: next })
-            if (next) normalized.push(next)
-        }
-        for (const id of cache.keys()) {
-            if (!seen.has(id)) {
-                cache.delete(id)
-            }
-        }
-        return normalized
-    }, [props.messages])
-
-    const reduced = useMemo(
-        () => reduceChatBlocks(normalizedMessages, props.session.agentState),
-        [normalizedMessages, props.session.agentState]
-    )
-
-    const canonicalBlocks = useMemo(
-        () => canonicalRootsToRenderBlocks(props.canonicalItems),
+    const contextSize = useMemo(
+        () => extractLatestContextSize(props.canonicalItems),
         [props.canonicalItems]
     )
-
-    const canonicalRootIds = useMemo(
-        () => new Set(props.canonicalItems.map((item) => item.id)),
-        [props.canonicalItems]
-    )
-
-    const canonicalUserEntries = useMemo(() => {
-        return props.canonicalItems
-            .filter((item) => item.kind === 'user-text')
-            .map((item) => ({
-                createdAt: item.createdAt,
-                text: typeof item.payload?.text === 'string' ? item.payload.text.trim() : ''
-            }))
-            .filter((entry) => entry.text.length > 0)
-    }, [props.canonicalItems])
-
-    const overlayMessages = useMemo(() => {
-        return props.messages.filter((message) => {
-            if (canonicalRootIds.has(message.id)) {
-                return false
-            }
-
-            const userText = extractUserText(message)
-            if (!userText) {
-                return true
-            }
-
-            return !canonicalUserEntries.some((entry) =>
-                entry.text === userText && Math.abs(entry.createdAt - message.createdAt) < 10_000
-            )
-        })
-    }, [canonicalRootIds, canonicalUserEntries, props.messages])
-
-    const normalizedOverlayMessages = useMemo(() => {
-        const overlayIds = new Set(overlayMessages.map((message) => message.id))
-        return normalizedMessages.filter((message) => overlayIds.has(message.id))
-    }, [normalizedMessages, overlayMessages])
-
-    const reducedOverlay = useMemo(
-        () => reduceChatBlocks(normalizedOverlayMessages, null),
-        [normalizedOverlayMessages]
-    )
-    const reconciledOverlay = useMemo(
-        () => reconcileChatBlocks(reducedOverlay.blocks, legacyBlocksByIdRef.current),
-        [reducedOverlay.blocks]
-    )
-
-    useEffect(() => {
-        legacyBlocksByIdRef.current = reconciledOverlay.byId
-    }, [reconciledOverlay.byId])
-
-    const runtimeBlocks = useMemo(() => {
-        const combined = [...canonicalBlocks, ...reconciledOverlay.blocks]
-        return combined.sort((left, right) => {
-            if (left.createdAt !== right.createdAt) {
-                return left.createdAt - right.createdAt
-            }
-            return left.id.localeCompare(right.id)
-        })
-    }, [canonicalBlocks, reconciledOverlay.blocks])
+    const runtimeBlocks = props.renderBlocks
 
     // Permission mode change handler
     const handlePermissionModeChange = useCallback(async (mode: PermissionMode) => {
@@ -438,7 +348,7 @@ export function SessionChat(props: {
                         isLoadingMoreMessages={props.isLoadingMoreMessages}
                         onLoadMore={props.onLoadMore}
                         pendingCount={props.pendingCount}
-                        rawMessagesCount={props.messages.length}
+                        rawMessagesCount={props.renderBlocks.length}
                         normalizedMessagesCount={runtimeBlocks.length}
                         messagesVersion={props.messagesVersion}
                         forceScrollToken={forceScrollToken}
@@ -453,7 +363,7 @@ export function SessionChat(props: {
                         allowSendWhenInactive
                         thinking={props.session.thinking}
                         agentState={props.session.agentState}
-                        contextSize={reduced.latestUsage?.contextSize}
+                        contextSize={contextSize}
                         controlledByUser={props.session.agentState?.controlledByUser === true}
                         onPermissionModeChange={handlePermissionModeChange}
                         onModelModeChange={handleModelModeChange}

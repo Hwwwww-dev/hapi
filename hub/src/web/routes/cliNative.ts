@@ -21,18 +21,6 @@ const nativeSessionUpsertSchema = z.object({
     path: ['lastActivityAt']
 })
 
-const nativeMessageSchema = z.object({
-    content: z.unknown(),
-    createdAt: z.number(),
-    sourceProvider: z.enum(['claude', 'codex']),
-    sourceSessionId: z.string().min(1),
-    sourceKey: z.string().min(1)
-})
-
-const nativeMessageImportSchema = z.object({
-    messages: z.array(nativeMessageSchema)
-})
-
 const nativeRawEventImportSchema = z.object({
     events: z.array(RawEventEnvelopeSchema)
 })
@@ -126,28 +114,6 @@ export function createCliNativeRoutes(getSyncEngine: () => SyncEngine | null): H
             imported: result.imported,
             session
         })
-    })
-
-    app.post('/sessions/:id/messages/import', async (c) => {
-        const engine = getSyncEngine()
-        if (!engine) {
-            return c.json({ error: 'Not ready' }, 503)
-        }
-
-        const namespace = c.get('namespace')
-        const resolved = resolveSessionForNamespace(engine, c.req.param('id'), namespace)
-        if (!resolved.ok) {
-            return c.json({ error: resolved.error }, resolved.status)
-        }
-
-        const json = await c.req.json().catch(() => null)
-        const parsed = nativeMessageImportSchema.safeParse(json)
-        if (!parsed.success) {
-            return c.json({ error: 'Invalid body' }, 400)
-        }
-
-        const legacyResult = engine.importNativeMessages(resolved.sessionId, parsed.data.messages)
-        return c.json(legacyResult)
     })
 
     app.get('/sessions/:id/sync-state', (c) => {

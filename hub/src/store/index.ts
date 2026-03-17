@@ -4,7 +4,6 @@ import { dirname } from 'node:path'
 
 import { CanonicalBlockStore } from './canonicalBlockStore'
 import { MachineStore } from './machineStore'
-import { MessageStore } from './messageStore'
 import { NativeSyncStateStore } from './nativeSyncStateStore'
 import { PushStore } from './pushStore'
 import { RawEventStore } from './rawEventStore'
@@ -19,7 +18,6 @@ export type {
     StoredCanonicalRootsPage,
     StoredCanonicalRootsPageInfo,
     StoredMachine,
-    StoredMessage,
     StoredNativeSyncState,
     StoredPushSubscription,
     StoredRawEvent,
@@ -32,7 +30,6 @@ export type {
 } from './types'
 export { CanonicalBlockStore } from './canonicalBlockStore'
 export { MachineStore } from './machineStore'
-export { MessageStore } from './messageStore'
 export { NativeSyncStateStore } from './nativeSyncStateStore'
 export { PushStore } from './pushStore'
 export { RawEventStore } from './rawEventStore'
@@ -41,12 +38,11 @@ export { SessionStore } from './sessionStore'
 export { StagedChildRawEventStore } from './stagedChildRawEventStore'
 export { UserStore } from './userStore'
 
-const SCHEMA_VERSION: number = 8
+const SCHEMA_VERSION: number = 9
 const REQUIRED_TABLES = [
     'sessions',
     'session_native_aliases',
     'machines',
-    'messages',
     'raw_events',
     'canonical_blocks',
     'session_parse_state',
@@ -62,7 +58,6 @@ export class Store {
 
     readonly sessions: SessionStore
     readonly machines: MachineStore
-    readonly messages: MessageStore
     readonly rawEvents: RawEventStore
     readonly canonicalBlocks: CanonicalBlockStore
     readonly sessionParseState: SessionParseStateStore
@@ -108,7 +103,6 @@ export class Store {
 
         this.sessions = new SessionStore(this.db)
         this.machines = new MachineStore(this.db)
-        this.messages = new MessageStore(this.db)
         this.rawEvents = new RawEventStore(this.db)
         this.canonicalBlocks = new CanonicalBlockStore(this.db)
         this.sessionParseState = new SessionParseStateStore(this.db)
@@ -190,24 +184,6 @@ export class Store {
                 seq INTEGER DEFAULT 0
             );
             CREATE INDEX IF NOT EXISTS idx_machines_namespace ON machines(namespace);
-
-            CREATE TABLE IF NOT EXISTS messages (
-                id TEXT PRIMARY KEY,
-                session_id TEXT NOT NULL,
-                content TEXT NOT NULL,
-                created_at INTEGER NOT NULL,
-                seq INTEGER NOT NULL,
-                local_id TEXT,
-                source_provider TEXT,
-                source_session_id TEXT,
-                source_key TEXT,
-                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-            );
-            CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, seq);
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_local_id ON messages(session_id, local_id) WHERE local_id IS NOT NULL;
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_native_source
-            ON messages(session_id, source_provider, source_session_id, source_key)
-            WHERE source_key IS NOT NULL;
 
             CREATE TABLE IF NOT EXISTS raw_events (
                 ingest_seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -314,182 +290,6 @@ export class Store {
             );
             CREATE INDEX IF NOT EXISTS idx_push_subscriptions_namespace ON push_subscriptions(namespace);
         `)
-    }
-
-    private migrateLegacySchemaIfNeeded(): void {
-        const columns = this.getMachineColumnNames()
-        if (columns.size === 0) {
-            return
-        }
-
-        const hasDaemon = columns.has('daemon_state') || columns.has('daemon_state_version')
-        const hasRunner = columns.has('runner_state') || columns.has('runner_state_version')
-
-        if (hasDaemon && hasRunner) {
-            throw new Error('SQLite schema has both daemon_state and runner_state columns in machines; manual cleanup required.')
-        }
-
-        if (hasDaemon && !hasRunner) {
-            this.migrateFromV1ToV2()
-        }
-    }
-
-    private migrateFromV1ToV2(): void {
-        const columns = this.getMachineColumnNames()
-        if (columns.size === 0) {
-            throw new Error('SQLite schema missing machines table for v1 to v2 migration.')
-        }
-
-        const hasDaemon = columns.has('daemon_state') && columns.has('daemon_state_version')
-        const hasRunner = columns.has('runner_state') && columns.has('runner_state_version')
-
-        if (hasRunner && !hasDaemon) {
-            return
-        }
-
-        if (!hasDaemon) {
-            throw new Error('SQLite schema missing daemon_state columns for v1 to v2 migration.')
-        }
-
-        try {
-            this.db.exec('BEGIN')
-            this.db.exec('ALTER TABLE machines RENAME COLUMN daemon_state TO runner_state')
-            this.db.exec('ALTER TABLE machines RENAME COLUMN daemon_state_version TO runner_state_version')
-            this.db.exec('COMMIT')
-            return
-        } catch (error) {
-            this.db.exec('ROLLBACK')
-        }
-
-        try {
-            this.db.exec('BEGIN')
-            this.db.exec(`
-                CREATE TABLE machines_new (
-                    id TEXT PRIMARY KEY,
-                    namespace TEXT NOT NULL DEFAULT 'default',
-                    created_at INTEGER NOT NULL,
-                    updated_at INTEGER NOT NULL,
-                    metadata TEXT,
-                    metadata_version INTEGER DEFAULT 1,
-                    runner_state TEXT,
-                    runner_state_version INTEGER DEFAULT 1,
-                    active INTEGER DEFAULT 0,
-                    active_at INTEGER,
-                    seq INTEGER DEFAULT 0
-                );
-            `)
-            this.db.exec(`
-                INSERT INTO machines_new (
-                    id, namespace, created_at, updated_at,
-                    metadata, metadata_version,
-                    runner_state, runner_state_version,
-                    active, active_at, seq
-                )
-                SELECT id, namespace, created_at, updated_at,
-                       metadata, metadata_version,
-                       daemon_state, daemon_state_version,
-                       active, active_at, seq
-                FROM machines;
-            `)
-            this.db.exec('DROP TABLE machines')
-            this.db.exec('ALTER TABLE machines_new RENAME TO machines')
-            this.db.exec('CREATE INDEX IF NOT EXISTS idx_machines_namespace ON machines(namespace)')
-            this.db.exec('COMMIT')
-        } catch (error) {
-            this.db.exec('ROLLBACK')
-            const message = error instanceof Error ? error.message : String(error)
-            throw new Error(`SQLite schema migration v1->v2 failed: ${message}`)
-        }
-    }
-
-    private migrateFromV2ToV3(): void {
-        return
-    }
-
-    private migrateFromV3ToV4(): void {
-        const columns = this.getSessionColumnNames()
-        if (!columns.has('team_state')) {
-            this.db.exec('ALTER TABLE sessions ADD COLUMN team_state TEXT')
-        }
-        if (!columns.has('team_state_updated_at')) {
-            this.db.exec('ALTER TABLE sessions ADD COLUMN team_state_updated_at INTEGER')
-        }
-    }
-
-    private migrateFromV4ToV5(): void {
-        const columns = this.getMessageColumnNames()
-        if (!columns.has('source_provider')) {
-            this.db.exec('ALTER TABLE messages ADD COLUMN source_provider TEXT')
-        }
-        if (!columns.has('source_session_id')) {
-            this.db.exec('ALTER TABLE messages ADD COLUMN source_session_id TEXT')
-        }
-        if (!columns.has('source_key')) {
-            this.db.exec('ALTER TABLE messages ADD COLUMN source_key TEXT')
-        }
-
-        this.db.exec(`
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_native_source
-            ON messages(session_id, source_provider, source_session_id, source_key)
-            WHERE source_key IS NOT NULL
-        `)
-        this.db.exec(`
-            CREATE TABLE IF NOT EXISTS native_sync_state (
-                session_id TEXT PRIMARY KEY,
-                provider TEXT NOT NULL,
-                native_session_id TEXT NOT NULL,
-                machine_id TEXT NOT NULL,
-                cursor TEXT,
-                file_path TEXT,
-                mtime INTEGER,
-                last_synced_at INTEGER,
-                sync_status TEXT NOT NULL,
-                last_error TEXT,
-                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-            )
-        `)
-        this.db.exec(`
-            CREATE INDEX IF NOT EXISTS idx_native_sync_state_machine_id
-            ON native_sync_state(machine_id, last_synced_at DESC)
-        `)
-    }
-
-    private migrateFromV5ToV6(): void {
-        this.db.exec(`
-            CREATE TABLE IF NOT EXISTS session_native_aliases (
-                namespace TEXT NOT NULL,
-                provider TEXT NOT NULL,
-                native_session_id TEXT NOT NULL,
-                session_id TEXT NOT NULL,
-                created_at INTEGER NOT NULL,
-                updated_at INTEGER NOT NULL,
-                PRIMARY KEY (namespace, provider, native_session_id),
-                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-            )
-        `)
-        this.db.exec(`
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_session_native_aliases_session_provider
-            ON session_native_aliases(session_id, provider)
-        `)
-        this.db.exec(`
-            CREATE INDEX IF NOT EXISTS idx_session_native_aliases_session_id
-            ON session_native_aliases(session_id)
-        `)
-    }
-
-    private getSessionColumnNames(): Set<string> {
-        const rows = this.db.prepare('PRAGMA table_info(sessions)').all() as Array<{ name: string }>
-        return new Set(rows.map((row) => row.name))
-    }
-
-    private getMachineColumnNames(): Set<string> {
-        const rows = this.db.prepare('PRAGMA table_info(machines)').all() as Array<{ name: string }>
-        return new Set(rows.map((row) => row.name))
-    }
-
-    private getMessageColumnNames(): Set<string> {
-        const rows = this.db.prepare('PRAGMA table_info(messages)').all() as Array<{ name: string }>
-        return new Set(rows.map((row) => row.name))
     }
 
     private getUserVersion(): number {

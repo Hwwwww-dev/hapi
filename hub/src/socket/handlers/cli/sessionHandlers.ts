@@ -6,9 +6,6 @@ import type { ModelMode, PermissionMode } from '@hapi/protocol/types'
 import type { Store, StoredSession } from '../../../store'
 import type { SyncEvent } from '../../../sync/syncEngine'
 import { ingestRawEventsIntoCanonicalStore } from '../../../sync/messageService'
-import { extractTodoWriteTodosFromMessageContent } from '../../../sync/todos'
-import { extractTeamStateFromMessageContent, applyTeamStateDelta } from '../../../sync/teams'
-import { maybeApplyFirstMessageSessionTitle } from '../../../sync/sessionTitle'
 import type { CliSocketWithData } from '../../socketTypes'
 import type { AccessErrorReason, AccessResult } from './types'
 
@@ -34,12 +31,6 @@ type UpdateMetadataHandler = ClientToServerEvents['update-metadata']
 type UpdateStateHandler = ClientToServerEvents['update-state']
 type IngestRawEventsHandler = (sessionId: string, events: RawEventEnvelope[]) => Promise<{ imported: number } | void>
 
-const messageSchema = z.object({
-    sid: z.string(),
-    message: z.union([z.string(), z.unknown()]),
-    localId: z.string().optional()
-})
-
 const updateMetadataSchema = z.object({
     sid: z.string(),
     expectedVersion: z.number().int(),
@@ -64,89 +55,6 @@ export type SessionHandlersDeps = {
 
 export function registerSessionHandlers(socket: CliSocketWithData, deps: SessionHandlersDeps): void {
     const { store, resolveSessionAccess, emitAccessError, ingestRawEvents, onSessionAlive, onSessionEnd, onWebappEvent } = deps
-
-    socket.on('message', (data: unknown) => {
-        const parsed = messageSchema.safeParse(data)
-        if (!parsed.success) {
-            return
-        }
-
-        const { sid, localId } = parsed.data
-        const raw = parsed.data.message
-
-        const content = typeof raw === 'string'
-            ? (() => {
-                try {
-                    return JSON.parse(raw) as unknown
-                } catch {
-                    return raw
-                }
-            })()
-            : raw
-
-        const sessionAccess = resolveSessionAccess(sid)
-        if (!sessionAccess.ok) {
-            emitAccessError('session', sid, sessionAccess.reason)
-            return
-        }
-        const session = sessionAccess.value
-
-        const msg = store.messages.addMessage(sid, content, localId)
-        const sessionTitleUpdated = maybeApplyFirstMessageSessionTitle(store, sid, msg.content, msg.createdAt)
-
-        const todos = extractTodoWriteTodosFromMessageContent(content)
-        if (todos) {
-            const updated = store.sessions.setSessionTodos(sid, todos, msg.createdAt, session.namespace)
-            if (updated) {
-                onWebappEvent?.({ type: 'session-updated', sessionId: sid, data: { sid } })
-            }
-        }
-
-        const teamDelta = extractTeamStateFromMessageContent(content)
-        if (teamDelta) {
-            const existingSession = store.sessions.getSession(sid)
-            const existingTeamState = existingSession?.teamState as import('@hapi/protocol/types').TeamState | null | undefined
-            const newTeamState = applyTeamStateDelta(existingTeamState ?? null, teamDelta)
-            const updated = store.sessions.setSessionTeamState(sid, newTeamState, msg.createdAt, session.namespace)
-            if (updated) {
-                onWebappEvent?.({ type: 'session-updated', sessionId: sid, data: { sid } })
-            }
-        }
-
-        const update = {
-            id: randomUUID(),
-            seq: msg.seq,
-            createdAt: Date.now(),
-            body: {
-                t: 'new-message' as const,
-                sid,
-                message: {
-                    id: msg.id,
-                    seq: msg.seq,
-                    createdAt: msg.createdAt,
-                    localId: msg.localId,
-                    content: msg.content
-                }
-            }
-        }
-        socket.to(`session:${sid}`).emit('update', update)
-
-        onWebappEvent?.({
-            type: 'message-received',
-            sessionId: sid,
-            message: {
-                id: msg.id,
-                seq: msg.seq,
-                localId: msg.localId,
-                content: msg.content,
-                createdAt: msg.createdAt
-            }
-        })
-
-        if (sessionTitleUpdated) {
-            onWebappEvent?.({ type: 'session-updated', sessionId: sid, data: { sid } })
-        }
-    })
 
     socket.on('runtime-event', async (data: unknown) => {
         const parsed = RuntimeRawEventPayloadSchema.safeParse(data)

@@ -1,4 +1,4 @@
-import { getCurrentRealtimeSessionId, getVoiceSession, isVoiceSessionStarted } from '../RealtimeSession'
+import { getVoiceSession, isVoiceSessionStarted } from '../RealtimeSession'
 import {
     formatNewMessages,
     formatPermissionRequest,
@@ -9,7 +9,8 @@ import {
     formatSessionOnline
 } from './contextFormatters'
 import { VOICE_CONFIG } from '../voiceConfig'
-import type { DecryptedMessage, Session } from '@/types/api'
+import type { CanonicalRootBlock, Session } from '@/types/api'
+import type { CanonicalRenderBlock } from '@/chat/canonical'
 
 interface SessionMetadata {
     summary?: { text?: string }
@@ -21,19 +22,19 @@ interface SessionMetadata {
 const shownSessions = new Set<string>()
 let lastFocusSession: string | null = null
 
-// Session and message store references
+// Session and canonical store references
 let sessionGetter: ((sessionId: string) => Session | null) | null = null
-let messagesGetter: ((sessionId: string) => DecryptedMessage[]) | null = null
+let rootsGetter: ((sessionId: string) => CanonicalRootBlock[]) | null = null
 
 /**
- * Register the session and message getters for voice hooks
+ * Register the session and canonical-root getters for voice hooks
  */
 export function registerVoiceHooksStore(
     getSession: (sessionId: string) => Session | null,
-    getMessages: (sessionId: string) => DecryptedMessage[]
+    getRoots: (sessionId: string) => CanonicalRootBlock[]
 ) {
     sessionGetter = getSession
-    messagesGetter = getMessages
+    rootsGetter = getRoots
 }
 
 function reportContextualUpdate(update: string | null | undefined) {
@@ -63,8 +64,8 @@ function reportSession(sessionId: string) {
     const session = sessionGetter?.(sessionId) ?? null
     if (!session) return
 
-    const messages = messagesGetter?.(sessionId) ?? []
-    const contextUpdate = formatSessionFull(session, messages)
+    const roots = rootsGetter?.(sessionId) ?? []
+    const contextUpdate = formatSessionFull(session, roots)
     reportContextualUpdate(contextUpdate)
 }
 
@@ -113,13 +114,13 @@ export const voiceHooks = {
     },
 
     /**
-     * Called when agent sends messages
+     * Called when agent sends new canonical render blocks
      */
-    onMessages(sessionId: string, messages: DecryptedMessage[]) {
+    onBlocks(sessionId: string, blocks: CanonicalRenderBlock[]) {
         if (VOICE_CONFIG.DISABLE_MESSAGES) return
 
         reportSession(sessionId)
-        reportContextualUpdate(formatNewMessages(sessionId, messages))
+        reportContextualUpdate(formatNewMessages(sessionId, blocks))
     },
 
     /**
@@ -132,9 +133,9 @@ export const voiceHooks = {
         shownSessions.clear()
 
         const session = sessionGetter?.(sessionId) ?? null
-        const messages = messagesGetter?.(sessionId) ?? []
+        const roots = rootsGetter?.(sessionId) ?? []
 
-        let prompt = 'THIS IS AN ACTIVE SESSION: \n\n' + formatSessionFull(session, messages)
+        let prompt = 'THIS IS AN ACTIVE SESSION: \n\n' + formatSessionFull(session, roots)
         shownSessions.add(sessionId)
 
         return prompt

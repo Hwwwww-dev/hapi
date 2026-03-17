@@ -3,12 +3,11 @@ import type { ModelMode, PermissionMode, Session } from '@hapi/protocol/types'
 import type { Store } from '../store'
 import { clampAliveTime } from './aliveTime'
 import { EventPublisher } from './eventPublisher'
-import { extractTodoWriteTodosFromMessageContent, TodosSchema } from './todos'
+import { TodosSchema } from './todos'
 
 export class SessionCache {
     private readonly sessions: Map<string, Session> = new Map()
     private readonly lastBroadcastAtBySessionId: Map<string, number> = new Map()
-    private readonly todoBackfillAttemptedSessionIds: Set<string> = new Set()
 
     constructor(
         private readonly store: Store,
@@ -71,22 +70,6 @@ export class SessionCache {
         }
 
         const existing = this.sessions.get(sessionId)
-
-        if (stored.todos === null && !this.todoBackfillAttemptedSessionIds.has(sessionId)) {
-            this.todoBackfillAttemptedSessionIds.add(sessionId)
-            const messages = this.store.messages.getMessages(sessionId, 200)
-            for (let i = messages.length - 1; i >= 0; i -= 1) {
-                const message = messages[i]
-                const todos = extractTodoWriteTodosFromMessageContent(message.content)
-                if (todos) {
-                    const updated = this.store.sessions.setSessionTodos(sessionId, todos, message.createdAt, stored.namespace)
-                    if (updated) {
-                        stored = this.store.sessions.getSession(sessionId) ?? stored
-                    }
-                    break
-                }
-            }
-        }
 
         const metadata = (() => {
             const parsed = MetadataSchema.safeParse(stored.metadata)
@@ -286,7 +269,6 @@ export class SessionCache {
 
         this.sessions.delete(sessionId)
         this.lastBroadcastAtBySessionId.delete(sessionId)
-        this.todoBackfillAttemptedSessionIds.delete(sessionId)
 
         this.publisher.emit({ type: 'session-removed', sessionId, namespace: session.namespace })
     }
@@ -313,12 +295,9 @@ export class SessionCache {
         const sourceSession = this.sessions.get(sourceSessionId) ?? this.refreshSession(sourceSessionId) ?? undefined
         const targetSession = this.sessions.get(targetSessionId) ?? this.refreshSession(targetSessionId) ?? undefined
 
-        this.store.messages.mergeSessionMessages(sourceSessionId, targetSessionId, {
-            strategy: 'append-source'
-        })
         this.store.sessions.reconcileSessionTimestamps(targetSessionId, namespace, {
-            createdAt: targetStored.createdAt,
-            lastActivityAt: targetStored.updatedAt
+            createdAt: Math.min(sourceStored.createdAt, targetStored.createdAt),
+            lastActivityAt: Math.max(sourceStored.updatedAt, targetStored.updatedAt)
         })
 
         const mergedMetadata = options?.mergedMetadata !== undefined
@@ -399,7 +378,6 @@ export class SessionCache {
             this.publisher.emit({ type: 'session-removed', sessionId: sourceSessionId, namespace })
         }
         this.lastBroadcastAtBySessionId.delete(sourceSessionId)
-        this.todoBackfillAttemptedSessionIds.delete(sourceSessionId)
 
         const refreshed = this.refreshSession(targetSessionId)
         if (!refreshed) {

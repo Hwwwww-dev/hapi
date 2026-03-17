@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
+import { canonicalRootsToRenderBlocks } from '@/chat/canonical'
 import type { CanonicalRootBlock, Session } from '@/types/api'
 import { I18nProvider } from '@/lib/i18n-context'
 import { SessionChat } from './SessionChat'
@@ -90,7 +91,7 @@ vi.mock('@/realtime', () => ({
     registerSessionStore: vi.fn(),
     registerVoiceHooksStore: vi.fn(),
     voiceHooks: {
-        onMessages: vi.fn(),
+        onBlocks: vi.fn(),
         onReady: vi.fn(),
         onPermissionRequested: vi.fn()
     }
@@ -150,7 +151,7 @@ function renderChat(
     session: Session,
     apiOverrides: Record<string, unknown> = {},
     canonicalItems: CanonicalRootBlock[] = [],
-    messages: any[] = []
+    renderBlocks: any[] = []
 ) {
     const api = {
         resumeSession: vi.fn(async () => session.id),
@@ -164,7 +165,7 @@ function renderChat(
                 api={api}
                 session={session}
                 canonicalItems={canonicalItems}
-                messages={messages}
+                renderBlocks={renderBlocks}
                 messagesWarning={null}
                 hasMoreMessages={false}
                 isLoadingMessages={false}
@@ -200,7 +201,7 @@ describe('SessionChat connection controls', () => {
                     api={api}
                     session={session}
                     canonicalItems={[]}
-                    messages={[]}
+                    renderBlocks={[]}
                     messagesWarning={null}
                     hasMoreMessages={false}
                     isLoadingMessages={false}
@@ -236,54 +237,124 @@ describe('SessionChat connection controls', () => {
         await waitFor(() => expect(archiveSessionMock).toHaveBeenCalled())
     })
 
-    it('builds runtime blocks from canonical items plus non-shadowed overlay messages', () => {
+    it('renders from canonical-only render blocks instead of legacy message props', () => {
+        const canonicalItems = [
+            createCanonicalRoot({
+                id: 'canonical-user-1',
+                kind: 'user-text',
+                createdAt: 1,
+                payload: { text: 'canonical hello' }
+            }),
+            createCanonicalRoot({
+                id: 'canonical-fallback-1',
+                kind: 'fallback-raw',
+                createdAt: 2,
+                payload: {
+                    provider: 'codex',
+                    rawType: 'unknown_payload',
+                    summary: 'unsupported raw event',
+                    preview: { hello: 'world' }
+                }
+            })
+        ]
+
         renderChat(
             createSession({ active: true }),
             {},
-            [
-                createCanonicalRoot({
-                    id: 'canonical-user-1',
-                    kind: 'user-text',
-                    createdAt: 1,
-                    payload: { text: 'canonical hello' }
-                })
-            ],
-            [
-                {
-                    id: 'legacy-overlay-1',
-                    seq: null,
-                    localId: 'legacy-overlay-1',
-                    createdAt: 2,
-                    content: {
-                        role: 'user',
-                        content: {
-                            type: 'text',
-                            text: 'optimistic hello'
-                        }
-                    }
-                },
-                {
-                    id: 'shadowed-user-1',
-                    seq: null,
-                    localId: 'shadowed-user-1',
-                    createdAt: 1,
-                    content: {
-                        role: 'user',
-                        content: {
-                            type: 'text',
-                            text: 'canonical hello'
-                        }
-                    }
-                }
-            ]
+            canonicalItems,
+            canonicalRootsToRenderBlocks(canonicalItems)
         )
 
         expect(useHappyRuntimeMock).toHaveBeenCalled()
         const runtimeArgs = useHappyRuntimeMock.mock.calls.at(-1)?.[0] as unknown as { blocks: Array<{ id: string }> }
-        expect(runtimeArgs.blocks.map((block) => block.id)).toEqual(expect.arrayContaining([
+        expect(runtimeArgs.blocks.map((block) => block.id)).toEqual([
             'canonical-user-1',
-            'legacy-overlay-1'
-        ]))
-        expect(runtimeArgs.blocks.map((block) => block.id)).not.toContain('shadowed-user-1')
+            'canonical-fallback-1'
+        ])
+    })
+
+    it('reports only new canonical render blocks to voice hooks', async () => {
+        const initialCanonicalItems = [
+            createCanonicalRoot({
+                id: 'canonical-user-1',
+                kind: 'user-text',
+                createdAt: 1,
+                payload: { text: 'first' }
+            })
+        ]
+
+        const { rerender } = render(
+            <I18nProvider>
+                <SessionChat
+                    api={{ resumeSession: vi.fn(async () => 'session-1') } as any}
+                    session={createSession({ active: true })}
+                    canonicalItems={initialCanonicalItems}
+                    renderBlocks={canonicalRootsToRenderBlocks(initialCanonicalItems)}
+                    messagesWarning={null}
+                    hasMoreMessages={false}
+                    isLoadingMessages={false}
+                    isLoadingMoreMessages={false}
+                    isSending={false}
+                    pendingCount={0}
+                    messagesVersion={1}
+                    onBack={vi.fn()}
+                    onRefresh={vi.fn()}
+                    onLoadMore={vi.fn(async () => undefined)}
+                    onSend={vi.fn()}
+                    onFlushPending={vi.fn()}
+                    onAtBottomChange={vi.fn()}
+                />
+            </I18nProvider>
+        )
+
+        vi.clearAllMocks()
+
+        const nextCanonicalItems = [
+            createCanonicalRoot({
+                id: 'canonical-user-1',
+                kind: 'user-text',
+                createdAt: 1,
+                payload: { text: 'first' }
+            }),
+            createCanonicalRoot({
+                id: 'canonical-agent-2',
+                kind: 'agent-text',
+                createdAt: 2,
+                payload: { text: 'second' }
+            })
+        ]
+
+        rerender(
+            <I18nProvider>
+                <SessionChat
+                    api={{ resumeSession: vi.fn(async () => 'session-1') } as any}
+                    session={createSession({ active: true })}
+                    canonicalItems={nextCanonicalItems}
+                    renderBlocks={canonicalRootsToRenderBlocks(nextCanonicalItems)}
+                    messagesWarning={null}
+                    hasMoreMessages={false}
+                    isLoadingMessages={false}
+                    isLoadingMoreMessages={false}
+                    isSending={false}
+                    pendingCount={0}
+                    messagesVersion={2}
+                    onBack={vi.fn()}
+                    onRefresh={vi.fn()}
+                    onLoadMore={vi.fn(async () => undefined)}
+                    onSend={vi.fn()}
+                    onFlushPending={vi.fn()}
+                    onAtBottomChange={vi.fn()}
+                />
+            </I18nProvider>
+        )
+
+        const { voiceHooks } = await import('@/realtime')
+        expect(voiceHooks.onBlocks).toHaveBeenCalledTimes(1)
+        expect(voiceHooks.onBlocks).toHaveBeenCalledWith(
+            'session-1',
+            expect.arrayContaining([
+                expect.objectContaining({ id: 'canonical-agent-2', kind: 'agent-text' })
+            ])
+        )
     })
 })

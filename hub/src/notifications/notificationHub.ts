@@ -1,12 +1,12 @@
 import type { Session, SyncEngine, SyncEvent } from '../sync/syncEngine'
 import type { NotificationChannel, NotificationHubOptions } from './notificationTypes'
-import { extractMessageEventType } from './eventParsing'
 
 export class NotificationHub {
     private readonly channels: NotificationChannel[]
     private readonly readyCooldownMs: number
     private readonly permissionDebounceMs: number
     private readonly lastKnownRequests: Map<string, Set<string>> = new Map()
+    private readonly lastKnownThinking: Map<string, boolean> = new Map()
     private readonly notificationDebounce: Map<string, NodeJS.Timeout> = new Map()
     private readonly lastReadyNotificationAt: Map<string, number> = new Map()
     private unsubscribeSyncEvents: (() => void) | null = null
@@ -35,6 +35,7 @@ export class NotificationHub {
         }
         this.notificationDebounce.clear()
         this.lastKnownRequests.clear()
+        this.lastKnownThinking.clear()
         this.lastReadyNotificationAt.clear()
     }
 
@@ -45,22 +46,22 @@ export class NotificationHub {
                 this.clearSessionState(event.sessionId)
                 return
             }
+            const wasThinking = this.lastKnownThinking.get(session.id)
+            const isThinking = session.thinking === true
+            this.lastKnownThinking.set(session.id, isThinking)
+
+            if (wasThinking === true && !isThinking) {
+                this.sendReadyNotification(session.id).catch((error) => {
+                    console.error('[NotificationHub] Failed to send ready notification:', error)
+                })
+            }
+
             this.checkForPermissionNotification(session)
             return
         }
 
         if (event.type === 'session-removed' && event.sessionId) {
             this.clearSessionState(event.sessionId)
-            return
-        }
-
-        if (event.type === 'message-received' && event.sessionId) {
-            const eventType = extractMessageEventType(event)
-            if (eventType === 'ready') {
-                this.sendReadyNotification(event.sessionId).catch((error) => {
-                    console.error('[NotificationHub] Failed to send ready notification:', error)
-                })
-            }
         }
     }
 
@@ -71,6 +72,7 @@ export class NotificationHub {
             this.notificationDebounce.delete(sessionId)
         }
         this.lastKnownRequests.delete(sessionId)
+        this.lastKnownThinking.delete(sessionId)
         this.lastReadyNotificationAt.delete(sessionId)
     }
 

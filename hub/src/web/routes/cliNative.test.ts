@@ -261,7 +261,6 @@ describe('CLI native routes', () => {
                 id: sessionJson.session.id
             })
         }))
-        expect(engine.getMessagesAfter(sessionJson.session.id, { afterSeq: 0, limit: 10 })).toHaveLength(0)
         expect(engine.getCanonicalMessagesPage(sessionJson.session.id, {
             generation: null,
             beforeTimelineSeq: null,

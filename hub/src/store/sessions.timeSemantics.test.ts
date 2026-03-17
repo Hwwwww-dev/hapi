@@ -23,41 +23,6 @@ describe('SessionStore time semantics', () => {
         }))
     })
 
-    it('uses the last message time as updatedAt when messages exist', () => {
-        const store = new Store(':memory:')
-        const session = store.sessions.getOrCreateSession(
-            'native-time-messages',
-            { path: '/tmp/project', host: 'local' },
-            null,
-            'default'
-        )
-
-        store.messages.importNativeMessage(session.id, {
-            content: { role: 'assistant', content: 'first' },
-            createdAt: 120,
-            sourceProvider: 'claude',
-            sourceSessionId: 'native-1',
-            sourceKey: 'line:1'
-        })
-        store.messages.importNativeMessage(session.id, {
-            content: { role: 'assistant', content: 'second' },
-            createdAt: 180,
-            sourceProvider: 'claude',
-            sourceSessionId: 'native-1',
-            sourceKey: 'line:2'
-        })
-
-        const reconciled = store.sessions.reconcileSessionTimestamps(session.id, 'default', {
-            createdAt: 100,
-            lastActivityAt: 160
-        })
-
-        expect(reconciled).toEqual(expect.objectContaining({
-            createdAt: 100,
-            updatedAt: 180
-        }))
-    })
-
     it('moves createdAt earlier when a later provider sync reports an earlier creation time', () => {
         const store = new Store(':memory:')
         const session = store.sessions.getOrCreateSession(

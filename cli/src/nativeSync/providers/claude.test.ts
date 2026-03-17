@@ -305,6 +305,54 @@ describe('Claude native provider', () => {
         }))
     })
 
+    it('keeps supported non-message Claude native rows out of ingest-error', async () => {
+        const sessionId = 'claude-session-last-prompt'
+        const projectPath = '/Users/tester/src/claude-last-prompt'
+        const projectDir = getProjectPath(projectPath)
+        const sessionFile = join(projectDir, `${sessionId}.jsonl`)
+
+        await mkdir(projectDir, { recursive: true })
+        await writeFile(sessionFile, [
+            JSON.stringify({
+                type: 'user',
+                uuid: 'user-1',
+                sessionId,
+                cwd: projectPath,
+                timestamp: '2026-01-01T00:00:01.000Z',
+                message: {
+                    content: 'hello'
+                }
+            }),
+            JSON.stringify({
+                type: 'last-prompt',
+                lastPrompt: '从代码上看具体改了什么？',
+                sessionId,
+                cwd: projectPath,
+                timestamp: '2026-01-01T00:00:02.000Z'
+            })
+        ].join('\n') + '\n')
+
+        const provider = createClaudeNativeProvider()
+        const [summary] = await provider.discoverSessions()
+        const result = await provider.readMessages(summary, null, {
+            sessionId: 'hapi-session-1',
+            ingestedAt: 6100
+        })
+
+        expect(result.events.map((event) => event.rawType)).toEqual([
+            'user',
+            'last-prompt'
+        ])
+        expect(result.events[1]).toEqual(expect.objectContaining({
+            rawType: 'last-prompt',
+            occurredAt: Date.parse('2026-01-01T00:00:02.000Z'),
+            payload: expect.objectContaining({
+                type: 'last-prompt',
+                lastPrompt: '从代码上看具体改了什么？'
+            })
+        }))
+    })
+
     it('tails only newly appended lines after the persisted cursor', async () => {
         const sessionId = 'tail-session'
         const projectPath = '/Users/tester/src/claude-tail-project'

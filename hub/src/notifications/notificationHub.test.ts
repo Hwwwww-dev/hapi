@@ -116,38 +116,27 @@ describe('NotificationHub', () => {
             readyCooldownMs: 20
         })
 
-        const session = createSession()
+        const session = createSession({ thinking: true })
         engine.setSession(session)
+        engine.emit({ type: 'session-updated', sessionId: session.id })
+        await sleep(5)
+        expect(channel.readySessions).toHaveLength(0)
 
-        const readyEvent: SyncEvent = {
-            type: 'message-received',
-            sessionId: session.id,
-            message: {
-                id: 'message-1',
-                seq: 1,
-                localId: null,
-                createdAt: 0,
-                content: {
-                    role: 'agent',
-                    content: {
-                        id: 'event-1',
-                        type: 'event',
-                        data: { type: 'ready' }
-                    }
-                }
-            }
-        }
-
-        engine.emit(readyEvent)
+        engine.setSession({ ...session, thinking: false })
+        engine.emit({ type: 'session-updated', sessionId: session.id })
         await sleep(5)
         expect(channel.readySessions).toHaveLength(1)
 
-        engine.emit(readyEvent)
+        engine.emit({ type: 'session-updated', sessionId: session.id })
         await sleep(5)
         expect(channel.readySessions).toHaveLength(1)
 
         await sleep(30)
-        engine.emit(readyEvent)
+        engine.setSession({ ...session, thinking: true })
+        engine.emit({ type: 'session-updated', sessionId: session.id })
+        await sleep(5)
+        engine.setSession({ ...session, thinking: false })
+        engine.emit({ type: 'session-updated', sessionId: session.id })
         await sleep(5)
         expect(channel.readySessions).toHaveLength(2)
 

@@ -45,6 +45,9 @@ function toCanonicalThreadMessageLike(block: CanonicalRenderBlock): ThreadMessag
             metadata: {
                 custom: {
                     kind: 'user',
+                    status: block.status,
+                    localId: block.localId ?? null,
+                    originalText: block.originalText,
                     attachments: block.attachments
                 } satisfies HappyChatMessageMetadata
             }

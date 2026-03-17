@@ -4,7 +4,6 @@ import type { SessionMetadataSummary } from '@/types/api'
 import { CodexDiffCompactView, CodexDiffFullView } from '@/components/ToolCard/views/CodexDiffView'
 import { CodexPatchView } from '@/components/ToolCard/views/CodexPatchView'
 import { ApplyPatchView } from '@/components/ToolCard/views/ApplyPatchView'
-import { CodexReasoningView } from '@/components/ToolCard/views/CodexReasoningView'
 import { EditView } from '@/components/ToolCard/views/EditView'
 import { AskUserQuestionView } from '@/components/ToolCard/views/AskUserQuestionView'
 import { RequestUserInputView } from '@/components/ToolCard/views/RequestUserInputView'
@@ -29,7 +28,6 @@ export const toolViewRegistry: Record<string, ToolViewComponent> = {
     TodoWrite: TodoWriteView,
     update_plan: UpdatePlanView,
     CodexDiff: CodexDiffCompactView,
-    CodexReasoning: CodexReasoningView,
     apply_patch: ApplyPatchView,
     AskUserQuestion: AskUserQuestionView,
     ExitPlanMode: ExitPlanModeView,

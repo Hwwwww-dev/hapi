@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import type { CanonicalRootBlock } from './canonical'
 import { RuntimeRawEventPayloadSchema } from './socket'
-import type { ClientToServerEvents } from './socket'
 import { MetadataSchema, SyncEventSchema } from './schemas'
 
 function createCanonicalRoot(): CanonicalRootBlock {
@@ -148,18 +147,5 @@ describe('RuntimeRawEventPayloadSchema', () => {
                 ingestSchemaVersion: 1
             }
         })).toThrow(/sourceKey/i)
-    })
-
-    it('keeps the legacy socket message payload type intact', () => {
-        const payload: Parameters<ClientToServerEvents['message']>[0] = {
-            sid: 'session-1',
-            message: {
-                role: 'user',
-                content: 'hello'
-            },
-            localId: 'local-1'
-        }
-
-        expect(payload.localId).toBe('local-1')
     })
 })

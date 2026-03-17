@@ -1,6 +1,6 @@
-import { unwrapRoleWrappedRecordEnvelope } from '@hapi/protocol/messages'
-import { isObject } from '@hapi/protocol'
-import { getExplicitSessionTitle, getSessionPathFallbackTitle, type DecryptedMessage, type Session } from '@/types/api'
+import { safeStringify } from '@hapi/protocol'
+import { canonicalRootsToRenderBlocks, type CanonicalRenderBlock } from '@/chat/canonical'
+import { getExplicitSessionTitle, getSessionPathFallbackTitle, type CanonicalRootBlock, type Session } from '@/types/api'
 import { canonicalizeToolName } from '@/lib/toolNames'
 import { VOICE_CONFIG } from '../voiceConfig'
 
@@ -11,67 +11,101 @@ interface SessionMetadata {
     homeDir?: string
 }
 
-interface ContentItem {
-    type: string
-    text?: string
-    name?: string
-    input?: unknown
+type CanonicalVoiceInput = CanonicalRootBlock | CanonicalRenderBlock
+
+function isRenderBlock(value: CanonicalVoiceInput): value is CanonicalRenderBlock {
+    return (value as { renderSource?: unknown }).renderSource === 'canonical'
 }
 
-type NormalizedRole = 'assistant' | 'user'
-
-function isContentArray(content: unknown): content is ContentItem[] {
-    return Array.isArray(content)
+function toRenderBlock(message: CanonicalVoiceInput): CanonicalRenderBlock | null {
+    if (isRenderBlock(message)) {
+        return message
+    }
+    return canonicalRootsToRenderBlocks([message])[0] ?? null
 }
 
-function normalizeRole(role: string | null | undefined): NormalizedRole | null {
-    if (role === 'agent' || role === 'assistant') return 'assistant'
-    if (role === 'user') return 'user'
-    return null
+function toRenderBlocks(messages: readonly CanonicalVoiceInput[]): CanonicalRenderBlock[] {
+    if (messages.length === 0) {
+        return []
+    }
+
+    if (messages.every(isRenderBlock)) {
+        return [...messages]
+    }
+
+    return canonicalRootsToRenderBlocks(messages as readonly CanonicalRootBlock[])
 }
 
-function unwrapRoleWrappedContent(message: DecryptedMessage): { role: NormalizedRole | null; content: unknown } {
-    const record = unwrapRoleWrappedRecordEnvelope(message.content)
-    if (!record) {
-        return { role: null, content: message.content }
-    }
-    return { role: normalizeRole(record.role), content: record.content }
-}
-
-function unwrapOutputContent(content: unknown): { roleOverride: NormalizedRole | null; content: unknown } {
-    if (!isObject(content) || content.type !== 'output') {
-        return { roleOverride: null, content }
-    }
-
-    const data = isObject(content.data) ? content.data : null
-    if (!data || typeof data.type !== 'string') {
-        return { roleOverride: null, content }
-    }
-
-    const message = isObject(data.message) ? data.message : null
-    if (!message) {
-        return { roleOverride: null, content }
-    }
-
-    const messageContent = (message as { content?: unknown }).content
-    if (typeof messageContent === 'undefined') {
-        return { roleOverride: null, content }
-    }
-
-    const roleOverride = data.type === 'assistant'
-        ? 'assistant'
-        : data.type === 'user'
-            ? 'user'
-            : null
-
-    return { roleOverride, content: messageContent }
-}
-
-function formatPlainText(role: NormalizedRole | null, text: string): string {
+function formatPlainText(role: 'assistant' | 'user', text: string): string {
     if (role === 'assistant') {
         return `Claude Code: \n<text>${text}</text>`
     }
     return `User sent message: \n<text>${text}</text>`
+}
+
+function formatToolUpdate(block: Extract<CanonicalRenderBlock, { kind: 'tool-call' | 'tool-result' }>): string | null {
+    if (VOICE_CONFIG.DISABLE_TOOL_CALLS) {
+        return null
+    }
+
+    const name = canonicalizeToolName(block.tool.name || 'unknown')
+    if (VOICE_CONFIG.LIMITED_TOOL_CALLS) {
+        if (block.kind === 'tool-result') {
+            return `Claude Code completed ${name}`
+        }
+        return `Claude Code is using ${name}`
+    }
+
+    if (block.kind === 'tool-result') {
+        return `Claude Code completed ${name} with result: <result>${safeStringify(block.tool.result)}</result>`
+    }
+
+    return `Claude Code is using ${name} with arguments: <arguments>${safeStringify(block.tool.input)}</arguments>`
+}
+
+function formatFallbackRaw(block: Extract<CanonicalRenderBlock, { kind: 'fallback-raw' }>): string {
+    const provider = block.provider ?? 'unknown-provider'
+    const rawType = block.rawType ?? 'unknown-raw-type'
+    const summary = block.summary ?? safeStringify(block.preview)
+    return `Claude Code emitted unsupported ${provider}/${rawType}: <details>${summary}</details>`
+}
+
+function formatSubagentHeader(block: Extract<CanonicalRenderBlock, { kind: 'subagent-root' }>): string {
+    const title = block.title ?? block.description ?? 'Subagent'
+    return `Claude Code started subagent: <subagent>${title}</subagent>`
+}
+
+function formatRenderBlock(block: CanonicalRenderBlock): string[] {
+    const childLines = block.children.flatMap(formatRenderBlock)
+
+    switch (block.kind) {
+        case 'user-text':
+            return [formatPlainText('user', block.text), ...childLines]
+        case 'agent-text':
+            return [formatPlainText('assistant', block.text), ...childLines]
+        case 'reasoning':
+        case 'event':
+            return childLines
+        case 'tool-call':
+        case 'tool-result': {
+            const toolLine = formatToolUpdate(block)
+            return toolLine ? [toolLine, ...childLines] : childLines
+        }
+        case 'subagent-root':
+            return [formatSubagentHeader(block), ...childLines]
+        case 'fallback-raw':
+            return [formatFallbackRaw(block), ...childLines]
+    }
+}
+
+function compareRenderBlocks(left: CanonicalRenderBlock, right: CanonicalRenderBlock): number {
+    if (left.timelineSeq !== right.timelineSeq) {
+        return left.timelineSeq - right.timelineSeq
+    }
+    if (left.createdAt !== right.createdAt) {
+        return left.createdAt - right.createdAt
+    }
+    return left.id.localeCompare(right.id)
 }
 
 /**
@@ -91,52 +125,19 @@ export function formatPermissionRequest(
 }
 
 /**
- * Format a single message for voice context
+ * Format a single canonical message or render block for voice context
  */
-export function formatMessage(message: DecryptedMessage): string | null {
-    const lines: string[] = []
-    const { role, content: wrappedContent } = unwrapRoleWrappedContent(message)
-    const { roleOverride, content } = unwrapOutputContent(wrappedContent)
-    const normalizedRole = roleOverride ?? role
-
-    if (!isContentArray(content)) {
-        if (typeof content === 'string') {
-            return formatPlainText(normalizedRole, content)
-        }
-        if (isObject(content) && content.type === 'text' && typeof content.text === 'string') {
-            return formatPlainText(normalizedRole, content.text)
-        }
+export function formatMessage(message: CanonicalVoiceInput): string | null {
+    const renderBlock = toRenderBlock(message)
+    if (!renderBlock) {
         return null
     }
 
-    // Determine message type by checking for tool_use (assistant) vs user content
-    const hasToolUse = content.some(item => item.type === 'tool_use' || item.type === 'tool_call')
-    const isAssistant = normalizedRole === 'assistant'
-        ? true
-        : normalizedRole === 'user'
-            ? false
-            : hasToolUse || content.some(item => item.type === 'text' && content.length === 1 === false)
-
-    for (const item of content) {
-        if (item.type === 'text' && item.text) {
-            lines.push(formatPlainText(isAssistant ? 'assistant' : 'user', item.text))
-        } else if ((item.type === 'tool_use' || item.type === 'tool_call') && !VOICE_CONFIG.DISABLE_TOOL_CALLS) {
-            const name = canonicalizeToolName(item.name || 'unknown')
-            if (VOICE_CONFIG.LIMITED_TOOL_CALLS) {
-                lines.push(`Claude Code is using ${name}`)
-            } else {
-                lines.push(`Claude Code is using ${name} with arguments: <arguments>${JSON.stringify(item.input)}</arguments>`)
-            }
-        }
-    }
-
-    if (lines.length === 0) {
-        return null
-    }
-    return lines.join('\n\n')
+    const lines = formatRenderBlock(renderBlock)
+    return lines.length > 0 ? lines.join('\n\n') : null
 }
 
-export function formatNewSingleMessage(sessionId: string, message: DecryptedMessage): string | null {
+export function formatNewSingleMessage(sessionId: string, message: CanonicalVoiceInput): string | null {
     const formatted = formatMessage(message)
     if (!formatted) {
         return null
@@ -144,26 +145,27 @@ export function formatNewSingleMessage(sessionId: string, message: DecryptedMess
     return 'New message in session: ' + sessionId + '\n\n' + formatted
 }
 
-export function formatNewMessages(sessionId: string, messages: DecryptedMessage[]): string | null {
-    const formatted = [...messages]
-        .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0))
+export function formatNewMessages(sessionId: string, messages: CanonicalVoiceInput[]): string | null {
+    const formatted = toRenderBlocks(messages)
+        .sort(compareRenderBlocks)
         .map(formatMessage)
-        .filter(Boolean)
+        .filter((entry): entry is string => Boolean(entry))
     if (formatted.length === 0) {
         return null
     }
     return 'New messages in session: ' + sessionId + '\n\n' + formatted.join('\n\n')
 }
 
-export function formatHistory(sessionId: string, messages: DecryptedMessage[]): string {
+export function formatHistory(sessionId: string, messages: CanonicalVoiceInput[]): string {
+    const renderBlocks = toRenderBlocks(messages)
     const messagesToFormat = VOICE_CONFIG.MAX_HISTORY_MESSAGES > 0
-        ? messages.slice(-VOICE_CONFIG.MAX_HISTORY_MESSAGES)
-        : messages
-    const formatted = messagesToFormat.map(formatMessage).filter(Boolean)
+        ? renderBlocks.slice(-VOICE_CONFIG.MAX_HISTORY_MESSAGES)
+        : renderBlocks
+    const formatted = messagesToFormat.map(formatMessage).filter((entry): entry is string => Boolean(entry))
     return 'History of messages in session: ' + sessionId + '\n\n' + formatted.join('\n\n')
 }
 
-export function formatSessionFull(session: Session | null, messages: DecryptedMessage[]): string {
+export function formatSessionFull(session: Session | null, messages: CanonicalVoiceInput[]): string {
     if (!session) {
         return 'Session not available'
     }

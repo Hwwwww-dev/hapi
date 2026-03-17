@@ -377,15 +377,8 @@ export function reconcileSessionTimestamps(
         return null
     }
 
-    const messageBounds = db.prepare(`
-        SELECT MAX(created_at) AS max_created_at
-        FROM messages
-        WHERE session_id = ?
-    `).get(id) as { max_created_at: number | null } | undefined
-
     const createdAt = payload.createdAt
     const updatedAt = Math.max(
-        messageBounds?.max_created_at ?? payload.lastActivityAt ?? createdAt,
         payload.lastActivityAt ?? createdAt,
         createdAt
     )

@@ -253,3 +253,21 @@ export function listRuntimeRawEventsAfterIngestSeq(
 
     return rows.map(toStoredRawEvent)
 }
+
+export function rehomeSessionRawEvents(
+    db: Database,
+    sourceSessionId: string,
+    targetSessionId: string
+): number {
+    if (!sourceSessionId || !targetSessionId || sourceSessionId === targetSessionId) {
+        return 0
+    }
+
+    const result = db.prepare(`
+        UPDATE raw_events
+        SET session_id = ?
+        WHERE session_id = ?
+    `).run(targetSessionId, sourceSessionId)
+
+    return Number(result.changes ?? 0)
+}

@@ -39,18 +39,6 @@ export type StoredMachine = {
     seq: number
 }
 
-export type StoredMessage = {
-    id: string
-    sessionId: string
-    content: unknown
-    createdAt: number
-    seq: number
-    localId: string | null
-    sourceProvider: 'claude' | 'codex' | null
-    sourceSessionId: string | null
-    sourceKey: string | null
-}
-
 export type StoredRawEvent = Omit<RawEventEnvelope, 'observationKey'> & {
     observationKey: string | null
     ingestSeq: number

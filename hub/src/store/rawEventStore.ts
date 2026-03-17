@@ -6,7 +6,8 @@ import {
     ingestRawEvent,
     listRawEventsBySession,
     listRawEventsForParserReplay,
-    listRuntimeRawEventsAfterIngestSeq
+    listRuntimeRawEventsAfterIngestSeq,
+    rehomeSessionRawEvents
 } from './rawEvents'
 
 export class RawEventStore {
@@ -30,5 +31,9 @@ export class RawEventStore {
 
     listRuntimeAfterIngestSeq(sessionId: string, afterIngestSeq: number, limit: number = 200): StoredRawEvent[] {
         return listRuntimeRawEventsAfterIngestSeq(this.db, sessionId, afterIngestSeq, limit)
+    }
+
+    rehomeSession(sourceSessionId: string, targetSessionId: string): number {
+        return rehomeSessionRawEvents(this.db, sourceSessionId, targetSessionId)
     }
 }

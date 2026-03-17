@@ -1,4 +1,4 @@
-import type { ParserRawEvent, ProviderParseResult, SemanticSeed } from './types'
+import type { ParserRawEvent, ProviderParseResult } from './types'
 import { buildFallbackSeed } from './fallback'
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -44,6 +44,19 @@ function extractCallId(payload: Record<string, unknown>): string | null {
 
 function normalizeReasoningScope(event: ParserRawEvent): string {
     return `${event.provider}:${event.sourceSessionId}:${event.channel}:reasoning`
+}
+
+function unwrapCodexPayload(event: ParserRawEvent): Record<string, unknown> | null {
+    if (!isObject(event.payload)) {
+        return null
+    }
+
+    const nestedPayload = isObject(event.payload.payload) ? event.payload.payload : null
+    if (nestedPayload && asString(event.payload.type) === event.rawType) {
+        return nestedPayload
+    }
+
+    return event.payload
 }
 
 function parseConvertedCodexPayload(event: ParserRawEvent, payload: Record<string, unknown>): ProviderParseResult | null {
@@ -132,19 +145,9 @@ function parseConvertedCodexPayload(event: ParserRawEvent, payload: Record<strin
         }
     }
 
+    // token_count is telemetry metadata, not conversation content
     if (payload.type === 'token_count') {
-        return {
-            seeds: [{
-                ...base,
-                kind: 'event',
-                subtype: 'token-count',
-                payload: {
-                    subtype: 'token-count',
-                    info: isObject(payload.info) ? payload.info : {}
-                }
-            }],
-            explicitChildLinks: []
-        }
+        return { seeds: [], explicitChildLinks: [] }
     }
 
     if (payload.type === 'plan' && Array.isArray(payload.entries)) {
@@ -174,6 +177,10 @@ function parseEventMsgPayload(event: ParserRawEvent, payload: Record<string, unk
     const base = buildSeedBase(event)
 
     if (eventType === 'user_message') {
+        // Filter out non-plain messages (internal context injections like environment, instructions)
+        if (payload.kind && payload.kind !== 'plain') {
+            return { seeds: [], explicitChildLinks: [] }
+        }
         const text = firstString(payload.message, payload.text, payload.content)
         if (!text) {
             return null
@@ -249,19 +256,9 @@ function parseEventMsgPayload(event: ParserRawEvent, payload: Record<string, unk
         }
     }
 
+    // token_count is telemetry metadata, not conversation content
     if (eventType === 'token_count') {
-        return {
-            seeds: [{
-                ...base,
-                kind: 'event',
-                subtype: 'token-count',
-                payload: {
-                    subtype: 'token-count',
-                    info: isObject(payload.info) ? payload.info : { ...payload }
-                }
-            }],
-            explicitChildLinks: []
-        }
+        return { seeds: [], explicitChildLinks: [] }
     }
 
     if (eventType === 'plan_updated' || eventType === 'plan-updated') {
@@ -278,6 +275,16 @@ function parseEventMsgPayload(event: ParserRawEvent, payload: Record<string, unk
             }],
             explicitChildLinks: []
         }
+    }
+
+    // context_compacted is an internal signal that context was compressed, not chat content
+    if (eventType === 'context_compacted') {
+        return { seeds: [], explicitChildLinks: [] }
+    }
+
+    // Metadata-only events: silently ignore, not conversation content
+    if (eventType === 'task_started' || eventType === 'task_complete' || eventType === 'task_canceled') {
+        return { seeds: [], explicitChildLinks: [] }
     }
 
     return null
@@ -329,32 +336,107 @@ function parseResponseItemPayload(event: ParserRawEvent, payload: Record<string,
         }
     }
 
+    if (itemType === 'custom_tool_call') {
+        const toolId = extractCallId(payload)
+        if (!toolId) {
+            return null
+        }
+
+        return {
+            seeds: [{
+                ...base,
+                kind: 'tool-call',
+                toolId,
+                toolName: asString(payload.name) ?? 'Tool',
+                input: payload.input ?? payload.arguments ?? null,
+                description: null,
+                state: 'running'
+            }],
+            explicitChildLinks: []
+        }
+    }
+
+    if (itemType === 'custom_tool_call_output') {
+        const toolId = extractCallId(payload)
+        if (!toolId) {
+            return null
+        }
+
+        return {
+            seeds: [{
+                ...base,
+                kind: 'tool-result',
+                toolId,
+                content: payload.output ?? null,
+                isError: Boolean(payload.is_error)
+            }],
+            explicitChildLinks: []
+        }
+    }
+
+    // response_item message/reasoning are native mirrors of event_msg chat content.
+    // Ignore them here to avoid duplicate chat rows.
+    if (itemType === 'message') {
+        return { seeds: [], explicitChildLinks: [] }
+    }
+
+    // reasoning response_item is also a mirror of event_msg.agent_reasoning.
+    if (itemType === 'reasoning') {
+        return { seeds: [], explicitChildLinks: [] }
+    }
+
     return null
 }
 
 export function parseCodexRawEvent(event: ParserRawEvent): ProviderParseResult {
-    if (!isObject(event.payload)) {
+    const payload = unwrapCodexPayload(event)
+    if (!payload) {
         return {
             seeds: [buildFallbackSeed(event)],
             explicitChildLinks: []
         }
     }
 
-    const converted = parseConvertedCodexPayload(event, event.payload)
+    const converted = parseConvertedCodexPayload(event, payload)
     if (converted) {
         return converted
     }
 
     if (event.rawType === 'event_msg') {
-        return parseEventMsgPayload(event, event.payload) ?? {
+        return parseEventMsgPayload(event, payload) ?? {
             seeds: [buildFallbackSeed(event)],
             explicitChildLinks: []
         }
     }
 
     if (event.rawType === 'response_item') {
-        return parseResponseItemPayload(event, event.payload) ?? {
+        return parseResponseItemPayload(event, payload) ?? {
             seeds: [buildFallbackSeed(event)],
+            explicitChildLinks: []
+        }
+    }
+
+    // session metadata and turn context are bookkeeping, not chat content.
+    if (event.rawType === 'turn_context' || event.rawType === 'session_meta') {
+        return { seeds: [], explicitChildLinks: [] }
+    }
+
+    // compacted: codex context compression summary — show as compact event
+    if (event.rawType === 'compacted') {
+        const base = buildSeedBase(event)
+        const message = asString(payload.message)
+        return {
+            seeds: [{
+                ...base,
+                kind: 'event',
+                subtype: 'compact',
+                payload: {
+                    subtype: 'compact',
+                    trigger: 'auto',
+                    preTokens: 0,
+                    ...(message ? { summary: message } : {})
+                }
+            }],
             explicitChildLinks: []
         }
     }

@@ -495,6 +495,16 @@ export function parseClaudeRawEvent(event: ParserRawEvent): ProviderParseResult 
         }
     }
 
+    // last-prompt is a metadata record of the last user prompt, not a conversation event
+    if (event.rawType === 'last-prompt') {
+        return { seeds: [], explicitChildLinks: [] }
+    }
+
+    // ingest-error means the CLI failed to parse the raw log line; not conversation content
+    if (event.rawType === 'ingest-error') {
+        return { seeds: [], explicitChildLinks: [] }
+    }
+
     return {
         seeds: [buildFallbackSeed(event)],
         explicitChildLinks: extractExplicitChildLinksFromPayload(event, event.payload)

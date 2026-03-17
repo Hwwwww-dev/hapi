@@ -16,6 +16,7 @@ export type ParserSeedBase = {
 export type TextSeed = ParserSeedBase & {
     kind: 'user-text' | 'agent-text' | 'reasoning'
     text: string
+    payload?: Record<string, unknown>
     scopeKey: string
     partKey: string
     mode: 'one-shot' | 'open' | 'append'

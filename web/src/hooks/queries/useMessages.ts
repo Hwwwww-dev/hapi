@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import type { ApiClient } from '@/api/client'
-import type { CanonicalRootBlock, DecryptedMessage } from '@/types/api'
+import type { CanonicalRootBlock } from '@/types/api'
+import type { HappyRenderBlock } from '@/lib/assistant-runtime'
 import {
     clearMessageWindow,
     fetchLatestMessages,
@@ -16,8 +17,7 @@ const EMPTY_STATE: MessageWindowState = {
     sessionId: 'unknown',
     roots: [],
     items: [],
-    messages: [],
-    pending: [],
+    renderBlocks: [],
     pendingCount: 0,
     generation: null,
     latestStreamSeq: 0,
@@ -33,7 +33,7 @@ const EMPTY_STATE: MessageWindowState = {
 
 export function useMessages(api: ApiClient | null, sessionId: string | null): {
     canonicalItems: CanonicalRootBlock[]
-    messages: DecryptedMessage[]
+    renderBlocks: HappyRenderBlock[]
     warning: string | null
     isLoading: boolean
     isLoadingMore: boolean
@@ -109,7 +109,7 @@ export function useMessages(api: ApiClient | null, sessionId: string | null): {
 
     return {
         canonicalItems: state.items,
-        messages: state.messages,
+        renderBlocks: state.renderBlocks,
         warning: state.warning,
         isLoading: state.isLoading,
         isLoadingMore: state.isLoadingMore,

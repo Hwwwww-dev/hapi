@@ -7,7 +7,6 @@ import { getToolPresentation } from '@/components/ToolCard/knownTools'
 import { isRequestUserInputToolName } from '@/components/ToolCard/requestUserInput'
 import { ApplyPatchView } from '@/components/ToolCard/views/ApplyPatchView'
 import { AskUserQuestionView } from '@/components/ToolCard/views/AskUserQuestionView'
-import { CodexReasoningView } from '@/components/ToolCard/views/CodexReasoningView'
 import { RequestUserInputView } from '@/components/ToolCard/views/RequestUserInputView'
 import { getToolViewComponent } from '@/components/ToolCard/views/_all'
 import { UpdatePlanView } from '@/components/ToolCard/views/UpdatePlanView'
@@ -278,10 +277,6 @@ describe('canonical tool-name handling', () => {
 
     it('registers apply_patch with the diff-style tool view', () => {
         expect(getToolViewComponent('apply_patch')).toBe(ApplyPatchView)
-    })
-
-    it('registers CodexReasoning with the inline reasoning view', () => {
-        expect(getToolViewComponent('CodexReasoning')).toBe(CodexReasoningView)
     })
 })
 

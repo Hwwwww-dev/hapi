@@ -286,6 +286,30 @@ describe('parseSessionRawEvents fixtures', () => {
         expect(result.rebuildRequired).toBe(false)
     })
 
+    it('ignores Claude metadata rows like last-prompt instead of surfacing fallback raw cards', () => {
+        const result = parseFixture({
+            rawEvents: [
+                rawEvent({
+                    id: 'claude-last-prompt-1',
+                    provider: 'claude',
+                    sourceSessionId: 'claude-session-meta-1',
+                    channel: 'claude:file:2026-03-16',
+                    sourceOrder: 1,
+                    occurredAt: 1_500,
+                    rawType: 'last-prompt',
+                    payload: {
+                        type: 'last-prompt',
+                        lastPrompt: '从代码上看具体改了什么？',
+                        sessionId: 'claude-session-meta-1'
+                    }
+                })
+            ]
+        })
+
+        expect(result.roots).toEqual([])
+        expect(result.rebuildRequired).toBe(false)
+    })
+
     it('parses Codex reasoning delta merge, tool pairing, token-count, and plan-updated fixtures', () => {
         const result = parseFixture({
             rawEvents: [
@@ -432,6 +456,252 @@ describe('parseSessionRawEvents fixtures', () => {
         const planUpdatedEvent = findEvent(result.roots, 'plan-updated')
         expect(planUpdatedEvent).toBeDefined()
         expect(JSON.stringify(planUpdatedEvent?.payload)).toContain('write parser fixtures')
+        expect(result.rebuildRequired).toBe(false)
+    })
+
+    it('unwraps native Codex envelopes and suppresses duplicate response_item chat mirrors', () => {
+        const result = parseFixture({
+            rawEvents: [
+                rawEvent({
+                    id: 'codex-native-user-event',
+                    provider: 'codex',
+                    sourceSessionId: 'codex-thread-native-1',
+                    channel: 'codex:file:2026-03-16',
+                    sourceOrder: 100,
+                    occurredAt: 10_000,
+                    rawType: 'event_msg',
+                    payload: {
+                        timestamp: '2026-03-16T11:39:20.313Z',
+                        type: 'event_msg',
+                        payload: {
+                            type: 'user_message',
+                            message: '关于覆盖范围，这套新解析架构首期要吃哪些入口？'
+                        }
+                    }
+                }),
+                rawEvent({
+                    id: 'codex-native-user-response-item',
+                    provider: 'codex',
+                    sourceSessionId: 'codex-thread-native-1',
+                    channel: 'codex:file:2026-03-16',
+                    sourceOrder: 101,
+                    occurredAt: 10_000,
+                    rawType: 'response_item',
+                    payload: {
+                        timestamp: '2026-03-16T11:39:20.312Z',
+                        type: 'response_item',
+                        payload: {
+                            type: 'message',
+                            role: 'user',
+                            content: [
+                                {
+                                    type: 'input_text',
+                                    text: '关于覆盖范围，这套新解析架构首期要吃哪些入口？'
+                                }
+                            ]
+                        }
+                    }
+                }),
+                rawEvent({
+                    id: 'codex-native-reasoning-event',
+                    provider: 'codex',
+                    sourceSessionId: 'codex-thread-native-1',
+                    channel: 'codex:file:2026-03-16',
+                    sourceOrder: 102,
+                    occurredAt: 10_100,
+                    rawType: 'event_msg',
+                    payload: {
+                        timestamp: '2026-03-16T11:45:22.859Z',
+                        type: 'event_msg',
+                        payload: {
+                            type: 'agent_reasoning',
+                            text: '**Responding to user questions**'
+                        }
+                    }
+                }),
+                rawEvent({
+                    id: 'codex-native-reasoning-response-item',
+                    provider: 'codex',
+                    sourceSessionId: 'codex-thread-native-1',
+                    channel: 'codex:file:2026-03-16',
+                    sourceOrder: 103,
+                    occurredAt: 10_101,
+                    rawType: 'response_item',
+                    payload: {
+                        timestamp: '2026-03-16T11:45:22.860Z',
+                        type: 'response_item',
+                        payload: {
+                            type: 'reasoning',
+                            summary: [
+                                {
+                                    type: 'summary_text',
+                                    text: '**Responding to user questions**'
+                                }
+                            ]
+                        }
+                    }
+                }),
+                rawEvent({
+                    id: 'codex-native-tool-call',
+                    provider: 'codex',
+                    sourceSessionId: 'codex-thread-native-1',
+                    channel: 'codex:file:2026-03-16',
+                    sourceOrder: 104,
+                    occurredAt: 10_200,
+                    rawType: 'response_item',
+                    payload: {
+                        timestamp: '2026-03-16T11:46:40.771Z',
+                        type: 'response_item',
+                        payload: {
+                            type: 'function_call',
+                            name: 'shell',
+                            call_id: 'call-native-1',
+                            arguments: '{"cmd":"pwd"}'
+                        }
+                    }
+                }),
+                rawEvent({
+                    id: 'codex-native-tool-result',
+                    provider: 'codex',
+                    sourceSessionId: 'codex-thread-native-1',
+                    channel: 'codex:file:2026-03-16',
+                    sourceOrder: 105,
+                    occurredAt: 10_201,
+                    rawType: 'response_item',
+                    payload: {
+                        timestamp: '2026-03-16T11:46:40.772Z',
+                        type: 'response_item',
+                        payload: {
+                            type: 'function_call_output',
+                            call_id: 'call-native-1',
+                            output: {
+                                stdout: '/tmp/project',
+                                exit_code: 0
+                            }
+                        }
+                    }
+                }),
+                rawEvent({
+                    id: 'codex-native-token-count',
+                    provider: 'codex',
+                    sourceSessionId: 'codex-thread-native-1',
+                    channel: 'codex:file:2026-03-16',
+                    sourceOrder: 106,
+                    occurredAt: 10_300,
+                    rawType: 'event_msg',
+                    payload: {
+                        timestamp: '2026-03-16T11:46:40.772Z',
+                        type: 'event_msg',
+                        payload: {
+                            type: 'token_count',
+                            info: {
+                                total_token_usage: {
+                                    input_tokens: 12,
+                                    output_tokens: 3
+                                }
+                            }
+                        }
+                    }
+                }),
+                rawEvent({
+                    id: 'codex-native-turn-context',
+                    provider: 'codex',
+                    sourceSessionId: 'codex-thread-native-1',
+                    channel: 'codex:file:2026-03-16',
+                    sourceOrder: 107,
+                    occurredAt: 10_301,
+                    rawType: 'turn_context',
+                    payload: {
+                        timestamp: '2026-03-16T11:39:20.312Z',
+                        type: 'turn_context',
+                        payload: {
+                            turn_id: 'turn-1',
+                            cwd: '/home/hwwwww/Project/hapi'
+                        }
+                    }
+                }),
+                rawEvent({
+                    id: 'codex-native-task-started',
+                    provider: 'codex',
+                    sourceSessionId: 'codex-thread-native-1',
+                    channel: 'codex:file:2026-03-16',
+                    sourceOrder: 108,
+                    occurredAt: 10_302,
+                    rawType: 'event_msg',
+                    payload: {
+                        timestamp: '2026-03-16T11:39:20.311Z',
+                        type: 'event_msg',
+                        payload: {
+                            type: 'task_started',
+                            turn_id: 'turn-1'
+                        }
+                    }
+                }),
+                rawEvent({
+                    id: 'codex-native-agent-event',
+                    provider: 'codex',
+                    sourceSessionId: 'codex-thread-native-1',
+                    channel: 'codex:file:2026-03-16',
+                    sourceOrder: 109,
+                    occurredAt: 10_400,
+                    rawType: 'event_msg',
+                    payload: {
+                        timestamp: '2026-03-16T11:45:26.088Z',
+                        type: 'event_msg',
+                        payload: {
+                            type: 'agent_message',
+                            message: '我理解成：首版最低标准按 A。'
+                        }
+                    }
+                }),
+                rawEvent({
+                    id: 'codex-native-agent-response-item',
+                    provider: 'codex',
+                    sourceSessionId: 'codex-thread-native-1',
+                    channel: 'codex:file:2026-03-16',
+                    sourceOrder: 110,
+                    occurredAt: 10_400,
+                    rawType: 'response_item',
+                    payload: {
+                        timestamp: '2026-03-16T11:45:26.088Z',
+                        type: 'response_item',
+                        payload: {
+                            type: 'message',
+                            role: 'assistant',
+                            content: [
+                                {
+                                    type: 'output_text',
+                                    text: '我理解成：首版最低标准按 A。'
+                                }
+                            ]
+                        }
+                    }
+                })
+            ]
+        })
+
+        expect(result.roots.map((root) => root.kind)).toEqual([
+            'user-text',
+            'reasoning',
+            'tool-call',
+            'event',
+            'agent-text'
+        ])
+        expect(result.roots.filter((root) => root.kind === 'fallback-raw')).toHaveLength(0)
+        expect(result.roots.filter((root) => root.kind === 'user-text')).toHaveLength(1)
+        expect(result.roots.filter((root) => root.kind === 'reasoning')).toHaveLength(1)
+        expect(result.roots.filter((root) => root.kind === 'agent-text')).toHaveLength(1)
+        expect(readText(findRoot(result.roots, 'user-text'))).toContain('关于覆盖范围')
+        expect(readText(findRoot(result.roots, 'reasoning'))).toContain('Responding to user questions')
+        expect(readText(findRoot(result.roots, 'agent-text'))).toContain('首版最低标准按 A')
+
+        const tool = findTool(result.roots, 'call-native-1')
+        expect(tool).toBeDefined()
+        expect(readToolState(tool)).toBe('completed')
+
+        const tokenCountEvent = findEvent(result.roots, 'token-count')
+        expect(tokenCountEvent).toBeDefined()
+        expect(JSON.stringify(tokenCountEvent?.payload)).toContain('input_tokens')
         expect(result.rebuildRequired).toBe(false)
     })
 
@@ -624,6 +894,65 @@ describe('parseSessionRawEvents fixtures', () => {
         ])
         expect(findEvent(result.roots, 'title-changed')?.payload.title).toBe('Parser fixture tests')
         expect(result.rebuildRequired).toBe(false)
+    })
+
+    it('preserves outbound user payload fidelity and upgrades generic runtime status messages', () => {
+        const result = parseFixture({
+            rawEvents: [
+                rawEvent({
+                    id: 'runtime-user-1',
+                    provider: 'cursor',
+                    source: 'runtime',
+                    sourceSessionId: 'cursor-session-1',
+                    channel: 'cursor:runtime',
+                    sourceOrder: 1,
+                    occurredAt: 4_100,
+                    rawType: 'user',
+                    payload: {
+                        type: 'user',
+                        role: 'user',
+                        content: {
+                            type: 'text',
+                            text: 'attach this',
+                            attachments: [
+                                { id: 'att-1', filename: 'a.txt', mimeType: 'text/plain', size: 1, path: '/tmp/a.txt' }
+                            ]
+                        },
+                        localId: 'local-user-1',
+                        meta: {
+                            sentFrom: 'webapp'
+                        }
+                    }
+                }),
+                rawEvent({
+                    id: 'runtime-message-1',
+                    provider: 'opencode',
+                    source: 'runtime',
+                    sourceSessionId: 'opencode-session-1',
+                    channel: 'opencode:runtime',
+                    sourceOrder: 2,
+                    occurredAt: 4_101,
+                    rawType: 'message',
+                    payload: {
+                        type: 'message',
+                        message: 'Aborted by user'
+                    }
+                })
+            ]
+        })
+
+        expect(result.roots.map((root) => root.kind)).toEqual(['user-text', 'agent-text'])
+        expect(result.roots[0]?.payload).toEqual(expect.objectContaining({
+            text: 'attach this',
+            localId: 'local-user-1',
+            attachments: [
+                expect.objectContaining({ id: 'att-1', filename: 'a.txt' })
+            ],
+            meta: expect.objectContaining({
+                sentFrom: 'webapp'
+            })
+        }))
+        expect(readText(result.roots[1])).toBe('Aborted by user')
     })
 
     it('keeps the timeline flat when Claude sidechain-like events lack explicit parent-child evidence', () => {

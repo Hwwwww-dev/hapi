@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { Server } from 'socket.io'
+import type { CanonicalRootBlock, RawEventEnvelope } from '@hapi/protocol'
 
 import { Store } from '../store'
 import { RpcRegistry } from '../socket/rpcRegistry'
@@ -23,8 +24,50 @@ function createEngine() {
     return { store, engine, sseManager }
 }
 
+function createClaudeAssistantEvent(params: {
+    id: string
+    sessionId: string
+    source: 'native' | 'runtime'
+    sourceSessionId: string
+    sourceKey: string
+    sourceOrder: number
+    occurredAt: number
+    text: string
+}): RawEventEnvelope {
+    return {
+        id: params.id,
+        sessionId: params.sessionId,
+        provider: 'claude',
+        source: params.source,
+        sourceSessionId: params.sourceSessionId,
+        sourceKey: params.sourceKey,
+        observationKey: null,
+        channel: params.source === 'native' ? 'claude:file:/tmp/session.jsonl' : 'claude:runtime:messages',
+        sourceOrder: params.sourceOrder,
+        occurredAt: params.occurredAt,
+        ingestedAt: params.occurredAt + 1,
+        rawType: 'assistant',
+        payload: {
+            type: 'assistant',
+            sessionId: params.sourceSessionId,
+            timestamp: new Date(params.occurredAt).toISOString(),
+            message: {
+                role: 'assistant',
+                content: [{ type: 'text', text: params.text }]
+            }
+        },
+        ingestSchemaVersion: 1
+    }
+}
+
+function readCanonicalTexts(roots: CanonicalRootBlock[]): string[] {
+    return roots
+        .filter((root) => root.kind === 'agent-text' || root.kind === 'user-text')
+        .map((root) => (typeof root.payload.text === 'string' ? root.payload.text : ''))
+}
+
 describe('native import resume takeover', () => {
-    it('suppresses native re-import while a hybrid session is active', () => {
+    it('keeps native raw imports canonical-safe after a session becomes hybrid', async () => {
         const { engine, sseManager } = createEngine()
         const namespace = 'default'
 
@@ -56,27 +99,34 @@ describe('native import resume takeover', () => {
         })
 
         engine.handleSessionAlive({ sid: imported.id, time: Date.now(), thinking: true })
+        await engine.ingestRawEvents(imported.id, [
+            createClaudeAssistantEvent({
+                id: 'native-active-1',
+                sessionId: imported.id,
+                source: 'native',
+                sourceSessionId: 'native-active',
+                sourceKey: 'line:1',
+                sourceOrder: 1,
+                occurredAt: 1_000,
+                text: 'native-tail'
+            })
+        ])
 
-        const result = engine.importNativeMessages(imported.id, [{
-            content: { role: 'assistant', content: 'native-tail' },
-            createdAt: 1,
-            sourceProvider: 'claude',
-            sourceSessionId: 'native-active',
-            sourceKey: 'line:1'
-        }])
-
-        expect(result.imported).toBe(0)
         expect(engine.getSession(imported.id)?.metadata).toEqual(expect.objectContaining({
             source: 'hybrid'
         }))
-        expect(engine.getMessagesAfter(imported.id, { afterSeq: 0, limit: 10 })).toEqual([])
+        expect(readCanonicalTexts(engine.getCanonicalMessagesPage(imported.id, {
+            generation: null,
+            beforeTimelineSeq: null,
+            limit: 10
+        }).items)).toEqual(['native-tail'])
 
         engine.stop()
         sseManager.stop()
     })
 
-    it('merges resumed HAPI session back into the imported canonical thread and marks it hybrid', async () => {
-        const { store, engine, sseManager } = createEngine()
+    it('merges resumed HAPI session raw events back into the imported canonical thread and marks it hybrid', async () => {
+        const { engine, sseManager } = createEngine()
         const namespace = 'default'
 
         engine.getOrCreateMachine('machine-1', {
@@ -106,13 +156,18 @@ describe('native import resume takeover', () => {
             agentState: null
         })
 
-        engine.importNativeMessages(imported.id, [{
-            content: { role: 'assistant', content: 'native-history' },
-            createdAt: 1,
-            sourceProvider: 'claude',
-            sourceSessionId: 'native-1',
-            sourceKey: 'line:1'
-        }])
+        await engine.ingestRawEvents(imported.id, [
+            createClaudeAssistantEvent({
+                id: 'native-history-1',
+                sessionId: imported.id,
+                source: 'native',
+                sourceSessionId: 'native-1',
+                sourceKey: 'line:1',
+                sourceOrder: 1,
+                occurredAt: 1_000,
+                text: 'native-history'
+            })
+        ])
 
         const resumed = engine.getOrCreateSession('runner-resume-tag', {
             path: '/tmp/project',
@@ -134,7 +189,18 @@ describe('native import resume takeover', () => {
             completedRequests: {}
         }, namespace)
 
-        store.messages.addMessage(resumed.id, { role: 'assistant', content: 'resumed-tail' })
+        await engine.ingestRawEvents(resumed.id, [
+            createClaudeAssistantEvent({
+                id: 'runtime-tail-1',
+                sessionId: resumed.id,
+                source: 'runtime',
+                sourceSessionId: 'native-1',
+                sourceKey: 'runtime:1',
+                sourceOrder: 1,
+                occurredAt: 2_000,
+                text: 'resumed-tail'
+            })
+        ])
         engine.handleSessionAlive({ sid: resumed.id, time: Date.now(), thinking: true })
 
         ;(engine as any).rpcGateway.spawnSession = async () => ({
@@ -168,12 +234,13 @@ describe('native import resume takeover', () => {
             req1: expect.objectContaining({ tool: 'bash' })
         }))
 
-        const messages = engine.getMessagesAfter(imported.id, { afterSeq: 0, limit: 10 })
-        expect(messages.map((message) => message.content)).toEqual([
-            { role: 'assistant', content: 'native-history' },
-            { role: 'assistant', content: 'resumed-tail' }
-        ])
-        expect(canonical?.updatedAt).toBeGreaterThanOrEqual(messages.at(-1)?.createdAt ?? 0)
+        const canonicalTexts = readCanonicalTexts(engine.getCanonicalMessagesPage(imported.id, {
+            generation: null,
+            beforeTimelineSeq: null,
+            limit: 10
+        }).items)
+        expect(canonicalTexts).toEqual(['native-history', 'resumed-tail'])
+        expect(canonical?.updatedAt).toBeGreaterThanOrEqual(2_000)
 
         engine.stop()
         sseManager.stop()
@@ -234,7 +301,7 @@ describe('native import resume takeover', () => {
     })
 
     it('preserves hybrid metadata and agent state when native sync re-upserts the canonical session', async () => {
-        const { store, engine, sseManager } = createEngine()
+        const { engine, sseManager } = createEngine()
         const namespace = 'default'
 
         engine.getOrCreateMachine('machine-1', {
@@ -284,7 +351,18 @@ describe('native import resume takeover', () => {
             completedRequests: {}
         }, namespace)
 
-        store.messages.addMessage(resumed.id, { role: 'assistant', content: 'hybrid-tail' })
+        await engine.ingestRawEvents(resumed.id, [
+            createClaudeAssistantEvent({
+                id: 'hybrid-tail-1',
+                sessionId: resumed.id,
+                source: 'runtime',
+                sourceSessionId: 'native-3',
+                sourceKey: 'runtime:1',
+                sourceOrder: 1,
+                occurredAt: 2_000,
+                text: 'hybrid-tail'
+            })
+        ])
         engine.handleSessionAlive({ sid: resumed.id, time: Date.now(), thinking: true })
         ;(engine as any).rpcGateway.spawnSession = async () => ({
             type: 'success',

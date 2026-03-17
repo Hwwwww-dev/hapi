@@ -26,7 +26,6 @@ import {
 } from '@hapi/protocol'
 import type {
     AgentState,
-    MessageContent,
     MessageMeta,
     Metadata,
     Session,
@@ -595,6 +594,13 @@ export class ApiSessionClient extends EventEmitter {
             : 'codex'
     }
 
+    private resolveDefaultRuntimeProvider(): RuntimeProvider {
+        const flavor = this.metadata?.flavor
+        return isRuntimeProvider(flavor)
+            ? flavor
+            : 'claude'
+    }
+
     sendClaudeSessionMessage(body: RawJSONLines): void {
         this.emitRuntimeEvent('claude', body)
 
@@ -611,7 +617,8 @@ export class ApiSessionClient extends EventEmitter {
             return
         }
 
-        const content: MessageContent = {
+        this.emitRuntimeEvent(this.resolveDefaultRuntimeProvider(), {
+            type: 'user',
             role: 'user',
             content: {
                 type: 'text',
@@ -621,11 +628,6 @@ export class ApiSessionClient extends EventEmitter {
                 sentFrom: 'cli',
                 ...(meta ?? {})
             }
-        }
-
-        this.socket.emit('message', {
-            sid: this.sessionId,
-            message: content
         })
     }
 
@@ -645,19 +647,31 @@ export class ApiSessionClient extends EventEmitter {
     } | {
         type: 'ready'
     }, id?: string): void {
-        const content = {
-            role: 'agent',
-            content: {
-                id: id ?? randomUUID(),
-                type: 'event',
-                data: event
-            }
+        if (event.type === 'message') {
+            this.emitRuntimeEvent(this.resolveDefaultRuntimeProvider(), event)
+            return
         }
 
-        this.socket.emit('message', {
-            sid: this.sessionId,
-            message: content
-        })
+        const provider = this.resolveDefaultRuntimeProvider()
+        const body = event.type === 'switch'
+            ? {
+                ...event,
+                id: id ?? randomUUID(),
+                summary: `Switched to ${event.mode} mode`
+            }
+            : event.type === 'permission-mode-changed'
+                ? {
+                    ...event,
+                    id: id ?? randomUUID(),
+                    summary: `Permission mode changed to ${event.mode}`
+                }
+                : {
+                    ...event,
+                    id: id ?? randomUUID(),
+                    summary: 'Session ready'
+                }
+
+        this.emitRuntimeEvent(provider, body)
     }
 
     keepAlive(

@@ -158,22 +158,6 @@ export class SyncEngine {
         return this.machineCache.getOnlineMachinesByNamespace(namespace)
     }
 
-    getMessagesPage(sessionId: string, options: { limit: number; beforeSeq: number | null }): {
-        messages: DecryptedMessage[]
-        page: {
-            limit: number
-            beforeSeq: number | null
-            nextBeforeSeq: number | null
-            hasMore: boolean
-        }
-    } {
-        return this.messageService.getMessagesPage(sessionId, options)
-    }
-
-    getMessagesAfter(sessionId: string, options: { afterSeq: number; limit: number }): DecryptedMessage[] {
-        return this.messageService.getMessagesAfter(sessionId, options)
-    }
-
     getCliBackfillMessagesAfter(sessionId: string, options: { afterSeq: number; limit: number }): DecryptedMessage[] {
         return this.messageService.getCliBackfillMessagesAfter(sessionId, options)
     }
@@ -296,7 +280,13 @@ export class SyncEngine {
             current,
             this.mergeNativeSessionAgentState(current.agentState, payload.agentState)
         )
-        current = this.reconcileSessionTimestamps(current, payload.createdAt, payload.lastActivityAt)
+        current = this.reconcileSessionTimestamps(
+            current,
+            Math.min(current.createdAt, payload.createdAt),
+            current.metadata?.source === 'native'
+                ? payload.lastActivityAt
+                : Math.max(current.updatedAt, payload.lastActivityAt)
+        )
 
         for (const matchingSession of matchingSessions) {
             if (matchingSession.id === current.id) {
@@ -309,51 +299,6 @@ export class SyncEngine {
         }
 
         return this.getSession(current.id) ?? current
-    }
-
-    importNativeMessages(
-        sessionId: string,
-        payload: Array<{
-            content: unknown
-            createdAt: number
-            sourceProvider: 'claude' | 'codex'
-            sourceSessionId: string
-            sourceKey: string
-        }>
-    ): { imported: number; session: Session } {
-        const session = this.getSession(sessionId)
-        if (!session) {
-            throw new Error('Session not found')
-        }
-
-        // HAPI/hybrid sessions already have an authoritative message stream.
-        // Re-importing native log lines into the same session creates a second
-        // native copy of the same conversation in chat/history.
-        //
-        // We still let native-sync advance cursor/state; we only suppress DB
-        // insertion for sessions that are already represented by HAPI.
-        if (session.metadata?.source === 'hapi' || session.metadata?.source === 'hybrid') {
-            return {
-                imported: 0,
-                session
-            }
-        }
-
-        const result = this.messageService.importNativeMessages(sessionId, payload)
-        const current = this.getSession(sessionId) ?? session
-        const fallbackLastActivityAt = payload.reduce(
-            (maxTimestamp, message) => Math.max(maxTimestamp, message.createdAt),
-            current.createdAt
-        )
-        const reconciled = this.reconcileSessionTimestamps(
-            current,
-            current.createdAt,
-            fallbackLastActivityAt
-        )
-        return {
-            imported: result.imported,
-            session: reconciled
-        }
     }
 
     getNativeSyncState(sessionId: string): StoredNativeSyncState | null {
@@ -877,6 +822,7 @@ export class SyncEngine {
 
         if (spawnResult.sessionId !== access.sessionId) {
             try {
+                this.store.rawEvents.rehomeSession(spawnResult.sessionId, access.sessionId)
                 await this.sessionCache.mergeSessions(
                     spawnResult.sessionId,
                     access.sessionId,
@@ -886,6 +832,7 @@ export class SyncEngine {
                         mergedAgentState: resumedSession?.agentState ?? access.session.agentState ?? null
                     }
                 )
+                await this.messageService.rebuildSessionCanonicalState(access.sessionId)
             } catch (error) {
                 const message = error instanceof Error ? error.message : 'Failed to merge resumed session'
                 return { type: 'error', message, code: 'resume_failed' }
