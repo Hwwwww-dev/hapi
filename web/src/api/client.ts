@@ -181,8 +181,15 @@ export class ApiClient {
         return await res.json() as AuthResponse
     }
 
-    async getSessions(): Promise<SessionsResponse> {
-        return await this.request<SessionsResponse>('/api/sessions')
+    async getSessions(flavor?: string): Promise<SessionsResponse> {
+        const params = flavor ? `?flavor=${encodeURIComponent(flavor)}` : ''
+        return await this.request<SessionsResponse>(`/api/sessions${params}`)
+    }
+
+    async getSessionsForDirectory(directory: string, offset: number, flavor?: string): Promise<SessionsResponse> {
+        const params = new URLSearchParams({ directory, offset: String(offset) })
+        if (flavor) params.set('flavor', flavor)
+        return await this.request<SessionsResponse>(`/api/sessions?${params.toString()}`)
     }
 
     async getPushVapidPublicKey(): Promise<PushVapidPublicKeyResponse> {
@@ -245,6 +252,34 @@ export class ApiClient {
             params.set('staged', staged ? 'true' : 'false')
         }
         return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-diff-file?${params.toString()}`)
+    }
+
+    async getGitBranches(sessionId: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-branches`)
+    }
+
+    async gitCheckout(sessionId: string, branch: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-checkout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ branch })
+        })
+    }
+
+    async gitStage(sessionId: string, filePath: string, stage: boolean): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-stage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filePath, stage })
+        })
+    }
+
+    async gitCommit(sessionId: string, message: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-commit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        })
     }
 
     async searchSessionFiles(sessionId: string, query: string, limit?: number): Promise<FileSearchResponse> {

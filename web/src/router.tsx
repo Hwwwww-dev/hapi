@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
     Navigate,
@@ -31,7 +31,7 @@ import { queryKeys } from '@/lib/query-keys'
 import { useToast } from '@/lib/toast-context'
 import { useTranslation } from '@/lib/use-translation'
 import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message-window-store'
-import { filterSessionsByAgentTab, normalizeSessionAgentTab, toSessionAgentSearch, type SessionAgentTab } from '@/lib/agentFlavorUtils'
+import { normalizeSessionAgentTab, toSessionAgentSearch, type SessionAgentTab } from '@/lib/agentFlavorUtils'
 import FilesPage from '@/routes/sessions/files'
 import FilePage from '@/routes/sessions/file'
 import TerminalPage from '@/routes/sessions/terminal'
@@ -102,7 +102,7 @@ function SessionsPage() {
     const pathname = useLocation({ select: location => location.pathname })
     const matchRoute = useMatchRoute()
     const { t } = useTranslation()
-    const { sessions, isLoading, error, refetch } = useSessions(api)
+    const { sessions, groups, isLoading, error, refetch, loadMoreForDirectory, isLoadingMoreFor } = useSessions(api, agentTab)
     const search = useSearch({ from: '/sessions' })
     const agentTab = normalizeSessionAgentTab(search.agent)
 
@@ -110,11 +110,7 @@ function SessionsPage() {
         void refetch()
     }, [refetch])
 
-    const filteredSessions = useMemo(
-        () => filterSessionsByAgentTab(sessions, agentTab),
-        [agentTab, sessions]
-    )
-    const projectCount = new Set(filteredSessions.map(s => s.metadata?.worktree?.basePath ?? s.metadata?.path ?? 'Other')).size
+    const projectCount = groups.length
     const sessionMatch = matchRoute({ to: '/sessions/$sessionId', fuzzy: true })
     const selectedSessionId = sessionMatch && sessionMatch.sessionId !== 'new' ? sessionMatch.sessionId : null
     const isSessionsIndex = pathname === '/sessions' || pathname === '/sessions/'
@@ -143,7 +139,7 @@ function SessionsPage() {
                 <div className="bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
                     <div className="mx-auto w-full max-w-content flex items-center justify-between px-3 py-2">
                         <div className="text-xs text-[var(--app-hint)]">
-                            {t('sessions.count', { n: filteredSessions.length, m: projectCount })}
+                            {t('sessions.count', { n: sessions.length, m: projectCount })}
                         </div>
                         <div className="flex items-center gap-2">
                             <button
@@ -173,7 +169,7 @@ function SessionsPage() {
                         </div>
                     ) : null}
                     <SessionList
-                        sessions={sessions}
+                        groups={groups}
                         agentTab={agentTab}
                         onAgentTabChange={handleAgentTabChange}
                         selectedSessionId={selectedSessionId}
@@ -187,6 +183,8 @@ function SessionsPage() {
                         isLoading={isLoading}
                         renderHeader={false}
                         api={api}
+                        loadMoreForDirectory={loadMoreForDirectory}
+                        isLoadingMoreFor={isLoadingMoreFor}
                     />
                 </div>
             </div>
@@ -423,10 +421,9 @@ const indexRoute = createRoute({
 const sessionsRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/sessions',
-    validateSearch: (search: Record<string, unknown>): { agent?: Exclude<SessionAgentTab, 'all'> } => {
+    validateSearch: (search: Record<string, unknown>): { agent?: SessionAgentTab } => {
         const agent = normalizeSessionAgentTab(typeof search.agent === 'string' ? search.agent : undefined)
-
-        return agent === 'all' ? {} : { agent }
+        return { agent }
     },
     component: SessionsPage,
 })
@@ -446,15 +443,16 @@ const sessionDetailRoute = createRoute({
 const sessionFilesRoute = createRoute({
     getParentRoute: () => sessionDetailRoute,
     path: 'files',
-    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'directories' } => {
+    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'directories'; expanded?: string } => {
         const tabValue = typeof search.tab === 'string' ? search.tab : undefined
         const tab = tabValue === 'directories'
             ? 'directories'
             : tabValue === 'changes'
                 ? 'changes'
                 : undefined
+        const expanded = typeof search.expanded === 'string' ? search.expanded : undefined
 
-        return tab ? { tab } : {}
+        return { ...(tab ? { tab } : {}), ...(expanded !== undefined ? { expanded } : {}) }
     },
     component: FilesPage,
 })

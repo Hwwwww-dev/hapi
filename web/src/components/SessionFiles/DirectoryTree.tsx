@@ -173,20 +173,29 @@ export function DirectoryTree(props: {
     sessionId: string
     rootLabel: string
     onOpenFile: (path: string) => void
+    expandedPaths?: string[]
+    onExpandedChange?: (paths: string[]) => void
 }) {
-    const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['']))
+    const [internalExpanded, setInternalExpanded] = useState<Set<string>>(() => new Set(['']))
+
+    const expanded = useMemo(
+        () => props.expandedPaths !== undefined ? new Set(props.expandedPaths) : internalExpanded,
+        [props.expandedPaths, internalExpanded]
+    )
 
     const handleToggle = useCallback((path: string) => {
-        setExpanded((prev) => {
-            const next = new Set(prev)
-            if (next.has(path)) {
-                next.delete(path)
-            } else {
-                next.add(path)
-            }
-            return next
-        })
-    }, [])
+        const next = new Set(expanded)
+        if (next.has(path)) {
+            next.delete(path)
+        } else {
+            next.add(path)
+        }
+        if (props.onExpandedChange) {
+            props.onExpandedChange(Array.from(next))
+        } else {
+            setInternalExpanded(next)
+        }
+    }, [expanded, props.onExpandedChange])
 
     return (
         <div className="border-t border-[var(--app-divider)]">

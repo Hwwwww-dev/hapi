@@ -3,6 +3,8 @@ import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import type { FileSearchItem, GitFileStatus } from '@/types/api'
 import { FileIcon } from '@/components/FileIcon'
 import { DirectoryTree } from '@/components/SessionFiles/DirectoryTree'
+import { BranchSwitcher } from '@/components/SessionFiles/BranchSwitcher'
+import { CommitDrawer } from '@/components/SessionFiles/CommitDrawer'
 import { useAppContext } from '@/lib/app-context'
 import { useAppGoBack } from '@/hooks/useAppGoBack'
 import { useGitStatusFiles } from '@/hooks/queries/useGitStatusFiles'
@@ -236,6 +238,19 @@ export default function FilesPage() {
     const search = useSearch({ from: '/sessions/$sessionId/files' })
     const { session } = useSession(api, sessionId)
     const [searchQuery, setSearchQuery] = useState('')
+    const [commitOpen, setCommitOpen] = useState(false) = useMemo(
+        () => search.expanded ? search.expanded.split(',').filter(Boolean) : [''],
+        [search.expanded]
+    )
+
+    const handleExpandedChange = useCallback((paths: string[]) => {
+        navigate({
+            to: '/sessions/$sessionId/files',
+            params: { sessionId },
+            search: (prev) => ({ ...prev, expanded: paths.join(',') || undefined }),
+            replace: true,
+        })
+    }, [navigate, sessionId])
 
     const initialTab = search.tab === 'directories' ? 'directories' : 'changes'
     const [activeTab, setActiveTab] = useState<'changes' | 'directories'>(initialTab)
@@ -269,6 +284,8 @@ export default function FilesPage() {
     }, [activeTab, navigate, sessionId])
 
     const branchLabel = gitStatus?.branch ?? 'detached'
+    const hasBlockingChanges = (gitStatus?.totalStaged ?? 0) > 0
+        || (gitStatus?.unstagedFiles ?? []).some(f => f.status !== 'untracked')
     const subtitle = session?.metadata?.path ?? sessionId
     const showGitErrorBanner = Boolean(gitError)
     const rootLabel = useMemo(() => {
@@ -300,7 +317,10 @@ export default function FilesPage() {
         navigate({
             to: '/sessions/$sessionId/files',
             params: { sessionId },
-            search: nextTab === 'changes' ? {} : { tab: nextTab },
+            search: (prev) => ({
+                ...(nextTab === 'changes' ? {} : { tab: nextTab }),
+                ...(prev.expanded ? { expanded: prev.expanded } : {})
+            }),
             replace: true,
         })
     }, [navigate, sessionId])
@@ -382,9 +402,23 @@ export default function FilesPage() {
                         <div className="flex items-center gap-2 text-sm">
                             <GitBranchIcon className="text-[var(--app-hint)]" />
                             <span className="font-semibold">{branchLabel}</span>
+                            <BranchSwitcher
+                                api={api}
+                                sessionId={sessionId}
+                                currentBranch={branchLabel}
+                                hasBlockingChanges={hasBlockingChanges}
+                                onSwitched={() => void refetchGit()}
+                            />
                         </div>
-                        <div className="text-xs text-[var(--app-hint)]">
-                            {gitStatus.totalStaged} staged, {gitStatus.totalUnstaged} unstaged
+                        <div className="flex items-center justify-between text-xs text-[var(--app-hint)]">
+                            <span>{gitStatus.totalStaged} staged, {gitStatus.totalUnstaged} unstaged</span>
+                            <button
+                                type="button"
+                                onClick={() => setCommitOpen(true)}
+                                className="text-xs px-2 py-0.5 rounded border border-[var(--app-border)] hover:bg-[var(--app-subtle-bg)] text-[var(--app-hint)]"
+                            >
+                                Commit
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -424,6 +458,8 @@ export default function FilesPage() {
                             sessionId={sessionId}
                             rootLabel={rootLabel}
                             onOpenFile={(path) => handleOpenFile(path)}
+                            expandedPaths={expandedPaths}
+                            onExpandedChange={handleExpandedChange}
                         />
                     ) : gitLoading ? (
                         <FileListSkeleton label="Loading Git status…" />
@@ -476,6 +512,20 @@ export default function FilesPage() {
                     )}
                 </div>
             </div>
+            {commitOpen && gitStatus && (
+                <div className="bg-[var(--app-bg)] border-t border-[var(--app-divider)]">
+                    <div className="mx-auto w-full max-w-content">
+                        <CommitDrawer
+                            api={api}
+                            sessionId={sessionId}
+                            gitStatus={gitStatus}
+                            onCommitted={() => { void refetchGit(); setCommitOpen(false) }}
+                            onStaged={() => void refetchGit()}
+                            onClose={() => setCommitOpen(false)}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
