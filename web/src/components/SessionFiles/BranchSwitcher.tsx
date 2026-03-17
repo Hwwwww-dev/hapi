@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ApiClient } from '@/api/client'
 
 interface Props {
@@ -15,11 +15,25 @@ export function BranchSwitcher({ api, sessionId, currentBranch, hasBlockingChang
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [switching, setSwitching] = useState(false)
+    const containerRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (!open) return
+        const handleClickOutside = (e: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+                setOpen(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [open])
 
     const handleOpen = async () => {
         setOpen(true)
-        setLoading(true)
         setError(null)
+        // 已有缓存则不重新请求
+        if (branches.length > 0) return
+        setLoading(true)
         const res = await api.getGitBranches(sessionId)
         setLoading(false)
         if (res.success && res.stdout) {
@@ -48,7 +62,7 @@ export function BranchSwitcher({ api, sessionId, currentBranch, hasBlockingChang
     }
 
     return (
-        <div className="relative">
+        <div className="relative" ref={containerRef}>
             <button
                 type="button"
                 onClick={handleOpen}

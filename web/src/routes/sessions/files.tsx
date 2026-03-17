@@ -285,8 +285,8 @@ export default function FilesPage() {
     }, [activeTab, navigate, sessionId])
 
     const branchLabel = gitStatus?.branch ?? 'detached'
-    const hasBlockingChanges = (gitStatus?.totalStaged ?? 0) > 0
-        || (gitStatus?.unstagedFiles ?? []).some(f => f.status !== 'untracked')
+    // 只有 tracked 文件的未暂存修改才会阻止 git checkout，untracked 和 staged 文件不影响
+    const hasBlockingChanges = (gitStatus?.unstagedFiles ?? []).some(f => f.status !== 'untracked')
     const subtitle = session?.metadata?.path ?? sessionId
     const showGitErrorBanner = Boolean(gitError)
     const rootLabel = useMemo(() => {
