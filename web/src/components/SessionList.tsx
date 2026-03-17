@@ -351,6 +351,9 @@ function SessionItem(props: {
     const [renameOpen, setRenameOpen] = useState(false)
     const [archiveOpen, setArchiveOpen] = useState(false)
     const [deleteOpen, setDeleteOpen] = useState(false)
+    const hasChildren = props.nativeChildren.length > 0
+    const hasActiveChild = props.nativeChildren.some(c => c.active)
+    const [childrenExpanded, setChildrenExpanded] = useState(() => hasActiveChild)
 
     const { archiveSession, renameSession, deleteSession, isPending } = useSessionActions(
         api,
@@ -400,6 +403,16 @@ function SessionItem(props: {
                         <div className="truncate text-sm font-medium sm:text-base">
                             {sessionName}
                         </div>
+                        {hasChildren && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setChildrenExpanded(v => !v) }}
+                                className="shrink-0 rounded px-1 py-0.5 text-[10px] text-[var(--app-hint)] hover:bg-[var(--app-divider)] transition-colors"
+                                aria-label={childrenExpanded ? 'Collapse subagents' : 'Expand subagents'}
+                            >
+                                {childrenExpanded ? '▾' : '▸'} {props.nativeChildren.length}
+                            </button>
+                        )}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1 text-[11px]">
                         <SessionSourceBadge source={s.metadata?.source} className="shrink-0" />
@@ -465,7 +478,7 @@ function SessionItem(props: {
                 ) : null}
             </button>
 
-            {props.nativeChildren.length > 0 && (
+            {hasChildren && childrenExpanded && (
                 <div className="ml-3 flex flex-col gap-1 border-l border-dashed border-[var(--app-divider)] pl-3">
                     {props.nativeChildren.map(child => (
                         <button
