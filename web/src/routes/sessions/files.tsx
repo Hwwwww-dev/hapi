@@ -238,7 +238,8 @@ export default function FilesPage() {
     const search = useSearch({ from: '/sessions/$sessionId/files' })
     const { session } = useSession(api, sessionId)
     const [searchQuery, setSearchQuery] = useState('')
-    const [commitOpen, setCommitOpen] = useState(false) = useMemo(
+    const [commitOpen, setCommitOpen] = useState(false)
+    const expandedPaths = useMemo(
         () => search.expanded ? search.expanded.split(',').filter(Boolean) : [''],
         [search.expanded]
     )
