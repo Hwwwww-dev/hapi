@@ -201,6 +201,22 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-diff-file', options) as RpcCommandResponse
     }
 
+    async getGitBranches(sessionId: string, cwd?: string): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-branches', { cwd }) as RpcCommandResponse
+    }
+
+    async gitCheckout(sessionId: string, options: { cwd?: string; branch: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-checkout', options) as RpcCommandResponse
+    }
+
+    async gitStage(sessionId: string, options: { cwd?: string; filePath: string; stage: boolean }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-stage', options) as RpcCommandResponse
+    }
+
+    async gitCommit(sessionId: string, options: { cwd?: string; message: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-commit', options) as RpcCommandResponse
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.sessionRpc(sessionId, 'readFile', { path }) as RpcReadFileResponse
     }

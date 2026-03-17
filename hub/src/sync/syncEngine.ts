@@ -912,6 +912,22 @@ export class SyncEngine {
         return await this.rpcGateway.getGitDiffFile(sessionId, options)
     }
 
+    async getGitBranches(sessionId: string, cwd?: string): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.getGitBranches(sessionId, cwd)
+    }
+
+    async gitCheckout(sessionId: string, options: { cwd?: string; branch: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitCheckout(sessionId, options)
+    }
+
+    async gitStage(sessionId: string, options: { cwd?: string; filePath: string; stage: boolean }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitStage(sessionId, options)
+    }
+
+    async gitCommit(sessionId: string, options: { cwd?: string; message: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitCommit(sessionId, options)
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.rpcGateway.readSessionFile(sessionId, path)
     }
