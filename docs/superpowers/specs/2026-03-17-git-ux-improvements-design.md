@@ -25,15 +25,15 @@ Three improvements to the Files page git experience:
 ### New RPC Handlers (CLI)
 
 **`git-branches`**
-```
-git branch -a --format=%(refname:short)
-```
-Returns: `{ success, stdout }` — newline-separated branch names
+
+Args array (passed to `execFile`, NOT shell): `['branch', '--format=%(refname:short)']`
+
+Only local branches are listed. Remote branches (`remotes/origin/...`) are excluded to avoid accidental detached HEAD state. Returns: `{ success, stdout }` — newline-separated branch names.
 
 **`git-checkout`**
-```
-git checkout <branch>
-```
+
+Args array: `['checkout', branch]` — `branch` is a separate element, never string-concatenated.
+
 Returns: `{ success, stdout, stderr, exitCode }`
 
 ### New API Routes (Hub)
@@ -50,13 +50,22 @@ Returns: `{ success, stdout, stderr, exitCode }`
 
 ### Conflict Guard Logic
 
+Only staged changes and tracked-file modifications block switching. Untracked files do NOT block switching (git checkout does not fail on untracked files unless the target branch has a conflicting file).
+
 ```
-if (gitStatus.totalStaged > 0 || gitStatus.totalUnstaged > 0) {
+const hasBlockingChanges = gitStatus.totalStaged > 0
+  || gitStatus.unstagedFiles.some(f => f.status !== 'untracked')
+
+if (hasBlockingChanges) {
   show warning → block switch
 } else {
   proceed with checkout
 }
 ```
+
+On checkout failure (e.g. target branch has conflicting untracked file), show `stderr` inline.
+
+After successful checkout, call `refetchGit()` (the `onSwitched` callback in `BranchSwitcher` triggers this in `files.tsx`).
 
 ---
 
@@ -93,7 +102,14 @@ const handleExpandedChange = useCallback((paths: string[]) => {
 }, [navigate])
 ```
 
-**Router schema** — add `expanded?: string` to the files route search schema.
+**Tab switching** — `handleTabChange` must preserve `expanded` param:
+```ts
+navigate({
+  search: (prev) => ({ ...prev, tab: nextTab === 'changes' ? undefined : nextTab }),
+  replace: true
+})
+```
+Default value when `expanded` is absent from URL: `['']` (root directory open — preserves existing behavior).
 
 ---
 
@@ -112,18 +128,18 @@ const handleExpandedChange = useCallback((paths: string[]) => {
 
 ### New RPC Handlers (CLI)
 
-**`git-stage`**
-```ts
-interface GitStageRequest { cwd?: string; filePath: string; stage: boolean }
-```
-- `stage: true` → `git add <filePath>`
-- `stage: false` → `git restore --staged <filePath>`
-
 **`git-commit`**
 ```ts
 interface GitCommitRequest { cwd?: string; message: string }
 ```
-→ `git commit -m "<message>"`
+Args array: `['commit', '-m', message]` — message is a **separate element**, never string-concatenated (prevents injection via `execFile`).
+
+**`git-stage`**
+```ts
+interface GitStageRequest { cwd?: string; filePath: string; stage: boolean }
+```
+- `stage: true` → args: `['add', filePath]`
+- `stage: false` → args: `['restore', '--staged', filePath]`
 
 ### New API Routes (Hub)
 
@@ -133,10 +149,12 @@ interface GitCommitRequest { cwd?: string; message: string }
 ### Frontend Components
 
 **`CommitDrawer`** in `web/src/components/SessionFiles/CommitDrawer.tsx`
-- Props: `api`, `sessionId`, `gitStatus`, `onCommitted`, `onClose`
+- Props: `api`, `sessionId`, `gitStatus`, `onCommitted`, `onStaged`, `onClose`
+  - `onStaged`: called after each stage/unstage operation so `files.tsx` can call `refetchGit()`
 - State: `message`, `isPending`
 - File list derived from `gitStatus.stagedFiles + gitStatus.unstagedFiles`
 - Checkbox state reflects `isStaged` on each file
+- "Commit" button enabled only when `message.trim().length > 0 && gitStatus.stagedFiles.length > 0`
 
 **Integration in `files.tsx`**:
 - Add `commitOpen` state
@@ -160,7 +178,7 @@ async gitCommit(sessionId: string, message: string): Promise<GitCommandResponse>
 |------|--------|
 | `cli/src/modules/common/handlers/git.ts` | Add `git-branches`, `git-checkout`, `git-stage`, `git-commit` handlers |
 | `hub/src/sync/rpcGateway.ts` | Add 4 new RPC gateway methods |
-| `hub/src/sync/syncEngine.ts` | Expose 4 new methods |
+| `hub/src/sync/syncEngine.ts` | Expose 4 new methods: `getGitBranches(sessionId, cwd)`, `gitCheckout(sessionId, {cwd, branch})`, `gitStage(sessionId, {cwd, filePath, stage})`, `gitCommit(sessionId, {cwd, message})` — `cwd` is resolved internally from session metadata (not passed from HTTP route layer) |
 | `hub/src/web/routes/git.ts` | Add 4 new routes |
 | `web/src/api/client.ts` | Add 4 new API client methods |
 | `web/src/types/api.ts` | Add response types if needed |
