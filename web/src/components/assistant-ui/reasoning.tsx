@@ -1,4 +1,4 @@
-import { useState, useEffect, type FC, type PropsWithChildren } from 'react'
+import { useState, type FC, type PropsWithChildren } from 'react'
 import { useMessage } from '@assistant-ui/react'
 import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown'
 import { cn } from '@/lib/utils'
@@ -58,13 +58,6 @@ export const ReasoningGroup: FC<PropsWithChildren> = ({ children }) => {
     const isStreaming = message.status?.type === 'running'
         && message.content.length > 0
         && message.content[message.content.length - 1]?.type === 'reasoning'
-
-    // Auto-expand while streaming
-    useEffect(() => {
-        if (isStreaming) {
-            setIsOpen(true)
-        }
-    }, [isStreaming])
 
     return (
         <div className="aui-reasoning-group my-2">
