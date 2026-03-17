@@ -129,4 +129,35 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
             : ['diff', '--no-ext-diff', '--', data.filePath]
         return await runGitCommand(args, resolved.cwd, data.timeout)
     })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; timeout?: number }, GitCommandResponse>('git-branches', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        return await runGitCommand(['branch', '--format=%(refname:short)'], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; branch: string; timeout?: number }, GitCommandResponse>('git-checkout', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.branch || typeof data.branch !== 'string') return rpcError('branch is required')
+        return await runGitCommand(['checkout', data.branch], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; filePath: string; stage: boolean; timeout?: number }, GitCommandResponse>('git-stage', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        const fileError = validateFilePath(data.filePath, workingDirectory)
+        if (fileError) return rpcError(fileError)
+        const args = data.stage
+            ? ['add', data.filePath]
+            : ['restore', '--staged', data.filePath]
+        return await runGitCommand(args, resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; message: string; timeout?: number }, GitCommandResponse>('git-commit', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.message?.trim()) return rpcError('commit message is required')
+        return await runGitCommand(['commit', '-m', data.message], resolved.cwd, data.timeout)
+    })
 }
