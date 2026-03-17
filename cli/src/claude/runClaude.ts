@@ -19,6 +19,8 @@ import { PermissionModeSchema } from '@hapi/protocol/schemas';
 import { formatMessageWithAttachments } from '@/utils/attachmentFormatter';
 import { normalizeClaudeSessionModel } from './model';
 import { normalizeClaudeSessionEffort } from './effort';
+import { getLogicalCwd } from '@/utils/logicalCwd';
+
 export interface StartOptions {
     model?: string
     effort?: string
@@ -31,7 +33,7 @@ export interface StartOptions {
 }
 
 export async function runClaude(options: StartOptions = {}): Promise<void> {
-    const workingDirectory = process.cwd();
+    const workingDirectory = getLogicalCwd();
     const startedBy = options.startedBy ?? 'terminal';
 
     // Log environment info at startup

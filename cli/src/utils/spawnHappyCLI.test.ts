@@ -13,6 +13,7 @@ vi.mock('child_process', async () => {
 });
 
 const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform');
+const originalInvokedCwd = process.env.HAPI_INVOKED_CWD;
 
 function setPlatform(value: string) {
   Object.defineProperty(process, 'platform', {
@@ -40,6 +41,11 @@ describe('spawnHappyCLI windowsHide behavior', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    if (originalInvokedCwd === undefined) {
+      delete process.env.HAPI_INVOKED_CWD;
+    } else {
+      process.env.HAPI_INVOKED_CWD = originalInvokedCwd;
+    }
   });
 
   afterAll(() => {
@@ -90,37 +96,48 @@ describe('spawnHappyCLI windowsHide behavior', () => {
     expect('windowsHide' in options).toBe(false);
   });
 
-  it('uses the CLI project root as cwd in dev mode and forwards requested cwd via env', async () => {
-    setPlatform('linux');
-    const { spawnHappyCLI } = await import('./spawnHappyCLI');
+  it('forces Bun child processes to run with the cli project root as cwd', async () => {
+    const { getHappyCliCommand } = await import('./spawnHappyCLI');
 
-    spawnHappyCLI(['runner', 'start-sync'], {
-      cwd: '/tmp/target-project',
-      env: {
-        TEST_FLAG: '1'
-      }
-    });
+    const command = getHappyCliCommand(['mcp', '--url', 'http://127.0.0.1:1234/']);
+    const isBunRuntime = Boolean((process.versions as Record<string, string | undefined>).bun);
 
-    const options = getSpawnOptionsOrThrow();
-    expect(options.cwd).toBe(projectPath());
-    expect(options.env).toEqual(expect.objectContaining({
-      TEST_FLAG: '1',
-      HAPI_CLI_WORKDIR: '/tmp/target-project'
-    }));
+    expect(command.command).toBe(process.execPath);
+    if (isBunRuntime) {
+      expect(command.args[0]).toBe('--cwd');
+      expect(command.args[1].replace(/\\/g, '/')).toMatch(/\/hapi\/cli$/);
+      expect(command.args[2].replace(/\\/g, '/')).toMatch(/\/hapi\/cli\/src\/index\.ts$/);
+    } else {
+      expect(command.args.some((arg) => arg.replace(/\\/g, '/').endsWith('/hapi/cli/src/index.ts'))).toBe(true);
+    }
   });
 
-  it('forwards the current working directory when cwd is omitted in dev mode', async () => {
-    setPlatform('linux');
+  it('passes invoked workspace cwd to child processes when cwd is provided', async () => {
     const { spawnHappyCLI } = await import('./spawnHappyCLI');
+    const childCwd = 'C:\\workspace\\project';
 
     spawnHappyCLI(['runner', 'start-sync'], {
+      cwd: childCwd,
       stdio: 'ignore'
     });
 
     const options = getSpawnOptionsOrThrow();
-    expect(options.cwd).toBe(projectPath());
-    expect(options.env).toEqual(expect.objectContaining({
-      HAPI_CLI_WORKDIR: process.cwd()
-    }));
+    expect(options.env?.HAPI_INVOKED_CWD).toBe(childCwd);
+  });
+
+  it('keeps an existing absolute HAPI_INVOKED_CWD when provided explicitly', async () => {
+    const { spawnHappyCLI } = await import('./spawnHappyCLI');
+    const inheritedInvokedCwd = 'C:\\workspace\\other-project';
+
+    spawnHappyCLI(['runner', 'start-sync'], {
+      cwd: 'C:\\workspace\\project',
+      env: {
+        HAPI_INVOKED_CWD: inheritedInvokedCwd
+      },
+      stdio: 'ignore'
+    });
+
+    const options = getSpawnOptionsOrThrow();
+    expect(options.env?.HAPI_INVOKED_CWD).toBe(inheritedInvokedCwd);
   });
 });

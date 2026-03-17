@@ -26,7 +26,7 @@
  */
 
 import { spawn, SpawnOptions, type ChildProcess } from 'child_process';
-import { join } from 'node:path';
+import { join, isAbsolute, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isBunCompiled, projectPath } from '@/projectPath';
 import { logger } from '@/ui/logger';
@@ -49,6 +49,28 @@ export interface HappyCliCommand {
   args: string[];
 }
 
+function isCrossPlatformAbsolutePath(value: string): boolean {
+  return isAbsolute(value) || win32.isAbsolute(value);
+}
+
+function resolveInvokedCwd(cwd: SpawnOptions['cwd']): string {
+  if (cwd instanceof URL) {
+    return fileURLToPath(cwd);
+  }
+
+  if (typeof cwd === 'string' && cwd.trim().length > 0) {
+    const normalizedCwd = cwd.trim();
+    return isCrossPlatformAbsolutePath(normalizedCwd) ? normalizedCwd : resolve(normalizedCwd);
+  }
+
+  const inheritedInvokedCwd = process.env.HAPI_INVOKED_CWD?.trim();
+  if (inheritedInvokedCwd && isCrossPlatformAbsolutePath(inheritedInvokedCwd)) {
+    return inheritedInvokedCwd;
+  }
+
+  return process.cwd();
+}
+
 export function getHappyCliCommand(args: string[]): HappyCliCommand {
   // Compiled binary mode: just use the executable directly
   if (isBunCompiled()) {
@@ -64,10 +86,12 @@ export function getHappyCliCommand(args: string[]): HappyCliCommand {
   const isBunRuntime = Boolean((process.versions as Record<string, string | undefined>).bun);
 
   if (isBunRuntime) {
-    // Bun can run TypeScript directly
+    // Bun can run TypeScript directly.
+    // Force Bun's cwd to the CLI project root so alias resolution via bunfig.toml
+    // keeps working even when external tools launch HAPI from another workspace.
     return {
       command: process.execPath,
-      args: [entrypoint, ...args]
+      args: ['--cwd', projectRoot, entrypoint, ...args]
     };
   }
 
@@ -110,19 +134,14 @@ export function spawnHappyCLI(args: string[], options: SpawnOptions = {}): Child
   // windowsHide: true suppresses this to prevent cmd windows from accumulating.
   const finalOptions: SpawnOptions = { ...options };
   if (!isBunCompiled()) {
-    const requestedCwd = finalOptions.cwd ?? process.cwd();
-    const resolvedRequestedCwd = requestedCwd instanceof URL
-      ? fileURLToPath(requestedCwd)
-      : typeof requestedCwd === 'string'
-        ? requestedCwd
-        : undefined;
-
-    finalOptions.cwd = projectPath();
-    finalOptions.env = {
-      ...process.env,
-      ...finalOptions.env,
-      ...(resolvedRequestedCwd ? { HAPI_CLI_WORKDIR: resolvedRequestedCwd } : {})
-    };
+    const finalEnv = { ...process.env, ...options.env };
+    const invokedCwd = finalEnv.HAPI_INVOKED_CWD?.trim();
+    const resolvedCwd = invokedCwd && isCrossPlatformAbsolutePath(invokedCwd)
+      ? invokedCwd
+      : resolveInvokedCwd(options.cwd);
+    finalEnv.HAPI_INVOKED_CWD = resolvedCwd;
+    finalEnv.HAPI_CLI_WORKDIR = resolvedCwd;
+    finalOptions.env = finalEnv;
   }
   if (process.platform === 'win32' && options.detached) {
     finalOptions.windowsHide = true;
