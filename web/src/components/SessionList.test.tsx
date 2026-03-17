@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 import type { SessionSummary } from '@/types/api'
+import type { SessionGroupState } from '@/hooks/queries/useSessions'
 import { I18nProvider } from '@/lib/i18n-context'
 import { SessionList } from './SessionList'
 
@@ -71,15 +72,26 @@ function createSession(overrides: Partial<SessionSummary> = {}): SessionSummary 
         },
         todoProgress: null,
         pendingRequestsCount: 0,
+        model: null,
         ...overrides
     }
+}
+
+function makeGroups(sessions: SessionSummary[], directory = '/tmp/project'): SessionGroupState[] {
+    return [{
+        directory,
+        sessions,
+        hasMore: false,
+        total: sessions.length,
+        offset: sessions.length
+    }]
 }
 
 describe('SessionList', () => {
     it('prefers metadata.name over generated summary title and fallbacks', () => {
         renderWithProviders(
             <SessionList
-                sessions={[createSession({
+                groups={makeGroups([createSession({
                     metadata: {
                         path: '/tmp/list-name-fallback',
                         name: 'Pinned Session',
@@ -91,7 +103,7 @@ describe('SessionList', () => {
                         nativeProvider: 'codex',
                         nativeSessionId: '019cf0eb-e725-7580-8eae-d6daf495d6f1'
                     }
-                })]}
+                })], '/tmp/list-name-fallback')}
                 onSelect={vi.fn()}
                 onNewSession={vi.fn()}
                 onRefresh={vi.fn()}
@@ -109,7 +121,7 @@ describe('SessionList', () => {
     it('uses generated summary title before native short-id fallback', () => {
         renderWithProviders(
             <SessionList
-                sessions={[createSession({
+                groups={makeGroups([createSession({
                     metadata: {
                         path: '/tmp/list-summary-fallback',
                         summary: {
@@ -120,7 +132,7 @@ describe('SessionList', () => {
                         nativeProvider: 'codex',
                         nativeSessionId: '019cf0eb-e725-7580-8eae-d6daf495d6f1'
                     }
-                })]}
+                })], '/tmp/list-summary-fallback')}
                 onSelect={vi.fn()}
                 onNewSession={vi.fn()}
                 onRefresh={vi.fn()}
@@ -139,7 +151,7 @@ describe('SessionList', () => {
         (source) => {
             renderWithProviders(
                 <SessionList
-                    sessions={[createSession({
+                    groups={makeGroups([createSession({
                         metadata: {
                             path: '/tmp/project',
                             flavor: 'codex',
@@ -147,7 +159,7 @@ describe('SessionList', () => {
                             nativeProvider: 'codex',
                             nativeSessionId: '019cf0eb-e725-7580-8eae-d6daf495d6f1'
                         }
-                    })]}
+                    })])}
                     onSelect={vi.fn()}
                     onNewSession={vi.fn()}
                     onRefresh={vi.fn()}
@@ -164,13 +176,13 @@ describe('SessionList', () => {
     it('falls back to the shared path-based title when native fallback is unavailable', () => {
         renderWithProviders(
             <SessionList
-                sessions={[createSession({
+                groups={makeGroups([createSession({
                     metadata: {
                         path: '/tmp/list-path-fallback-title',
                         flavor: 'codex',
                         source: 'hapi'
                     }
-                })]}
+                })], '/tmp/list-path-fallback-title')}
                 onSelect={vi.fn()}
                 onNewSession={vi.fn()}
                 onRefresh={vi.fn()}
@@ -189,10 +201,10 @@ describe('SessionList', () => {
 
         renderWithProviders(
             <SessionList
-                sessions={[createSession({
+                groups={makeGroups([createSession({
                     createdAt: Date.parse('2026-03-15T10:00:00.000Z'),
                     updatedAt: Date.parse('2026-03-15T11:00:00.000Z')
-                })]}
+                })])}
                 onSelect={vi.fn()}
                 onNewSession={vi.fn()}
                 onRefresh={vi.fn()}
@@ -208,7 +220,7 @@ describe('SessionList', () => {
     it('filters sessions by selected agent tab', () => {
         renderWithProviders(
             <SessionList
-                sessions={[
+                groups={makeGroups([
                     createSession({
                         id: 'session-claude',
                         metadata: {
@@ -231,7 +243,7 @@ describe('SessionList', () => {
                             nativeSessionId: 'codex-session-id'
                         }
                     })
-                ]}
+                ])}
                 agentTab="codex"
                 onAgentTabChange={vi.fn()}
                 onSelect={vi.fn()}
@@ -254,7 +266,7 @@ describe('SessionList', () => {
 
         renderWithProviders(
             <SessionList
-                sessions={[createSession()]}
+                groups={makeGroups([createSession()])}
                 agentTab="codex"
                 onAgentTabChange={onAgentTabChange}
                 onSelect={vi.fn()}
@@ -304,8 +316,8 @@ describe('SessionList', () => {
 
         const view = renderWithProviders(
             <SessionList
-                sessions={sessions}
-                agentTab="all"
+                groups={makeGroups(sessions)}
+                agentTab="claude"
                 onAgentTabChange={vi.fn()}
                 onSelect={vi.fn()}
                 onNewSession={vi.fn()}
@@ -322,7 +334,7 @@ describe('SessionList', () => {
         view.rerender(
             <I18nProvider>
                 <SessionList
-                    sessions={sessions}
+                    groups={makeGroups(sessions)}
                     agentTab="codex"
                     onAgentTabChange={vi.fn()}
                     onSelect={vi.fn()}

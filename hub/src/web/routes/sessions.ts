@@ -33,7 +33,7 @@ const uploadDeleteSchema = z.object({
 })
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
-const MAX_SESSIONS_PER_DIRECTORY = 50
+const DEFAULT_PAGE_LIMIT = 5
 
 function estimateBase64Bytes(base64: string): number {
     const len = base64.length
@@ -64,44 +64,81 @@ function sortSessionsWithinDirectory(left: Session, right: Session): number {
     return right.createdAt - left.createdAt
 }
 
-function getDirectoryLatestSession(sessions: Session[]): Session | null {
-    let latest: Session | null = null
-    for (const session of sessions) {
-        if (!latest || sortSessionsWithinDirectory(session, latest) < 0) {
-            latest = session
-        }
-    }
-    return latest
+type SessionGroupResult = {
+    directory: string
+    sessions: Session[]
+    hasMore: boolean
+    total: number
 }
 
-function sortAndLimitSessionsByDirectory(sessions: Session[]): Session[] {
-    const groups = new Map<string, Session[]>()
-
-    for (const session of sessions) {
-        const directory = getSessionDirectory(session)
-        const group = groups.get(directory)
-        if (group) {
-            group.push(session)
-            continue
+function groupAndPaginateSessions(
+    allSessions: Session[],
+    targetDirectory: string | null,
+    offset: number,
+    limit: number
+): SessionGroupResult[] {
+    // Split main vs subagent
+    const subagentSessions: Session[] = []
+    const mainSessions: Session[] = []
+    for (const s of allSessions) {
+        if (s.metadata?.parentNativeSessionId) {
+            subagentSessions.push(s)
+        } else {
+            mainSessions.push(s)
         }
-        groups.set(directory, [session])
     }
 
-    return Array.from(groups.entries())
-        .sort(([leftDir, leftSessions], [rightDir, rightSessions]) => {
-            if (leftDir === 'Other') return 1
-            if (rightDir === 'Other') return -1
-            const leftLatest = getDirectoryLatestSession(leftSessions)
-            const rightLatest = getDirectoryLatestSession(rightSessions)
-            if (!leftLatest || !rightLatest) return 0
-            return sortSessionsWithinDirectory(leftLatest, rightLatest)
+    // Group main sessions by directory
+    const dirMap = new Map<string, Session[]>()
+    for (const s of mainSessions) {
+        const dir = getSessionDirectory(s)
+        if (!dirMap.has(dir)) dirMap.set(dir, [])
+        dirMap.get(dir)!.push(s)
+    }
+
+    // Sort directories by their latest session
+    const sortedDirs = Array.from(dirMap.entries())
+        .sort(([, a], [, b]) => {
+            const aLatest = a.reduce((m, s) => Math.max(m, s.updatedAt), 0)
+            const bLatest = b.reduce((m, s) => Math.max(m, s.updatedAt), 0)
+            return bLatest - aLatest
         })
-        .flatMap(([, groupSessions]) => (
-            groupSessions
-                .slice()
-                .sort(sortSessionsWithinDirectory)
-                .slice(0, MAX_SESSIONS_PER_DIRECTORY)
-        ))
+
+    // Build subagent lookup by parentNativeSessionId
+    const subagentByParentNativeId = new Map<string, Session[]>()
+    for (const s of subagentSessions) {
+        const parentId = s.metadata?.parentNativeSessionId?.trim()
+        if (!parentId) continue
+        if (!subagentByParentNativeId.has(parentId)) subagentByParentNativeId.set(parentId, [])
+        subagentByParentNativeId.get(parentId)!.push(s)
+    }
+
+    const results: SessionGroupResult[] = []
+
+    for (const [dir, sessions] of sortedDirs) {
+        // If filtering by directory, skip others
+        if (targetDirectory !== null && dir !== targetDirectory) continue
+
+        const sorted = sessions.slice().sort(sortSessionsWithinDirectory)
+        const total = sorted.length
+        const page = sorted.slice(offset, offset + limit)
+        const hasMore = offset + limit < total
+
+        // Attach subagents for sessions in this page
+        const pageSessions: Session[] = []
+        for (const s of page) {
+            pageSessions.push(s)
+            const nativeId = s.metadata?.nativeSessionId?.trim()
+            if (nativeId) {
+                const children = subagentByParentNativeId.get(nativeId) ?? []
+                pageSessions.push(...children)
+            }
+        }
+
+        results.push({ directory: dir, sessions: pageSessions, hasMore, total })
+    }
+
+    return results
 }
 
 export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Hono<WebAppEnv> {
@@ -109,15 +146,30 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
 
     app.get('/sessions', (c) => {
         const engine = requireSyncEngine(c, getSyncEngine)
-        if (engine instanceof Response) {
-            return engine
-        }
+        if (engine instanceof Response) return engine
 
         const namespace = c.get('namespace')
-        const sessions = sortAndLimitSessionsByDirectory(engine.getSessionsByNamespace(namespace))
-            .map(toSessionSummary)
+        const offsetParam = c.req.query('offset')
+        const directoryParam = c.req.query('directory')
+        const flavorParam = c.req.query('flavor')
+        const offset = offsetParam ? Math.max(0, parseInt(offsetParam, 10) || 0) : 0
+        const targetDirectory = directoryParam ? decodeURIComponent(directoryParam) : null
 
-        return c.json({ sessions })
+        let allSessions = engine.getSessionsByNamespace(namespace)
+        if (flavorParam) {
+            allSessions = allSessions.filter(s => s.metadata?.flavor === flavorParam)
+        }
+
+        const groups = groupAndPaginateSessions(allSessions, targetDirectory, offset, DEFAULT_PAGE_LIMIT)
+
+        return c.json({
+            groups: groups.map(g => ({
+                directory: g.directory,
+                sessions: g.sessions.map(toSessionSummary),
+                hasMore: g.hasMore,
+                total: g.total,
+            }))
+        })
     })
 
     app.get('/sessions/:id', (c) => {

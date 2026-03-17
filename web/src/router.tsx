@@ -102,9 +102,9 @@ function SessionsPage() {
     const pathname = useLocation({ select: location => location.pathname })
     const matchRoute = useMatchRoute()
     const { t } = useTranslation()
-    const { sessions, groups, isLoading, error, refetch, loadMoreForDirectory, isLoadingMoreFor } = useSessions(api, agentTab)
     const search = useSearch({ from: '/sessions' })
     const agentTab = normalizeSessionAgentTab(search.agent)
+    const { sessions, groups, isLoading, error, refetch, loadMoreForDirectory, isLoadingMoreFor } = useSessions(api, agentTab)
 
     const handleRefresh = useCallback(() => {
         void refetch()
@@ -443,16 +443,15 @@ const sessionDetailRoute = createRoute({
 const sessionFilesRoute = createRoute({
     getParentRoute: () => sessionDetailRoute,
     path: 'files',
-    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'directories'; expanded?: string } => {
+    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'directories' } => {
         const tabValue = typeof search.tab === 'string' ? search.tab : undefined
         const tab = tabValue === 'directories'
             ? 'directories'
             : tabValue === 'changes'
                 ? 'changes'
                 : undefined
-        const expanded = typeof search.expanded === 'string' ? search.expanded : undefined
 
-        return { ...(tab ? { tab } : {}), ...(expanded !== undefined ? { expanded } : {}) }
+        return tab ? { tab } : {}
     },
     component: FilesPage,
 })

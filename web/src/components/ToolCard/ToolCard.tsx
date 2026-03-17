@@ -76,7 +76,12 @@ function TaskStateIcon(props: { state: ToolCallBlock['tool']['state'] }) {
     return <span className="text-amber-600 animate-pulse">●</span>
 }
 
-function getTaskSummaryChildren(block: ToolCallBlock): { visible: ToolCallBlock[]; remaining: number } | null {
+function getTaskSummaryChildren(block: ToolCallBlock): {
+    visible: ToolCallBlock[]
+    remaining: number
+    total: number
+    completedCount: number
+} | null {
     if (canonicalizeToolName(block.tool.name) !== 'Task') return null
 
     const children = block.children
@@ -85,35 +90,52 @@ function getTaskSummaryChildren(block: ToolCallBlock): { visible: ToolCallBlock[
 
     if (children.length === 0) return null
 
+    const completedCount = children.filter(c => c.tool.state === 'completed').length
     const visible = children.slice(-3)
-    return { visible, remaining: children.length - visible.length }
+    return { visible, remaining: children.length - visible.length, total: children.length, completedCount }
 }
 
 function renderTaskSummary(block: ToolCallBlock, metadata: SessionMetadataSummary | null): ReactNode | null {
     const summary = getTaskSummaryChildren(block)
     if (!summary) return null
 
-    const visible = summary.visible
-    const remaining = summary.remaining
+    const { visible, remaining, total, completedCount } = summary
+    const isRunning = block.tool.state === 'running'
+    const progressPct = total > 0 ? Math.round((completedCount / total) * 100) : 0
 
     return (
-        <div className="flex flex-col gap-1 px-1">
-            <div className="flex flex-col gap-1">
-                {visible.map((child) => (
-                    <div key={child.id} className="flex items-center gap-2">
-                        <div className="min-w-0 flex-1 font-mono text-xs text-[var(--app-hint)]">
-                            <span className="mr-2 inline-block w-4 text-center align-middle">
+        <div className="flex flex-col gap-2">
+            {/* Progress header */}
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 h-1 rounded-full bg-[var(--app-secondary-bg)] overflow-hidden">
+                    <div
+                        className={`h-full rounded-full transition-all duration-500 ${isRunning ? 'bg-amber-400' : completedCount === total ? 'bg-emerald-500' : 'bg-[var(--app-link)]'}`}
+                        style={{ width: `${progressPct}%` }}
+                    />
+                </div>
+                <span className="shrink-0 text-[10px] tabular-nums text-[var(--app-hint)]">
+                    {completedCount}/{total}
+                </span>
+            </div>
+            {/* Recent steps */}
+            <div className="flex flex-col gap-0.5">
+                {visible.map((child) => {
+                    const isError = child.tool.state === 'error'
+                    const isActive = child.tool.state === 'running'
+                    return (
+                        <div key={child.id} className={`flex items-center gap-2 rounded px-2 py-1 ${isActive ? 'bg-amber-50 dark:bg-amber-950/20' : isError ? 'bg-red-50 dark:bg-red-950/20' : 'bg-[var(--app-secondary-bg)]'}`}>
+                            <span className="shrink-0 w-3 text-center text-[10px]">
                                 <TaskStateIcon state={child.tool.state} />
                             </span>
-                            <span className="align-middle break-all">
+                            <span className={`min-w-0 flex-1 truncate font-mono text-xs ${isError ? 'text-red-600' : isActive ? 'text-amber-700 dark:text-amber-400' : 'text-[var(--app-hint)]'}`}>
                                 {formatTaskChildLabel(child, metadata)}
                             </span>
                         </div>
-                    </div>
-                ))}
+                    )
+                })}
                 {remaining > 0 ? (
-                    <div className="text-xs text-[var(--app-hint)] italic">
-                        (+{remaining} more)
+                    <div className="px-2 text-[10px] text-[var(--app-hint)] italic">
+                        +{remaining} earlier steps
                     </div>
                 ) : null}
             </div>
@@ -148,8 +170,40 @@ function renderToolInput(block: ToolCallBlock): ReactNode {
     const toolName = canonicalizeToolName(block.tool.name)
     const input = block.tool.input
 
-    if (toolName === 'Task' && isObject(input) && typeof input.prompt === 'string') {
-        return <MarkdownRenderer content={input.prompt} />
+    if (toolName === 'Task' && isObject(input)) {
+        const subagentType = typeof input.subagent_type === 'string' ? input.subagent_type : null
+        const description = typeof input.description === 'string' ? input.description : null
+        const prompt = typeof input.prompt === 'string' ? input.prompt : null
+        return (
+            <div className="flex flex-col gap-3">
+                {subagentType && (
+                    <div>
+                        <div className="mb-1 text-xs text-[var(--app-hint)]">subagent_type</div>
+                        <span className="rounded-full bg-[var(--app-secondary-bg)] px-2.5 py-0.5 text-xs font-medium text-[var(--app-fg)]">
+                            {subagentType}
+                        </span>
+                    </div>
+                )}
+                {description && (
+                    <div>
+                        <div className="mb-1 text-xs text-[var(--app-hint)]">description</div>
+                        <span className="text-sm text-[var(--app-fg)]">{description}</span>
+                    </div>
+                )}
+                {prompt !== null && (
+                    <div>
+                        <div className="mb-1 text-xs text-[var(--app-hint)]">prompt</div>
+                        {prompt ? (
+                            <div className="rounded-lg border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] p-3">
+                                <MarkdownRenderer content={prompt} />
+                            </div>
+                        ) : (
+                            <span className="text-xs text-[var(--app-hint)]">(empty)</span>
+                        )}
+                    </div>
+                )}
+            </div>
+        )
     }
 
     if (toolName === 'Edit') {
@@ -317,6 +371,10 @@ function ToolCardInner(props: ToolCardProps) {
     const taskSummary = renderTaskSummary(props.block, props.metadata)
     const runningFrom = props.block.tool.startedAt ?? props.block.tool.createdAt
     const showInline = !presentation.minimal && canonicalToolName !== 'Task'
+    const showTaskResult = canonicalToolName === 'Task'
+        && props.block.tool.state === 'completed'
+        && props.block.tool.result !== undefined
+        && props.block.tool.result !== null
     const CompactToolView = showInline ? getToolViewComponent(canonicalToolName) : null
     const FullToolView = getToolFullViewComponent(canonicalToolName)
     const ResultToolView = getToolResultViewComponent(canonicalToolName)
@@ -328,7 +386,8 @@ function ToolCardInner(props: ToolCardProps) {
         permission.status === 'pending'
         || ((permission.status === 'denied' || permission.status === 'canceled') && Boolean(permission.reason))
     ))
-    const hasBody = showInline || taskSummary !== null || showsPermissionFooter
+    const hasBody = showInline || showTaskResult || taskSummary !== null || showsPermissionFooter
+    const isMinimalWithResult = presentation.minimal && props.block.tool.state === 'completed' && props.block.tool.result !== undefined && props.block.tool.result !== null
     const stateColor = statusColorClass(props.block.tool.state)
     const { suppressFocusRing, onTriggerPointerDown, onTriggerKeyDown, onTriggerBlur } = usePointerFocusRing()
 
@@ -346,6 +405,9 @@ function ToolCardInner(props: ToolCardProps) {
 
                 <div className="flex items-center gap-2 shrink-0">
                     <ElapsedView from={runningFrom} active={props.block.tool.state === 'running'} />
+                    {isMinimalWithResult ? (
+                        <span className="rounded bg-[var(--app-secondary-bg)] px-1 py-0.5 text-[10px] text-[var(--app-hint)]">···</span>
+                    ) : null}
                     <span className={stateColor}>
                         <StatusIcon state={props.block.tool.state} />
                     </span>
@@ -396,16 +458,27 @@ function ToolCardInner(props: ToolCardProps) {
                                         <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">
                                             {isQuestionToolWithAnswers ? t('tool.questionsAnswers') : t('tool.input')}
                                         </div>
-                                        {FullToolView ? (
-                                            <FullToolView block={props.block} metadata={props.metadata} />
-                                        ) : (
-                                            renderToolInput(props.block)
-                                        )}
+                                        {FullToolView
+                                            ? <FullToolView block={props.block} metadata={props.metadata} />
+                                            : renderToolInput(props.block)
+                                        }
                                     </div>
                                     {!isQuestionToolWithAnswers && (
                                         <div>
                                             <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">{t('tool.result')}</div>
-                                            <ResultToolView block={props.block} metadata={props.metadata} />
+                                            {presentation.minimal ? (
+                                                <details className="group" open>
+                                                    <summary className="flex cursor-pointer list-none items-center gap-2 rounded border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-2.5 py-1.5 text-xs text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] select-none">
+                                                        <span className="transition-transform group-open:rotate-90">▶</span>
+                                                        <span className="flex-1">{t('tool.result')}</span>
+                                                    </summary>
+                                                    <div className="mt-1.5">
+                                                        <ResultToolView block={props.block} metadata={props.metadata} />
+                                                    </div>
+                                                </details>
+                                            ) : (
+                                                <ResultToolView block={props.block} metadata={props.metadata} />
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -420,6 +493,12 @@ function ToolCardInner(props: ToolCardProps) {
                     {taskSummary ? (
                         <div className="mt-2">
                             {taskSummary}
+                        </div>
+                    ) : null}
+
+                    {showTaskResult ? (
+                        <div className="mt-3">
+                            <ResultToolView block={props.block} metadata={props.metadata} />
                         </div>
                     ) : null}
 

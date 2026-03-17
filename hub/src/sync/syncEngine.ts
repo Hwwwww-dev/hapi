@@ -928,6 +928,14 @@ export class SyncEngine {
         return await this.rpcGateway.gitCommit(sessionId, options)
     }
 
+    async gitFetch(sessionId: string, options: { cwd?: string; remote?: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitFetch(sessionId, options)
+    }
+
+    async gitPull(sessionId: string, options: { cwd?: string; remote?: string; branch?: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitPull(sessionId, options)
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.rpcGateway.readSessionFile(sessionId, path)
     }

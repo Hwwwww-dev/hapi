@@ -49,6 +49,8 @@ export default {
   'sessions.tab.opencode': 'OpenCode',
   'sessions.empty': '暂无会话',
   'sessions.new': '新建会话',
+  'sessions.loadMore': '加载更多会话',
+  'sessions.loadingMore': '加载中...',
 
   // Session list
   'session.item.path': '路径',
@@ -58,6 +60,7 @@ export default {
   'session.item.nativeSource': '原生',
   'session.item.pending': '待处理',
   'session.item.thinking': '思考中',
+  'session.item.subagents': '子代理',
   'session.source.native': '原生',
   'session.source.hybrid': '混合',
   'session.time.justNow': '刚刚',

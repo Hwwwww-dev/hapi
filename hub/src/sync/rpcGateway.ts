@@ -217,6 +217,14 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-commit', options) as RpcCommandResponse
     }
 
+    async gitFetch(sessionId: string, options: { cwd?: string; remote?: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-fetch', options) as RpcCommandResponse
+    }
+
+    async gitPull(sessionId: string, options: { cwd?: string; remote?: string; branch?: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-pull', options) as RpcCommandResponse
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.sessionRpc(sessionId, 'readFile', { path }) as RpcReadFileResponse
     }

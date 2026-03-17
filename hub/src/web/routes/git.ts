@@ -20,6 +20,8 @@ const filePathSchema = z.object({
 const gitCheckoutSchema = z.object({ branch: z.string().min(1) })
 const gitStageSchema = z.object({ filePath: z.string().min(1), stage: z.boolean() })
 const gitCommitSchema = z.object({ message: z.string().min(1) })
+const gitFetchSchema = z.object({ remote: z.string().optional() })
+const gitPullSchema = z.object({ remote: z.string().optional(), branch: z.string().optional() })
 
 function parseBooleanParam(value: string | undefined): boolean | undefined {
     if (value === 'true') return true
@@ -31,7 +33,11 @@ async function runRpc<T>(fn: () => Promise<T>): Promise<T | { success: false; er
     try {
         return await fn()
     } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) }
+        const message = error instanceof Error ? error.message : String(error)
+        if (message.startsWith('RPC handler not registered:') || message.startsWith('RPC socket disconnected:')) {
+            return { success: false, error: 'Session not connected' }
+        }
+        return { success: false, error: message }
     }
 }
 
@@ -261,6 +267,32 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         const body = gitCommitSchema.safeParse(await c.req.json())
         if (!body.success) return c.json({ error: 'Invalid request' }, 400)
         const result = await runRpc(() => engine.gitCommit(sessionResult.sessionId, { cwd: sessionPath, message: body.data.message }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-fetch', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitFetchSchema.safeParse(await c.req.json().catch(() => ({})))
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitFetch(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-pull', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitPullSchema.safeParse(await c.req.json().catch(() => ({})))
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitPull(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
         return c.json(result)
     })
 

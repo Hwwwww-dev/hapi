@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
+import { useDirectoryExpanded } from '@/hooks/useDirectoryExpanded'
 import type { FileSearchItem, GitFileStatus } from '@/types/api'
 import { FileIcon } from '@/components/FileIcon'
 import { DirectoryTree } from '@/components/SessionFiles/DirectoryTree'
@@ -239,19 +240,9 @@ export default function FilesPage() {
     const { session } = useSession(api, sessionId)
     const [searchQuery, setSearchQuery] = useState('')
     const [commitOpen, setCommitOpen] = useState(false)
-    const expandedPaths = useMemo(
-        () => search.expanded ? search.expanded.split(',').filter(Boolean) : [''],
-        [search.expanded]
-    )
-
-    const handleExpandedChange = useCallback((paths: string[]) => {
-        navigate({
-            to: '/sessions/$sessionId/files',
-            params: { sessionId },
-            search: (prev) => ({ ...prev, expanded: paths.join(',') || undefined }),
-            replace: true,
-        })
-    }, [navigate, sessionId])
+    const [gitActionLoading, setGitActionLoading] = useState<'fetch' | 'pull' | null>(null)
+    const [gitActionError, setGitActionError] = useState<string | null>(null)
+    const { expanded, handleExpandedChange } = useDirectoryExpanded(sessionId)
 
     const initialTab = search.tab === 'directories' ? 'directories' : 'changes'
     const [activeTab, setActiveTab] = useState<'changes' | 'directories'>(initialTab)
@@ -318,13 +309,36 @@ export default function FilesPage() {
         navigate({
             to: '/sessions/$sessionId/files',
             params: { sessionId },
-            search: (prev) => ({
-                ...(nextTab === 'changes' ? {} : { tab: nextTab }),
-                ...(prev.expanded ? { expanded: prev.expanded } : {})
-            }),
+            search: nextTab === 'changes' ? {} : { tab: nextTab },
             replace: true,
         })
     }, [navigate, sessionId])
+
+    const handleGitFetch = useCallback(async () => {
+        if (!api || gitActionLoading) return
+        setGitActionLoading('fetch')
+        setGitActionError(null)
+        const res = await api.gitFetch(sessionId)
+        setGitActionLoading(null)
+        if (res.success) {
+            void refetchGit()
+        } else {
+            setGitActionError(res.stderr ?? res.error ?? 'Fetch failed')
+        }
+    }, [api, gitActionLoading, sessionId, refetchGit])
+
+    const handleGitPull = useCallback(async () => {
+        if (!api || gitActionLoading) return
+        setGitActionLoading('pull')
+        setGitActionError(null)
+        const res = await api.gitPull(sessionId)
+        setGitActionLoading(null)
+        if (res.success) {
+            void refetchGit()
+        } else {
+            setGitActionError(res.stderr ?? res.error ?? 'Pull failed')
+        }
+    }, [api, gitActionLoading, sessionId, refetchGit])
 
     return (
         <div className="flex h-full flex-col">
@@ -413,14 +427,35 @@ export default function FilesPage() {
                         </div>
                         <div className="flex items-center justify-between text-xs text-[var(--app-hint)]">
                             <span>{gitStatus.totalStaged} staged, {gitStatus.totalUnstaged} unstaged</span>
-                            <button
-                                type="button"
-                                onClick={() => setCommitOpen(true)}
-                                className="text-xs px-2 py-0.5 rounded border border-[var(--app-border)] hover:bg-[var(--app-subtle-bg)] text-[var(--app-hint)]"
-                            >
-                                Commit
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() => void handleGitFetch()}
+                                    disabled={!!gitActionLoading}
+                                    className="text-xs px-2 py-0.5 rounded border border-[var(--app-border)] hover:bg-[var(--app-subtle-bg)] text-[var(--app-hint)] disabled:opacity-50"
+                                >
+                                    {gitActionLoading === 'fetch' ? '...' : 'Fetch'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleGitPull()}
+                                    disabled={!!gitActionLoading}
+                                    className="text-xs px-2 py-0.5 rounded border border-[var(--app-border)] hover:bg-[var(--app-subtle-bg)] text-[var(--app-hint)] disabled:opacity-50"
+                                >
+                                    {gitActionLoading === 'pull' ? '...' : 'Pull'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setCommitOpen(true)}
+                                    className="text-xs px-2 py-0.5 rounded border border-[var(--app-border)] hover:bg-[var(--app-subtle-bg)] text-[var(--app-hint)]"
+                                >
+                                    Commit
+                                </button>
+                            </div>
                         </div>
+                        {gitActionError ? (
+                            <div className="mt-1 text-xs text-red-500 truncate">{gitActionError}</div>
+                        ) : null}
                     </div>
                 </div>
             ) : null}
@@ -459,7 +494,7 @@ export default function FilesPage() {
                             sessionId={sessionId}
                             rootLabel={rootLabel}
                             onOpenFile={(path) => handleOpenFile(path)}
-                            expandedPaths={expandedPaths}
+                            expandedPaths={expanded}
                             onExpandedChange={handleExpandedChange}
                         />
                     ) : gitLoading ? (

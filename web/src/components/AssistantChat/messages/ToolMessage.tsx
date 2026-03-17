@@ -96,6 +96,44 @@ function HappyNestedBlockList(props: {
 
                 if (block.kind === 'agent-event') {
                     const presentation = getEventPresentation(block.event)
+                    const eventType = (block.event as { type: string }).type
+                    const isCompact = eventType === 'compact' || eventType === 'microcompact'
+                    const isMessage = eventType === 'message'
+                    const messageText = isMessage && typeof (block.event as Record<string, unknown>).message === 'string'
+                        ? (block.event as Record<string, unknown>).message as string
+                        : null
+
+                    if (isCompact) {
+                        return (
+                            <div key={`event:${block.id}`} className="py-1">
+                                <div className="mx-auto w-fit max-w-[92%]">
+                                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-3 py-1 text-xs text-[var(--app-hint)]">
+                                        <span aria-hidden="true">{presentation.icon}</span>
+                                        <span>{presentation.text}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    }
+
+                    if (isMessage && messageText && messageText.length > 120) {
+                        return (
+                            <div key={`event:${block.id}`} className="py-1">
+                                <details className="rounded-lg border border-[var(--app-divider)] bg-[var(--app-secondary-bg)]">
+                                    <summary className="cursor-pointer select-none px-3 py-2 text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)]">
+                                        <span className="inline-flex items-center gap-1.5">
+                                            <span aria-hidden="true">📋</span>
+                                            <span>Context summary</span>
+                                        </span>
+                                    </summary>
+                                    <div className="border-t border-[var(--app-divider)] px-3 py-2 text-xs text-[var(--app-fg)] leading-relaxed whitespace-pre-wrap">
+                                        {messageText}
+                                    </div>
+                                </details>
+                            </div>
+                        )
+                    }
+
                     return (
                         <div key={`event:${block.id}`} className="py-1">
                             <div className="mx-auto w-fit max-w-[92%] px-2 text-center text-xs text-[var(--app-hint)] opacity-80">
@@ -131,11 +169,14 @@ function HappyNestedBlockList(props: {
                                             </div>
                                         ) : null}
                                         {taskChildren && taskChildren.rest.length > 0 ? (
-                                            <details className="mt-2">
-                                                <summary className="cursor-pointer text-xs text-[var(--app-hint)]">
-                                                    Task details ({taskChildren.rest.length})
+                                            <details className="mt-2 rounded-lg border border-[var(--app-divider)]">
+                                                <summary className="cursor-pointer select-none rounded-lg px-3 py-2 text-xs text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]">
+                                                    <span className="inline-flex items-center gap-1.5">
+                                                        <span>▸</span>
+                                                        <span>Task details ({taskChildren.rest.length})</span>
+                                                    </span>
                                                 </summary>
-                                                <div className="mt-2 pl-3">
+                                                <div className="border-t border-[var(--app-divider)] p-2">
                                                     <HappyNestedBlockList blocks={taskChildren.rest} />
                                                 </div>
                                             </details>

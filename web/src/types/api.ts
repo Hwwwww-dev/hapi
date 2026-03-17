@@ -82,7 +82,8 @@ export type AuthResponse = {
     }
 }
 
-export type SessionsResponse = { sessions: SessionSummary[] }
+export type SessionGroup = { directory: string; sessions: SessionSummary[]; hasMore: boolean; total: number }
+export type SessionsResponse = { groups: SessionGroup[] }
 export type SessionResponse = { session: Session }
 export type MessagesResponse = {
     messages: DecryptedMessage[]

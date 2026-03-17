@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { MessagePrimitive, useAssistantState } from '@assistant-ui/react'
 import { LazyRainbowText } from '@/components/LazyRainbowText'
 import { useHappyChatContext } from '@/components/AssistantChat/context'
@@ -61,12 +62,32 @@ export function HappyUserMessage() {
 
     const hasText = text.length > 0
     const hasAttachments = attachments && attachments.length > 0
+    const isLong = text.length > 200
+    const [expanded, setExpanded] = useState(false)
 
     return (
         <MessagePrimitive.Root className={userBubbleClass}>
             <div className="flex items-end gap-2">
                 <div className="flex-1 min-w-0">
-                    {hasText && <LazyRainbowText text={text} />}
+                    {hasText && (
+                        isLong ? (
+                            <div>
+                                {expanded
+                                    ? <LazyRainbowText text={text} />
+                                    : <div className="line-clamp-5 whitespace-pre-wrap break-words">{text}</div>
+                                }
+                                <button
+                                    type="button"
+                                    onClick={() => setExpanded(v => !v)}
+                                    className="mt-1 text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)]"
+                                >
+                                    {expanded ? '收起' : `展开全文 (${text.length} 字)`}
+                                </button>
+                            </div>
+                        ) : (
+                            <LazyRainbowText text={text} />
+                        )
+                    )}
                     {hasAttachments && <MessageAttachments attachments={attachments} />}
                 </div>
                 {status ? (

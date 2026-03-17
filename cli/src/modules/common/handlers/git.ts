@@ -160,4 +160,20 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         if (!data.message?.trim()) return rpcError('commit message is required')
         return await runGitCommand(['commit', '-m', data.message], resolved.cwd, data.timeout)
     })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; remote?: string; timeout?: number }, GitCommandResponse>('git-fetch', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        const args = data.remote ? ['fetch', data.remote] : ['fetch']
+        return await runGitCommand(args, resolved.cwd, data.timeout ?? 30_000)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; remote?: string; branch?: string; timeout?: number }, GitCommandResponse>('git-pull', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        const args = ['pull']
+        if (data.remote) args.push(data.remote)
+        if (data.branch) args.push(data.branch)
+        return await runGitCommand(args, resolved.cwd, data.timeout ?? 60_000)
+    })
 }

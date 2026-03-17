@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { getExplicitSessionTitle, getSessionListFallbackTitle, type SessionSummary } from '@/types/api'
 import type { ApiClient } from '@/api/client'
 import { useLongPress } from '@/hooks/useLongPress'
@@ -8,9 +8,10 @@ import { SessionActionMenu } from '@/components/SessionActionMenu'
 import { SessionSourceBadge } from '@/components/SessionSourceBadge'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { SESSION_AGENT_TABS, filterSessionsByAgentTab, type SessionAgentTab } from '@/lib/agentFlavorUtils'
+import { SESSION_AGENT_TABS, type SessionAgentTab } from '@/lib/agentFlavorUtils'
 import { getSessionModelLabel } from '@/lib/sessionModelLabel'
 import { useTranslation } from '@/lib/use-translation'
+import type { SessionGroupState } from '@/hooks/queries/useSessions'
 
 type SessionWithChildren = {
     session: SessionSummary
@@ -23,13 +24,9 @@ type SessionGroup = {
     sessions: SessionWithChildren[]
     totalSessions: number
     hasActiveSession: boolean
+    hasMore: boolean
 }
 
-const MAX_SESSIONS_PER_DIRECTORY = 50
-
-function getSessionDirectory(session: SessionSummary): string {
-    return session.metadata?.worktree?.basePath ?? session.metadata?.path ?? 'Other'
-}
 
 function getGroupDisplayName(directory: string): string {
     if (directory === 'Other') return directory
@@ -37,27 +34,6 @@ function getGroupDisplayName(directory: string): string {
     if (parts.length === 0) return directory
     if (parts.length === 1) return parts[0]
     return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`
-}
-
-function compareSessionRecency(left: Pick<SessionSummary, 'updatedAt' | 'createdAt'>, right: Pick<SessionSummary, 'updatedAt' | 'createdAt'>): number {
-    if (left.updatedAt !== right.updatedAt) {
-        return right.updatedAt - left.updatedAt
-    }
-    return right.createdAt - left.createdAt
-}
-
-function sortSessionsInGroup(a: SessionSummary, b: SessionSummary): number {
-    return compareSessionRecency(a, b)
-}
-
-function getGroupLatestSession(sessions: SessionSummary[]): SessionSummary | null {
-    let latest: SessionSummary | null = null
-    for (const session of sessions) {
-        if (!latest || sortSessionsInGroup(session, latest) < 0) {
-            latest = session
-        }
-    }
-    return latest
 }
 
 function groupNativeChildren(sessions: SessionSummary[]): SessionWithChildren[] {
@@ -92,43 +68,6 @@ function groupNativeChildren(sessions: SessionSummary[]): SessionWithChildren[] 
         }))
 }
 
-function groupSessionsByDirectory(sessions: SessionSummary[]): SessionGroup[] {
-    const groups = new Map<string, SessionSummary[]>()
-
-    sessions.forEach(session => {
-        const path = getSessionDirectory(session)
-        if (!groups.has(path)) {
-            groups.set(path, [])
-        }
-        groups.get(path)!.push(session)
-    })
-
-    return Array.from(groups.entries())
-        .sort(([leftDirectory, leftSessions], [rightDirectory, rightSessions]) => {
-            if (leftDirectory === 'Other') return 1
-            if (rightDirectory === 'Other') return -1
-            const leftLatest = getGroupLatestSession(leftSessions)
-            const rightLatest = getGroupLatestSession(rightSessions)
-            if (!leftLatest || !rightLatest) return 0
-            return sortSessionsInGroup(leftLatest, rightLatest)
-        })
-        .map(([directory, groupSessions]) => {
-            const sortedSessions = [...groupSessions]
-                .sort(sortSessionsInGroup)
-                .slice(0, MAX_SESSIONS_PER_DIRECTORY)
-            const withChildren = groupNativeChildren(sortedSessions)
-            const hasActiveSession = groupSessions.some(s => s.active)
-            const displayName = getGroupDisplayName(directory)
-
-            return {
-                directory,
-                displayName,
-                sessions: withChildren,
-                totalSessions: groupSessions.length,
-                hasActiveSession
-            }
-        })
-}
 
 function getSessionListContentAnimationKey(agentTab: SessionAgentTab, groups: SessionGroup[]): string {
     const snapshot = groups
@@ -403,19 +342,11 @@ function SessionItem(props: {
                         <div className="truncate text-sm font-medium sm:text-base">
                             {sessionName}
                         </div>
-                        {hasChildren && (
-                            <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setChildrenExpanded(v => !v) }}
-                                className="shrink-0 rounded px-1 py-0.5 text-[10px] text-[var(--app-hint)] hover:bg-[var(--app-divider)] transition-colors"
-                                aria-label={childrenExpanded ? 'Collapse subagents' : 'Expand subagents'}
-                            >
-                                {childrenExpanded ? '▾' : '▸'} {props.nativeChildren.length}
-                            </button>
-                        )}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1 text-[11px]">
-                        <SessionSourceBadge source={s.metadata?.source} className="shrink-0" />
+                        <div className="flex items-center gap-1">
+                            <SessionSourceBadge source={s.metadata?.source} className="shrink-0" />
+                        </div>
                         <div className="flex flex-wrap items-center justify-end gap-1.5">
                             {s.thinking ? (
                                 <span className="rounded-full bg-[#007AFF]/10 px-2 py-0.5 text-[#007AFF] animate-pulse">
@@ -477,6 +408,18 @@ function SessionItem(props: {
                     </div>
                 ) : null}
             </button>
+
+            {hasChildren && (
+                <button
+                    type="button"
+                    onClick={() => setChildrenExpanded(v => !v)}
+                    className="flex w-full items-center gap-2 rounded-lg border border-dashed border-[var(--app-divider)] px-3 py-1.5 text-left text-xs text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)]"
+                    aria-label={childrenExpanded ? 'Collapse subagents' : 'Expand subagents'}
+                >
+                    <span>{childrenExpanded ? '▾' : '▸'}</span>
+                    <span>{props.nativeChildren.length} {t('session.item.subagents')}</span>
+                </button>
+            )}
 
             {hasChildren && childrenExpanded && (
                 <div className="ml-3 flex flex-col gap-1 border-l border-dashed border-[var(--app-divider)] pl-3">
@@ -550,7 +493,7 @@ function SessionItem(props: {
 }
 
 export function SessionList(props: {
-    sessions: SessionSummary[]
+    groups: SessionGroupState[]
     onSelect: (sessionId: string) => void
     onNewSession: () => void
     onRefresh: () => void
@@ -560,17 +503,30 @@ export function SessionList(props: {
     selectedSessionId?: string | null
     agentTab?: SessionAgentTab
     onAgentTabChange?: (tab: SessionAgentTab) => void
+    loadMoreForDirectory?: (directory: string) => Promise<void>
+    isLoadingMoreFor?: (directory: string) => boolean
 }) {
     const { t } = useTranslation()
-    const { renderHeader = true, api, selectedSessionId, agentTab = 'all', onAgentTabChange } = props
-    const filteredSessions = useMemo(
-        () => filterSessionsByAgentTab(props.sessions, agentTab),
-        [agentTab, props.sessions]
-    )
-    const groups = useMemo(
-        () => groupSessionsByDirectory(filteredSessions),
-        [filteredSessions]
-    )
+    const { renderHeader = true, api, selectedSessionId, agentTab = 'claude', onAgentTabChange } = props
+
+    // Build SessionGroup for rendering (no tab filtering needed - backend already filtered by flavor)
+    const groups: SessionGroup[] = useMemo(() => {
+        return props.groups
+            .map(g => {
+                const withChildren = groupNativeChildren(g.sessions)
+                const hasActiveSession = g.sessions.some(s => s.active)
+                return {
+                    directory: g.directory,
+                    displayName: getGroupDisplayName(g.directory),
+                    sessions: withChildren,
+                    totalSessions: g.total,
+                    hasActiveSession,
+                    hasMore: g.hasMore,
+                }
+            })
+            .filter(g => g.sessions.length > 0)
+    }, [props.groups])
+
     const visibleSessionCount = useMemo(
         () => groups.reduce((sum, group) => sum + group.sessions.length, 0),
         [groups]
@@ -595,22 +551,6 @@ export function SessionList(props: {
             return next
         })
     }
-
-    useEffect(() => {
-        setCollapseOverrides(prev => {
-            if (prev.size === 0) return prev
-            const next = new Map(prev)
-            const knownGroups = new Set(groups.map(group => group.directory))
-            let changed = false
-            for (const directory of next.keys()) {
-                if (!knownGroups.has(directory)) {
-                    next.delete(directory)
-                    changed = true
-                }
-            }
-            return changed ? next : prev
-        })
-    }, [groups])
 
     return (
         <div className="mx-auto w-full max-w-content flex flex-col">
@@ -676,10 +616,9 @@ export function SessionList(props: {
                 ) : null}
                 {groups.map((group) => {
                     const isCollapsed = isGroupCollapsed(group)
-                    const visibleCount = group.sessions.length
-                    const countLabel = group.totalSessions > visibleCount
-                        ? `${visibleCount}/${group.totalSessions}`
-                        : `${visibleCount}`
+                    const mainCount = group.sessions.filter(item => !item.session.metadata?.parentNativeSessionId).length
+                    const countLabel = group.hasMore ? `${mainCount}/${group.totalSessions}` : `${mainCount}`
+                    const isLoadingMore = props.isLoadingMoreFor?.(group.directory) ?? false
                     return (
                         <div key={group.directory} className="overflow-hidden rounded-2xl border border-[var(--app-divider)] bg-[var(--app-bg)]">
                             <button
@@ -725,6 +664,16 @@ export function SessionList(props: {
                                             selectedSessionId={selectedSessionId}
                                         />
                                     ))}
+                                    {group.hasMore ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => { void props.loadMoreForDirectory?.(group.directory) }}
+                                            disabled={isLoadingMore}
+                                            className="w-full rounded-xl border border-dashed border-[var(--app-divider)] px-3 py-2 text-xs text-[var(--app-hint)] transition-colors hover:bg-[var(--app-divider)] disabled:opacity-50"
+                                        >
+                                            {isLoadingMore ? t('sessions.loadingMore') : t('sessions.loadMore')}
+                                        </button>
+                                    ) : null}
                                     </div>
                                 </div>
                             ) : null}

@@ -52,6 +52,7 @@ export function SessionChat(props: {
     const [statusActionPending, setStatusActionPending] = useState<'resume' | 'disconnect' | 'refresh' | null>(null)
     const agentFlavor = props.session.metadata?.flavor ?? null
     const controlledByUser = props.session.agentState?.controlledByUser === true
+    const isSubagent = !!props.session.metadata?.parentNativeSessionId
     const codexCollaborationModeSupported = agentFlavor === 'codex' && !controlledByUser
     const { abortSession, archiveSession, switchSession, setPermissionMode, setCollaborationMode, setModel } = useSessionActions(
         props.api,
@@ -340,6 +341,7 @@ export function SessionChat(props: {
                 onRefreshAction={() => { void handleRefresh() }}
                 onConnectionToggle={handleConnectionToggle}
                 statusActionPending={statusActionPending !== null}
+                readOnly={isSubagent}
             />
 
             {props.session.teamState && (
@@ -378,6 +380,7 @@ export function SessionChat(props: {
                         forceScrollToken={forceScrollToken}
                     />
 
+                    {!isSubagent && (
                     <HappyComposer
                         disabled={props.isSending}
                         permissionMode={props.session.permissionMode}
@@ -405,6 +408,7 @@ export function SessionChat(props: {
                         onVoiceToggle={voice ? handleVoiceToggle : undefined}
                         onVoiceMicToggle={voice ? handleVoiceMicToggle : undefined}
                     />
+                    )}
                 </div>
             </AssistantRuntimeProvider>
 

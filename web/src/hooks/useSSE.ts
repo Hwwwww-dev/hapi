@@ -340,58 +340,34 @@ export function useSSE(options: {
             scheduleInvalidationFlush()
         }
 
-        const upsertSessionSummary = (session: Session) => {
-            queryClient.setQueryData<SessionsResponse | undefined>(queryKeys.sessions, (previous) => {
-                if (!previous) {
-                    return previous
-                }
-
-                const summary = toSessionSummary(session)
-                const nextSessions = previous.sessions.slice()
-                const existingIndex = nextSessions.findIndex((item) => item.id === session.id)
-                if (existingIndex >= 0) {
-                    nextSessions[existingIndex] = summary
-                } else {
-                    nextSessions.push(summary)
-                }
-                nextSessions.sort(sortSessionSummaries)
-                return { ...previous, sessions: nextSessions }
-            })
+        const upsertSessionSummary = (_session: Session) => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.sessions })
         }
 
         const patchSessionSummary = (sessionId: string, patch: SessionPatch): boolean => {
-            let patched = false
-            queryClient.setQueryData<SessionsResponse | undefined>(queryKeys.sessions, (previous) => {
-                if (!previous) {
-                    return previous
+            void queryClient.invalidateQueries({ queryKey: queryKeys.sessions })
+            // Also patch the detail cache for immediate feedback
+            const detailCache = queryClient.getQueryData<SessionResponse | undefined>(queryKeys.session(sessionId))
+            if (!detailCache?.session) return false
+            queryClient.setQueryData<SessionResponse | undefined>(queryKeys.session(sessionId), (previous) => {
+                if (!previous?.session) return previous
+                return {
+                    ...previous,
+                    session: {
+                        ...previous.session,
+                        active: patch.active ?? previous.session.active,
+                        thinking: patch.thinking ?? previous.session.thinking,
+                        activeAt: patch.activeAt ?? previous.session.activeAt,
+                        updatedAt: patch.updatedAt ?? previous.session.updatedAt,
+                        model: Object.prototype.hasOwnProperty.call(patch, 'model') ? patch.model ?? null : previous.session.model
+                    }
                 }
-
-                const nextSessions = previous.sessions.slice()
-                const index = nextSessions.findIndex((item) => item.id === sessionId)
-                if (index < 0) {
-                    return previous
-                }
-
-                const current = nextSessions[index]
-                if (!current) {
-                    return previous
-                }
-
-                const nextSummary: SessionSummary = {
-                    ...current,
-                    active: patch.active ?? current.active,
-                    thinking: patch.thinking ?? current.thinking,
-                    activeAt: patch.activeAt ?? current.activeAt,
-                    updatedAt: patch.updatedAt ?? current.updatedAt,
-                    model: Object.prototype.hasOwnProperty.call(patch, 'model') ? patch.model ?? null : current.model
-                }
-
-                patched = true
-                nextSessions[index] = nextSummary
-                nextSessions.sort(sortSessionSummaries)
-                return { ...previous, sessions: nextSessions }
             })
-            return patched
+            return true
+        }
+
+        const removeSessionSummary = (_sessionId: string) => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.sessions })
         }
 
         const patchSessionDetail = (sessionId: string, patch: SessionPatch): boolean => {
@@ -410,19 +386,6 @@ export function useSSE(options: {
                 }
             })
             return patched
-        }
-
-        const removeSessionSummary = (sessionId: string) => {
-            queryClient.setQueryData<SessionsResponse | undefined>(queryKeys.sessions, (previous) => {
-                if (!previous) {
-                    return previous
-                }
-                const nextSessions = previous.sessions.filter((item) => item.id !== sessionId)
-                if (nextSessions.length === previous.sessions.length) {
-                    return previous
-                }
-                return { ...previous, sessions: nextSessions }
-            })
         }
 
         const upsertMachine = (machine: Machine) => {

@@ -49,6 +49,8 @@ export default {
   'sessions.tab.opencode': 'OpenCode',
   'sessions.empty': 'No sessions yet',
   'sessions.new': 'New Session',
+  'sessions.loadMore': 'Load more sessions',
+  'sessions.loadingMore': 'Loading...',
 
   // Session list
   'session.item.path': 'path',
@@ -58,6 +60,7 @@ export default {
   'session.item.nativeSource': 'native',
   'session.item.pending': 'pending',
   'session.item.thinking': 'thinking',
+  'session.item.subagents': 'sub-agents',
   'session.source.native': 'Native',
   'session.source.hybrid': 'Hybrid',
   'session.time.justNow': 'just now',

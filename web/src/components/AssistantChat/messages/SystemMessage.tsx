@@ -15,9 +15,32 @@ export function HappySystemMessage() {
         const event = custom?.kind === 'event' ? custom.event : undefined
         return event ? getEventPresentation(event).icon : null
     })
+    const eventType = useAssistantState(({ message }) => {
+        if (message.role !== 'system') return null
+        const custom = message.metadata.custom as Partial<HappyChatMessageMetadata> | undefined
+        const event = custom?.kind === 'event' ? custom.event : undefined
+        return event ? (event as { type: string }).type : null
+    })
     const createdAt = useAssistantState(({ message }) => message.createdAt)
 
     if (role !== 'system') return null
+
+    const isCompact = eventType === 'compact' || eventType === 'microcompact'
+
+    if (isCompact) {
+        return (
+            <div className="py-1">
+                <div className="mx-auto w-fit max-w-[92%]">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-3 py-1 text-xs text-[var(--app-hint)]">
+                        {icon ? <span aria-hidden="true">{icon}</span> : null}
+                        <span>{text}</span>
+                        <span aria-hidden="true">·</span>
+                        <MessageTimestamp value={createdAt} className="text-[10px] text-[var(--app-hint)] opacity-80" />
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="py-1">

@@ -60,6 +60,7 @@ export function SessionHeader(props: {
     onRefreshAction?: () => void
     onConnectionToggle?: () => void
     statusActionPending?: boolean
+    readOnly?: boolean
 }) {
     const { t } = useTranslation()
     const { session, api, onSessionDeleted } = props
@@ -154,7 +155,7 @@ export function SessionHeader(props: {
                         </div>
                     </div>
 
-                    {props.onViewFiles ? (
+                    {props.onViewFiles && !props.readOnly ? (
                         <button
                             type="button"
                             onClick={props.onViewFiles}
@@ -165,6 +166,7 @@ export function SessionHeader(props: {
                         </button>
                     ) : null}
 
+                    {!props.readOnly && (
                     <button
                         type="button"
                         onClick={handleMenuToggle}
@@ -178,6 +180,7 @@ export function SessionHeader(props: {
                     >
                         <MoreVerticalIcon />
                     </button>
+                    )}
                 </div>
             </div>
 

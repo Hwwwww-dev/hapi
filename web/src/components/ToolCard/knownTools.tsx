@@ -69,9 +69,11 @@ export const knownTools: Record<string, {
             const teamName = getInputStringAny(opts.input, ['team_name'])
             if (name && teamName) return `Agent: ${name}`
             const description = getInputStringAny(opts.input, ['description'])
-            return description ?? 'Task'
+            return description ?? 'Agent'
         },
         subtitle: (opts) => {
+            const subagentType = getInputStringAny(opts.input, ['subagent_type'])
+            if (subagentType) return subagentType
             const prompt = getInputStringAny(opts.input, ['prompt'])
             return prompt ? truncate(prompt, 120) : null
         },
@@ -377,6 +379,15 @@ export const knownTools: Record<string, {
     exit_plan_mode: {
         icon: () => <ClipboardIcon className={DEFAULT_ICON_CLASS} />,
         title: () => 'Plan proposal',
+        minimal: false
+    },
+    Skill: {
+        icon: () => <BulbIcon className={DEFAULT_ICON_CLASS} />,
+        title: (opts) => {
+            const skill = getInputStringAny(opts.input, ['skill', 'name'])
+            return skill ? `Skill: ${skill}` : 'Skill'
+        },
+        subtitle: (opts) => getInputStringAny(opts.input, ['args']) ?? null,
         minimal: false
     },
     AskUserQuestion: {
