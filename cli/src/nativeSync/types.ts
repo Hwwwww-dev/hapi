@@ -3,6 +3,7 @@ export type NativeProviderName = 'claude' | 'codex'
 export type NativeSessionSummary = {
     provider: NativeProviderName
     nativeSessionId: string
+    parentNativeSessionId?: string
     projectPath: string
     displayPath: string
     flavor: 'claude' | 'codex'

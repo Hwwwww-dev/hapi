@@ -253,6 +253,7 @@ export function createCodexNativeProvider(): NativeSyncProvider {
                 const summary: NativeSessionSummary = {
                     provider: 'codex',
                     nativeSessionId: result.sessionId,
+                    parentNativeSessionId: result.parentSessionId ?? undefined,
                     projectPath: result.cwd,
                     displayPath: result.cwd,
                     flavor: 'codex',

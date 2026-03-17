@@ -209,6 +209,7 @@ export class NativeSyncService {
             source: 'native',
             nativeProvider: summary.provider,
             nativeSessionId: summary.nativeSessionId,
+            parentNativeSessionId: summary.parentNativeSessionId ?? null,
             nativeProjectPath: summary.projectPath,
             nativeDiscoveredAt: summary.discoveredAt
         }

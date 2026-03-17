@@ -61,20 +61,22 @@ function getGroupLatestSession(sessions: SessionSummary[]): SessionSummary | nul
 }
 
 function groupNativeChildren(sessions: SessionSummary[]): SessionWithChildren[] {
-    const parentByNativeId = new Map<string, SessionSummary>()
+    // Build map: nativeSessionId → session (for all sessions)
+    const sessionByNativeId = new Map<string, SessionSummary>()
     for (const s of sessions) {
         const nativeId = s.metadata?.nativeSessionId?.trim()
-        if (nativeId && s.metadata?.source !== 'native') {
-            parentByNativeId.set(nativeId, s)
+        if (nativeId) {
+            sessionByNativeId.set(nativeId, s)
         }
     }
 
     const childIds = new Set<string>()
     const childrenByParentId = new Map<string, SessionSummary[]>()
     for (const s of sessions) {
-        const nativeId = s.metadata?.nativeSessionId?.trim()
-        if (!nativeId || s.metadata?.source !== 'native') continue
-        const parent = parentByNativeId.get(nativeId)
+        if (s.metadata?.source !== 'native') continue
+        const parentNativeId = (s.metadata?.parentNativeSessionId as string | null | undefined)?.trim()
+        if (!parentNativeId) continue
+        const parent = sessionByNativeId.get(parentNativeId)
         if (!parent) continue
         childIds.add(s.id)
         const existing = childrenByParentId.get(parent.id) ?? []

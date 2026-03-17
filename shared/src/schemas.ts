@@ -36,6 +36,7 @@ export const MetadataSchema = z.object({
     source: z.enum(['hapi', 'native', 'hybrid']).optional(),
     nativeProvider: z.enum(['claude', 'codex']).optional(),
     nativeSessionId: z.string().optional(),
+    parentNativeSessionId: z.string().nullable().optional(),
     nativeProjectPath: z.string().optional(),
     nativeDiscoveredAt: z.number().optional(),
     nativeLastSyncedAt: z.number().optional(),

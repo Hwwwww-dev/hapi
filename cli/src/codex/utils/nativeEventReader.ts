@@ -16,6 +16,7 @@ export type CodexNativeEventReadResult = {
     sessionId: string | null
     cwd: string | null
     sessionTimestamp: number | null
+    parentSessionId: string | null
 }
 
 export function asRecord(value: unknown): Record<string, unknown> | null {
@@ -69,7 +70,8 @@ export async function readCodexNativeEventFile(
             resetToStart: false,
             sessionId: null,
             cwd: null,
-            sessionTimestamp: null
+            sessionTimestamp: null,
+            parentSessionId: null
         }
     }
 
@@ -82,6 +84,7 @@ export async function readCodexNativeEventFile(
     let sessionId: string | null = null
     let cwd: string | null = null
     let sessionTimestamp: number | null = null
+    let parentSessionId: string | null = null
     let lastCreatedAt = 0
     const entries: CodexNativeEventEntry[] = []
 
@@ -111,6 +114,16 @@ export async function readCodexNativeEventFile(
                     sessionTimestamp = nextTimestamp
                     lastCreatedAt = nextTimestamp
                 }
+                // Extract parent_thread_id from subagent source
+                if (!parentSessionId && payload) {
+                    const source = asRecord(payload.source)
+                    const subagent = source ? asRecord(source.subagent) : null
+                    const threadSpawn = subagent ? asRecord(subagent.thread_spawn) : null
+                    const parentId = threadSpawn ? asString(threadSpawn.parent_thread_id) : null
+                    if (parentId) {
+                        parentSessionId = parentId
+                    }
+                }
             }
 
             if (index < effectiveStartLine) {
@@ -139,6 +152,7 @@ export async function readCodexNativeEventFile(
         resetToStart,
         sessionId,
         cwd,
-        sessionTimestamp
+        sessionTimestamp,
+        parentSessionId
     }
 }
