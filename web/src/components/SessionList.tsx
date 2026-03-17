@@ -12,10 +12,15 @@ import { SESSION_AGENT_TABS, filterSessionsByAgentTab, type SessionAgentTab } fr
 import { getSessionModelLabel } from '@/lib/sessionModelLabel'
 import { useTranslation } from '@/lib/use-translation'
 
+type SessionWithChildren = {
+    session: SessionSummary
+    nativeChildren: SessionSummary[]
+}
+
 type SessionGroup = {
     directory: string
     displayName: string
-    sessions: SessionSummary[]
+    sessions: SessionWithChildren[]
     totalSessions: number
     hasActiveSession: boolean
 }
@@ -55,6 +60,36 @@ function getGroupLatestSession(sessions: SessionSummary[]): SessionSummary | nul
     return latest
 }
 
+function groupNativeChildren(sessions: SessionSummary[]): SessionWithChildren[] {
+    const parentByNativeId = new Map<string, SessionSummary>()
+    for (const s of sessions) {
+        const nativeId = s.metadata?.nativeSessionId?.trim()
+        if (nativeId && s.metadata?.source !== 'native') {
+            parentByNativeId.set(nativeId, s)
+        }
+    }
+
+    const childIds = new Set<string>()
+    const childrenByParentId = new Map<string, SessionSummary[]>()
+    for (const s of sessions) {
+        const nativeId = s.metadata?.nativeSessionId?.trim()
+        if (!nativeId || s.metadata?.source !== 'native') continue
+        const parent = parentByNativeId.get(nativeId)
+        if (!parent) continue
+        childIds.add(s.id)
+        const existing = childrenByParentId.get(parent.id) ?? []
+        existing.push(s)
+        childrenByParentId.set(parent.id, existing)
+    }
+
+    return sessions
+        .filter(s => !childIds.has(s.id))
+        .map(s => ({
+            session: s,
+            nativeChildren: childrenByParentId.get(s.id) ?? []
+        }))
+}
+
 function groupSessionsByDirectory(sessions: SessionSummary[]): SessionGroup[] {
     const groups = new Map<string, SessionSummary[]>()
 
@@ -79,13 +114,14 @@ function groupSessionsByDirectory(sessions: SessionSummary[]): SessionGroup[] {
             const sortedSessions = [...groupSessions]
                 .sort(sortSessionsInGroup)
                 .slice(0, MAX_SESSIONS_PER_DIRECTORY)
+            const withChildren = groupNativeChildren(sortedSessions)
             const hasActiveSession = groupSessions.some(s => s.active)
             const displayName = getGroupDisplayName(directory)
 
             return {
                 directory,
                 displayName,
-                sessions: sortedSessions,
+                sessions: withChildren,
                 totalSessions: groupSessions.length,
                 hasActiveSession
             }
@@ -94,7 +130,9 @@ function groupSessionsByDirectory(sessions: SessionSummary[]): SessionGroup[] {
 
 function getSessionListContentAnimationKey(agentTab: SessionAgentTab, groups: SessionGroup[]): string {
     const snapshot = groups
-        .map((group) => `${group.directory}:${group.sessions.map((session) => session.id).join(',')}`)
+        .map((group) => `${group.directory}:${group.sessions.map((item) =>
+            `${item.session.id}[${item.nativeChildren.map(c => c.id).join('+')}]`
+        ).join(',')}`)
         .join('|')
 
     return `${agentTab}:${snapshot}`
@@ -296,10 +334,12 @@ function getRelativeSessionPath(session: SessionSummary, groupDirectory: string)
 
 function SessionItem(props: {
     session: SessionSummary
+    nativeChildren: SessionSummary[]
     onSelect: (sessionId: string) => void
     groupDirectory: string
     api: ApiClient | null
     selected?: boolean
+    selectedSessionId?: string | null
 }) {
     const { t } = useTranslation()
     const { session: s, onSelect, groupDirectory, api, selected = false } = props
@@ -422,6 +462,32 @@ function SessionItem(props: {
                     </div>
                 ) : null}
             </button>
+
+            {props.nativeChildren.length > 0 && (
+                <div className="ml-3 flex flex-col gap-1 border-l border-dashed border-[var(--app-divider)] pl-3">
+                    {props.nativeChildren.map(child => (
+                        <button
+                            key={child.id}
+                            type="button"
+                            onClick={() => props.onSelect(child.id)}
+                            className={`flex w-full flex-col gap-1 rounded-lg border px-3 py-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] ${child.id === props.selectedSessionId ? 'border-[var(--app-link)] bg-[var(--app-secondary-bg)]' : 'border-[var(--app-divider)] bg-[var(--app-bg)] hover:bg-[var(--app-secondary-bg)]'}`}
+                        >
+                            <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-[var(--app-hint)] shrink-0">↳</span>
+                                <span className="truncate font-medium">{getSessionTitle(child)}</span>
+                                {child.active && (
+                                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${child.thinking ? 'bg-[#007AFF] animate-pulse' : 'bg-[var(--app-badge-success-text)]'}`} />
+                                )}
+                            </div>
+                            {child.metadata?.nativeSessionId ? (
+                                <div className="pl-4 font-mono text-[10px] text-[var(--app-hint)] truncate">
+                                    <span className="font-semibold text-[var(--app-fg)] mr-1">{getNativeOriginLabel(child)}</span>
+                                </div>
+                            ) : null}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             <SessionActionMenu
                 isOpen={menuOpen}
@@ -632,14 +698,16 @@ export function SessionList(props: {
                             {!isCollapsed ? (
                                 <div className="bg-[var(--app-secondary-bg)] p-2">
                                     <div className="flex flex-col gap-2 border-l border-dashed border-[var(--app-divider)] pl-3">
-                                    {group.sessions.map((s) => (
+                                    {group.sessions.map((item) => (
                                         <SessionItem
-                                            key={s.id}
-                                            session={s}
+                                            key={item.session.id}
+                                            session={item.session}
+                                            nativeChildren={item.nativeChildren}
                                             onSelect={props.onSelect}
                                             groupDirectory={group.directory}
                                             api={api}
-                                            selected={s.id === selectedSessionId}
+                                            selected={item.session.id === selectedSessionId}
+                                            selectedSessionId={selectedSessionId}
                                         />
                                     ))}
                                     </div>
