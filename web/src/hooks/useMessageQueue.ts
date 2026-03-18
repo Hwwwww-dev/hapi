@@ -138,16 +138,19 @@ export function useMessageQueue(
             persist([])
             setQueueAndRef([])
 
-            for (let i = 0; i < snapshot.length; i++) {
-                try {
-                    await depsRef.current.sendMessage(snapshot[i].text, snapshot[i].attachments)
-                } catch {
-                    // Restore failed + remaining
-                    const remaining = snapshot.slice(i)
-                    setQueueAndRef(remaining)
-                    persist(remaining)
-                    break
-                }
+            // Concatenate all messages into one
+            const mergedText = snapshot.map(m => m.text).join('\n\n')
+            const mergedAttachments = snapshot.flatMap(m => m.attachments ?? [])
+
+            try {
+                await depsRef.current.sendMessage(
+                    mergedText,
+                    mergedAttachments.length > 0 ? mergedAttachments : undefined,
+                )
+            } catch {
+                // Restore all messages back to queue on failure
+                setQueueAndRef(snapshot)
+                persist(snapshot)
             }
         } finally {
             flushingRef.current = false

@@ -49,7 +49,7 @@ export function MessageQueuePreview(props: {
             <button
                 type="button"
                 aria-label={flushLabel}
-                className="shrink-0 rounded-full bg-[var(--app-link)] px-3 py-1 text-xs text-white hover:opacity-90 cursor-pointer"
+                className="shrink-0 rounded-full bg-[var(--app-button)] px-3 py-1 text-xs text-[var(--app-button-text)] hover:opacity-90 cursor-pointer"
                 onClick={onFlush}
             >
                 {flushLabel}
