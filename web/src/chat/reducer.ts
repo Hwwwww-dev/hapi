@@ -24,7 +24,10 @@ export function reduceChatBlocks(
     agentState: AgentState | null | undefined
 ): { blocks: ChatBlock[]; hasReadyEvent: boolean; latestUsage: LatestUsage | null } {
     const permissionsById = getPermissions(agentState)
-    const toolIdsInMessages = collectToolIdsFromMessages(normalized)
+    // Only collect tool IDs from root messages (not sidechain) to avoid
+    // sidechain tool IDs preventing permission-only ToolCards from being created.
+    const rootNormalized = normalized.filter(m => !m.isSidechain)
+    const toolIdsInMessages = collectToolIdsFromMessages(rootNormalized)
     const titleChangesByToolUseId = collectTitleChanges(normalized)
 
     const traced = traceMessages(normalized)

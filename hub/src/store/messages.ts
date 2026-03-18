@@ -14,6 +14,7 @@ type DbMessageRow = {
     source_provider: 'claude' | 'codex' | null
     source_session_id: string | null
     source_key: string | null
+    is_sidechain: number
 }
 
 function toStoredMessage(row: DbMessageRow): StoredMessage {
@@ -28,6 +29,32 @@ function toStoredMessage(row: DbMessageRow): StoredMessage {
         sourceSessionId: row.source_session_id,
         sourceKey: row.source_key
     }
+}
+
+/**
+ * Extract isSidechain flag from message content at write time.
+ * Checks two JSON paths:
+ *   - content.data.isSidechain  (role-wrapped)
+ *   - data.isSidechain          (direct)
+ */
+function extractIsSidechain(content: unknown): boolean {
+    if (!content || typeof content !== 'object') return false
+    const c = content as Record<string, unknown>
+
+    // Direct: { type: "output", data: { isSidechain: true } }
+    if (c.data && typeof c.data === 'object' && (c.data as Record<string, unknown>).isSidechain === true) {
+        return true
+    }
+
+    // Role-wrapped: { role, content: { type: "output", data: { isSidechain: true } } }
+    if (c.content && typeof c.content === 'object') {
+        const inner = c.content as Record<string, unknown>
+        if (inner.data && typeof inner.data === 'object' && (inner.data as Record<string, unknown>).isSidechain === true) {
+            return true
+        }
+    }
+
+    return false
 }
 
 export type NativeMessageImportPayload = {
@@ -73,12 +100,13 @@ export function addMessage(
 
     const id = randomUUID()
     const json = JSON.stringify(content)
+    const isSidechain = extractIsSidechain(content) ? 1 : 0
 
     db.prepare(`
         INSERT INTO messages (
-            id, session_id, content, created_at, seq, local_id
+            id, session_id, content, created_at, seq, local_id, is_sidechain
         ) VALUES (
-            @id, @session_id, @content, @created_at, @seq, @local_id
+            @id, @session_id, @content, @created_at, @seq, @local_id, @is_sidechain
         )
     `).run({
         id,
@@ -86,7 +114,8 @@ export function addMessage(
         content: json,
         created_at: now,
         seq: msgSeq,
-        local_id: localId ?? null
+        local_id: localId ?? null,
+        is_sidechain: isSidechain
     })
     touchSessionUpdatedAt(db, sessionId, now)
 
@@ -107,17 +136,65 @@ export function getMessages(
 
     const rows = (beforeSeq !== undefined && beforeSeq !== null && Number.isFinite(beforeSeq))
         ? db.prepare(
-            'SELECT * FROM messages WHERE session_id = ? AND seq < ? ORDER BY seq DESC LIMIT ?'
+            `SELECT * FROM messages WHERE session_id = ? AND seq < ? ORDER BY seq DESC LIMIT ?`
         ).all(sessionId, beforeSeq, safeLimit) as DbMessageRow[]
         : db.prepare(
-            'SELECT * FROM messages WHERE session_id = ? ORDER BY seq DESC LIMIT ?'
+            `SELECT * FROM messages WHERE session_id = ? ORDER BY seq DESC LIMIT ?`
         ).all(sessionId, safeLimit) as DbMessageRow[]
 
     return rows.reverse().map(toStoredMessage)
 }
 
+/**
+ * Get root (non-sidechain) messages for pagination.
+ */
+export function getRootMessages(
+    db: Database,
+    sessionId: string,
+    limit: number = 200,
+    beforeSeq?: number
+): StoredMessage[] {
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(200, limit)) : 200
+
+    const rows = (beforeSeq !== undefined && beforeSeq !== null && Number.isFinite(beforeSeq))
+        ? db.prepare(
+            `SELECT * FROM messages WHERE session_id = ? AND seq < ? AND is_sidechain = 0 ORDER BY seq DESC LIMIT ?`
+        ).all(sessionId, beforeSeq, safeLimit) as DbMessageRow[]
+        : db.prepare(
+            `SELECT * FROM messages WHERE session_id = ? AND is_sidechain = 0 ORDER BY seq DESC LIMIT ?`
+        ).all(sessionId, safeLimit) as DbMessageRow[]
+
+    return rows.reverse().map(toStoredMessage)
+}
+
+/**
+ * Get sidechain messages within a seq range (inclusive).
+ */
+export function getSidechainMessagesInRange(
+    db: Database,
+    sessionId: string,
+    minSeq: number,
+    maxSeq: number
+): StoredMessage[] {
+    const rows = db.prepare(
+        `SELECT * FROM messages WHERE session_id = ? AND seq >= ? AND seq <= ? AND is_sidechain = 1 ORDER BY seq ASC`
+    ).all(sessionId, minSeq, maxSeq) as DbMessageRow[]
+
+    return rows.map(toStoredMessage)
+}
+
 export function countMessages(db: Database, sessionId: string): number {
     const row = db.prepare('SELECT COUNT(*) as count FROM messages WHERE session_id = ?').get(sessionId) as { count: number } | undefined
+    return row?.count ?? 0
+}
+
+/**
+ * Count only root (non-sidechain) messages.
+ */
+export function countRootMessages(db: Database, sessionId: string): number {
+    const row = db.prepare(
+        `SELECT COUNT(*) as count FROM messages WHERE session_id = ? AND is_sidechain = 0`
+    ).get(sessionId) as { count: number } | undefined
     return row?.count ?? 0
 }
 
@@ -151,11 +228,12 @@ export function importNativeMessage(
             }
         }
 
+        const updatedIsSidechain = extractIsSidechain(payload.content) ? 1 : 0
         db.prepare(`
             UPDATE messages
-            SET content = ?, created_at = ?
+            SET content = ?, created_at = ?, is_sidechain = ?
             WHERE id = ?
-        `).run(nextContentJson, payload.createdAt, existing.id)
+        `).run(nextContentJson, payload.createdAt, updatedIsSidechain, existing.id)
 
         const updated = db.prepare('SELECT * FROM messages WHERE id = ?').get(existing.id) as DbMessageRow | undefined
         if (!updated) {
@@ -173,14 +251,15 @@ export function importNativeMessage(
         'SELECT COALESCE(MAX(seq), 0) + 1 AS nextSeq FROM messages WHERE session_id = ?'
     ).get(sessionId) as { nextSeq: number }
     const id = randomUUID()
+    const isSidechain = extractIsSidechain(payload.content) ? 1 : 0
 
     db.prepare(`
         INSERT INTO messages (
             id, session_id, content, created_at, seq, local_id,
-            source_provider, source_session_id, source_key
+            source_provider, source_session_id, source_key, is_sidechain
         ) VALUES (
             @id, @session_id, @content, @created_at, @seq, NULL,
-            @source_provider, @source_session_id, @source_key
+            @source_provider, @source_session_id, @source_key, @is_sidechain
         )
     `).run({
         id,
@@ -190,7 +269,8 @@ export function importNativeMessage(
         seq: msgSeqRow.nextSeq,
         source_provider: payload.sourceProvider,
         source_session_id: payload.sourceSessionId,
-        source_key: payload.sourceKey
+        source_key: payload.sourceKey,
+        is_sidechain: isSidechain
     })
 
     const inserted = db.prepare('SELECT * FROM messages WHERE id = ?').get(id) as DbMessageRow | undefined

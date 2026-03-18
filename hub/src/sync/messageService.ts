@@ -23,9 +23,21 @@ export class MessageService {
             total: number
         }
     } {
-        const stored = this.store.messages.getMessages(sessionId, options.limit, options.beforeSeq ?? undefined)
-        const total = this.store.messages.countMessages(sessionId)
-        const messages: DecryptedMessage[] = stored.map((message) => ({
+        // 1. Fetch root (non-sidechain) messages for pagination
+        const rootStored = this.store.messages.getRootMessages(sessionId, options.limit, options.beforeSeq ?? undefined)
+        const totalRoot = this.store.messages.countRootMessages(sessionId)
+
+        // 2. Determine seq range of root messages, then fetch sidechain messages in that range
+        let allStored = rootStored
+        if (rootStored.length > 0) {
+            const minSeq = rootStored[0].seq
+            const maxSeq = rootStored[rootStored.length - 1].seq
+            const sidechainStored = this.store.messages.getSidechainMessagesInRange(sessionId, minSeq, maxSeq)
+            // Merge and sort by seq
+            allStored = [...rootStored, ...sidechainStored].sort((a, b) => a.seq - b.seq)
+        }
+
+        const messages: DecryptedMessage[] = allStored.map((message) => ({
             id: message.id,
             seq: message.seq,
             localId: message.localId,
@@ -33,17 +45,18 @@ export class MessageService {
             createdAt: message.createdAt
         }))
 
-        let oldestSeq: number | null = null
-        for (const message of messages) {
-            if (typeof message.seq !== 'number') continue
-            if (oldestSeq === null || message.seq < oldestSeq) {
-                oldestSeq = message.seq
+        // 3. Compute pagination based on root messages only
+        let oldestRootSeq: number | null = null
+        for (const msg of rootStored) {
+            if (typeof msg.seq !== 'number') continue
+            if (oldestRootSeq === null || msg.seq < oldestRootSeq) {
+                oldestRootSeq = msg.seq
             }
         }
 
-        const nextBeforeSeq = oldestSeq
+        const nextBeforeSeq = oldestRootSeq
         const hasMore = nextBeforeSeq !== null
-            && this.store.messages.getMessages(sessionId, 1, nextBeforeSeq).length > 0
+            && this.store.messages.getRootMessages(sessionId, 1, nextBeforeSeq).length > 0
 
         return {
             messages,
@@ -52,7 +65,7 @@ export class MessageService {
                 beforeSeq: options.beforeSeq,
                 nextBeforeSeq,
                 hasMore,
-                total
+                total: totalRoot
             }
         }
     }

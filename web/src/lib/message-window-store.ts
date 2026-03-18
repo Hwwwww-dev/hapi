@@ -1,7 +1,7 @@
 import type { ApiClient } from '@/api/client'
 import type { DecryptedMessage, MessageStatus } from '@/types/api'
 import { normalizeDecryptedMessage } from '@/chat/normalize'
-import { isUserMessage, mergeMessages } from '@/lib/messages'
+import { isUserMessage, isSidechainMessage, mergeMessages } from '@/lib/messages'
 
 export type MessageWindowState = {
     sessionId: string
@@ -420,6 +420,7 @@ function flushIngestBuffers(): void {
 function applyIncomingMessages(sessionId: string, incoming: DecryptedMessage[]): void {
     updateState(sessionId, (prev) => {
         const incomingNewCount = incoming.filter(msg =>
+            !isSidechainMessage(msg) &&
             !prev.messages.some(m => m.id === msg.id) &&
             !prev.pending.some(m => m.id === msg.id)
         ).length

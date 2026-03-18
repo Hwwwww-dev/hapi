@@ -16,6 +16,31 @@ export function isUserMessage(msg: DecryptedMessage): boolean {
     return false
 }
 
+/**
+ * Check if a message is a sidechain message (agent sub-task internal message).
+ * Matches the same JSON paths used by the backend filter.
+ */
+export function isSidechainMessage(msg: DecryptedMessage): boolean {
+    const content = msg.content
+    if (!content || typeof content !== 'object') return false
+    const c = content as Record<string, unknown>
+
+    // Direct format: { type: "output", data: { isSidechain: true } }
+    if (c.data && typeof c.data === 'object' && (c.data as Record<string, unknown>).isSidechain === true) {
+        return true
+    }
+
+    // Role-wrapped: { role, content: { type: "output", data: { isSidechain: true } } }
+    if (c.content && typeof c.content === 'object') {
+        const inner = c.content as Record<string, unknown>
+        if (inner.data && typeof inner.data === 'object' && (inner.data as Record<string, unknown>).isSidechain === true) {
+            return true
+        }
+    }
+
+    return false
+}
+
 function isOptimisticMessage(msg: DecryptedMessage): boolean {
     return Boolean(msg.localId && msg.id === msg.localId)
 }

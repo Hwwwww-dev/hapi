@@ -25,7 +25,7 @@ export { PushStore } from './pushStore'
 export { SessionStore } from './sessionStore'
 export { UserStore } from './userStore'
 
-const SCHEMA_VERSION: number = 7
+const SCHEMA_VERSION: number = 8
 const REQUIRED_TABLES = [
     'sessions',
     'session_native_aliases',
@@ -170,6 +170,27 @@ export class Store {
             return
         }
 
+        if (currentVersion === 5 && SCHEMA_VERSION === 8) {
+            this.migrateFromV5ToV6()
+            this.migrateFromV6ToV7()
+            this.migrateFromV7ToV8()
+            this.setUserVersion(SCHEMA_VERSION)
+            return
+        }
+
+        if (currentVersion === 6 && SCHEMA_VERSION === 8) {
+            this.migrateFromV6ToV7()
+            this.migrateFromV7ToV8()
+            this.setUserVersion(SCHEMA_VERSION)
+            return
+        }
+
+        if (currentVersion === 7 && SCHEMA_VERSION === 8) {
+            this.migrateFromV7ToV8()
+            this.setUserVersion(SCHEMA_VERSION)
+            return
+        }
+
         if (currentVersion !== SCHEMA_VERSION) {
             throw this.buildSchemaMismatchError(currentVersion)
         }
@@ -243,6 +264,7 @@ export class Store {
                 source_provider TEXT,
                 source_session_id TEXT,
                 source_key TEXT,
+                is_sidechain INTEGER NOT NULL DEFAULT 0,
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             );
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, seq);
@@ -250,6 +272,7 @@ export class Store {
             CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_native_source
             ON messages(session_id, source_provider, source_session_id, source_key)
             WHERE source_key IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_messages_sidechain ON messages(session_id, is_sidechain, seq);
 
             CREATE TABLE IF NOT EXISTS native_sync_state (
                 session_id TEXT PRIMARY KEY,
@@ -461,6 +484,19 @@ export class Store {
         this.db.exec(`
             ALTER TABLE sessions ADD COLUMN deleted_at INTEGER DEFAULT NULL
         `)
+    }
+
+    private migrateFromV7ToV8(): void {
+        // Add is_sidechain column
+        this.db.exec(`ALTER TABLE messages ADD COLUMN is_sidechain INTEGER NOT NULL DEFAULT 0`)
+        // Backfill existing messages
+        this.db.exec(`
+            UPDATE messages SET is_sidechain = 1
+            WHERE COALESCE(json_extract(content, '$.content.data.isSidechain'), 0) = 1
+               OR COALESCE(json_extract(content, '$.data.isSidechain'), 0) = 1
+        `)
+        // Create index for efficient filtering
+        this.db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_sidechain ON messages(session_id, is_sidechain, seq)`)
     }
 
     private getSessionColumnNames(): Set<string> {
