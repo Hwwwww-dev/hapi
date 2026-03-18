@@ -354,8 +354,8 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
                         className={`${baseItemClassName} text-red-500 hover:bg-red-500/10`}
                         onClick={handleArchive}
                     >
-                        <ArchiveIcon className="text-red-500" />
-                        {t('session.action.archive')}
+                        <ConnectionIcon active={sessionActive} className="text-red-500" />
+                        {t('session.chat.disconnect')}
                     </button>
                 ) : null}
 

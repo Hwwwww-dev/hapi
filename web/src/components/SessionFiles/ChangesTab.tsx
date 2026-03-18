@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react'
 import type { ApiClient } from '@/api/client'
 import type { GitStatusFiles, GitFileStatus } from '@/types/api'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { useTranslation } from '@/lib/use-translation'
 import { GitToolbar } from './GitToolbar'
 import { GitFileRow } from './GitFileRow'
 import { StashSheet } from './StashSheet'
@@ -15,6 +17,7 @@ type ChangesTabProps = {
 }
 
 export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, onRefresh }: ChangesTabProps) {
+    const { t } = useTranslation()
     const [commitMessage, setCommitMessage] = useState('')
     const [gitActionLoading, setGitActionLoading] = useState<'fetch' | 'pull' | 'push' | null>(null)
     const [gitActionError, setGitActionError] = useState<string | null>(null)
@@ -22,6 +25,7 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
     const [stashOpen, setStashOpen] = useState(false)
     const [stagedExpanded, setStagedExpanded] = useState(true)
     const [unstagedExpanded, setUnstagedExpanded] = useState(true)
+    const [confirmAction, setConfirmAction] = useState<'fetch' | 'pull' | 'push' | 'commit' | null>(null)
 
     const staged = gitStatus?.stagedFiles ?? []
     const unstaged = gitStatus?.unstagedFiles ?? []
@@ -31,8 +35,13 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
         setGitActionError(null)
         const res = await fn()
         setGitActionLoading(null)
-        if (!res.success) setGitActionError(res.stderr ?? res.error ?? `${action} failed`)
-        else onRefresh()
+        if (!res.success) {
+            const msg = res.stderr ?? res.error ?? `${action} failed`
+            setGitActionError(msg)
+            throw new Error(msg)
+        }
+        setConfirmAction(null)
+        onRefresh()
     }, [onRefresh])
 
     const handleStage = useCallback(async (file: GitFileStatus) => {
@@ -60,9 +69,12 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
         setCommitLoading(false)
         if (res.success) {
             setCommitMessage('')
+            setConfirmAction(null)
             onRefresh()
         } else {
-            setGitActionError(res.stderr ?? res.error ?? 'Commit failed')
+            const msg = res.stderr ?? res.error ?? 'Commit failed'
+            setGitActionError(msg)
+            throw new Error(msg)
         }
     }, [api, sessionId, commitMessage, staged.length, onRefresh])
 
@@ -78,9 +90,9 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
     return (
         <div className="flex flex-col flex-1 overflow-hidden">
             <GitToolbar
-                onFetch={() => runGitAction('fetch', () => api.gitFetch(sessionId))}
-                onPull={() => runGitAction('pull', () => api.gitPull(sessionId))}
-                onPush={() => runGitAction('push', () => api.gitPush(sessionId))}
+                onFetch={() => setConfirmAction('fetch')}
+                onPull={() => setConfirmAction('pull')}
+                onPush={() => setConfirmAction('push')}
                 onStash={() => setStashOpen(true)}
                 loading={gitActionLoading}
                 error={gitActionError}
@@ -118,7 +130,7 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
                 />
                 <button
                     type="button"
-                    onClick={handleCommit}
+                    onClick={() => setConfirmAction('commit')}
                     disabled={commitLoading || !commitMessage.trim() || staged.length === 0}
                     className="text-xs px-3 py-1.5 rounded bg-[var(--app-link)] text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
                 >
@@ -126,6 +138,48 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
                 </button>
             </div>
             <StashSheet api={api} sessionId={sessionId} open={stashOpen} onClose={() => setStashOpen(false)} onStashChanged={onRefresh} />
+
+            {/* Git action confirm dialogs */}
+            <ConfirmDialog
+                isOpen={confirmAction === 'fetch'}
+                onClose={() => setConfirmAction(null)}
+                title={t('dialog.git.fetch.title')}
+                description={t('dialog.git.fetch.description')}
+                confirmLabel={t('dialog.git.fetch.confirm')}
+                confirmingLabel={t('dialog.git.fetch.confirming')}
+                onConfirm={async () => { await runGitAction('fetch', () => api.gitFetch(sessionId)) }}
+                isPending={gitActionLoading === 'fetch'}
+            />
+            <ConfirmDialog
+                isOpen={confirmAction === 'pull'}
+                onClose={() => setConfirmAction(null)}
+                title={t('dialog.git.pull.title')}
+                description={t('dialog.git.pull.description')}
+                confirmLabel={t('dialog.git.pull.confirm')}
+                confirmingLabel={t('dialog.git.pull.confirming')}
+                onConfirm={async () => { await runGitAction('pull', () => api.gitPull(sessionId)) }}
+                isPending={gitActionLoading === 'pull'}
+            />
+            <ConfirmDialog
+                isOpen={confirmAction === 'push'}
+                onClose={() => setConfirmAction(null)}
+                title={t('dialog.git.push.title')}
+                description={t('dialog.git.push.description')}
+                confirmLabel={t('dialog.git.push.confirm')}
+                confirmingLabel={t('dialog.git.push.confirming')}
+                onConfirm={async () => { await runGitAction('push', () => api.gitPush(sessionId)) }}
+                isPending={gitActionLoading === 'push'}
+            />
+            <ConfirmDialog
+                isOpen={confirmAction === 'commit'}
+                onClose={() => setConfirmAction(null)}
+                title={t('dialog.git.commit.title')}
+                description={t('dialog.git.commit.description', { n: staged.length })}
+                confirmLabel={t('dialog.git.commit.confirm')}
+                confirmingLabel={t('dialog.git.commit.confirming')}
+                onConfirm={handleCommit}
+                isPending={commitLoading}
+            />
         </div>
     )
 }

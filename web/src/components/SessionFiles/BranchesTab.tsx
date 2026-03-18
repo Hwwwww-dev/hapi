@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { ApiClient } from '@/api/client'
 import { useGitBranches } from '@/hooks/queries/useGitBranches'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { useTranslation } from '@/lib/use-translation'
 import type { GitBranchEntry } from '@/types/api'
 
 type BranchesTabProps = {
@@ -11,6 +13,7 @@ type BranchesTabProps = {
 }
 
 export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: BranchesTabProps) {
+    const { t } = useTranslation()
     const [searchQuery, setSearchQuery] = useState('')
     const [showCreateInput, setShowCreateInput] = useState(false)
     const [newBranchName, setNewBranchName] = useState('')
@@ -19,6 +22,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
     const [error, setError] = useState<string | null>(null)
     const [localExpanded, setLocalExpanded] = useState(true)
     const [remoteExpanded, setRemoteExpanded] = useState(true)
+    const [confirmBranch, setConfirmBranch] = useState<GitBranchEntry | null>(null)
 
     const { local, remote, isLoading, error: fetchError, refetch } = useGitBranches(api, sessionId, currentBranch)
 
@@ -28,15 +32,23 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
 
     const handleCheckout = async (branch: GitBranchEntry) => {
         if (branch.isCurrent) return
-        setActionLoading(branch.name)
+        setConfirmBranch(branch)
+    }
+
+    const executeCheckout = async () => {
+        if (!confirmBranch) return
+        setActionLoading(confirmBranch.name)
         setError(null)
         try {
-            const res = await api.gitCheckout(sessionId, branch.name)
+            const res = await api.gitCheckout(sessionId, confirmBranch.name)
             if (res.success) {
+                setConfirmBranch(null)
                 await refetch()
                 onBranchChanged()
             } else {
-                setError(res.stderr ?? res.error ?? 'Checkout failed')
+                const msg = res.stderr ?? res.error ?? 'Checkout failed'
+                setError(msg)
+                throw new Error(msg)
             }
         } finally {
             setActionLoading(null)
@@ -181,6 +193,16 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                     </button>
                 )}
             </div>
+            <ConfirmDialog
+                isOpen={confirmBranch !== null}
+                onClose={() => setConfirmBranch(null)}
+                title={t('dialog.git.checkout.title')}
+                description={t('dialog.git.checkout.description', { branch: confirmBranch?.name ?? '' })}
+                confirmLabel={t('dialog.git.checkout.confirm')}
+                confirmingLabel={t('dialog.git.checkout.confirming')}
+                onConfirm={executeCheckout}
+                isPending={actionLoading !== null}
+            />
         </div>
     )
 }

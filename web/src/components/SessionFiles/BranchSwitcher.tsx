@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ApiClient } from '@/api/client'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { useTranslation } from '@/lib/use-translation'
 
 interface Props {
     api: ApiClient
@@ -10,11 +12,13 @@ interface Props {
 }
 
 export function BranchSwitcher({ api, sessionId, currentBranch, hasBlockingChanges, onSwitched }: Props) {
+    const { t } = useTranslation()
     const [open, setOpen] = useState(false)
     const [branches, setBranches] = useState<string[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [switching, setSwitching] = useState(false)
+    const [confirmBranch, setConfirmBranch] = useState<string | null>(null)
     const containerRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -49,15 +53,22 @@ export function BranchSwitcher({ api, sessionId, currentBranch, hasBlockingChang
             setError('You have uncommitted changes. Please commit or stash them before switching branches.')
             return
         }
+        setOpen(false)
+        setConfirmBranch(branch)
+    }
+
+    const executeCheckout = async () => {
+        if (!confirmBranch) return
         setSwitching(true)
         setError(null)
-        const res = await api.gitCheckout(sessionId, branch)
+        const res = await api.gitCheckout(sessionId, confirmBranch)
         setSwitching(false)
         if (res.success) {
-            setOpen(false)
+            setConfirmBranch(null)
             onSwitched()
         } else {
-            setError(res.stderr ?? res.error ?? 'Checkout failed')
+            const msg = res.stderr ?? res.error ?? 'Checkout failed'
+            throw new Error(msg)
         }
     }
 
@@ -97,6 +108,16 @@ export function BranchSwitcher({ api, sessionId, currentBranch, hasBlockingChang
                     ))}
                 </div>
             )}
+            <ConfirmDialog
+                isOpen={confirmBranch !== null}
+                onClose={() => setConfirmBranch(null)}
+                title={t('dialog.git.checkout.title')}
+                description={t('dialog.git.checkout.description', { branch: confirmBranch ?? '' })}
+                confirmLabel={t('dialog.git.checkout.confirm')}
+                confirmingLabel={t('dialog.git.checkout.confirming')}
+                onConfirm={executeCheckout}
+                isPending={switching}
+            />
         </div>
     )
 }

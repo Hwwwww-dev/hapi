@@ -80,7 +80,7 @@ export default {
 
   // Session actions
   'session.action.rename': '重命名',
-  'session.action.archive': '归档',
+  'session.action.archive': '取消连接',
   'session.action.delete': '删除',
   'session.action.copy': '复制',
 
@@ -91,16 +91,38 @@ export default {
   'dialog.rename.saving': '保存中…',
   'dialog.rename.error': '重命名失败，请重试。',
 
-  'dialog.archive.title': '归档会话',
-  'dialog.archive.description': '确定要归档 "{name}" 吗？这将断开活动会话。',
-  'dialog.archive.confirm': '归档',
-  'dialog.archive.confirming': '归档中…',
+  'dialog.archive.title': '取消连接',
+  'dialog.archive.description': '确定要断开 "{name}" 的连接吗？这将停止活动会话。',
+  'dialog.archive.confirm': '取消连接',
+  'dialog.archive.confirming': '断开中…',
 
   'dialog.delete.title': '删除会话',
   'dialog.delete.description': '确定要删除 "{name}" 吗？此操作无法撤销。',
   'dialog.delete.confirm': '删除',
   'dialog.delete.confirming': '删除中…',
   'dialog.error.default': '操作失败，请重试。',
+
+  // Git confirm dialogs
+  'dialog.git.fetch.title': '拉取远程信息',
+  'dialog.git.fetch.description': '确定要执行 git fetch 吗？这将从远程仓库获取最新信息。',
+  'dialog.git.fetch.confirm': '执行 Fetch',
+  'dialog.git.fetch.confirming': '执行中…',
+  'dialog.git.pull.title': '拉取远程代码',
+  'dialog.git.pull.description': '确定要执行 git pull 吗？这将合并远程分支的更改到当前分支。',
+  'dialog.git.pull.confirm': '执行 Pull',
+  'dialog.git.pull.confirming': '执行中…',
+  'dialog.git.push.title': '推送到远程',
+  'dialog.git.push.description': '确定要执行 git push 吗？这将把本地提交推送到远程仓库。',
+  'dialog.git.push.confirm': '执行 Push',
+  'dialog.git.push.confirming': '执行中…',
+  'dialog.git.commit.title': '提交更改',
+  'dialog.git.commit.description': '确定要提交 {n} 个已暂存的文件吗？',
+  'dialog.git.commit.confirm': '提交',
+  'dialog.git.commit.confirming': '提交中…',
+  'dialog.git.checkout.title': '切换分支',
+  'dialog.git.checkout.description': '确定要切换到分支 "{branch}" 吗？',
+  'dialog.git.checkout.confirm': '切换',
+  'dialog.git.checkout.confirming': '切换中…',
 
   // Common buttons
   'button.cancel': '取消',
