@@ -22,6 +22,14 @@ const gitStageSchema = z.object({ filePath: z.string().min(1), stage: z.boolean(
 const gitCommitSchema = z.object({ message: z.string().min(1) })
 const gitFetchSchema = z.object({ remote: z.string().optional() })
 const gitPullSchema = z.object({ remote: z.string().optional(), branch: z.string().optional() })
+const gitPushSchema = z.object({ remote: z.string().optional(), branch: z.string().optional() })
+const gitLogSchema = z.object({ limit: z.coerce.number().int().min(1).max(500).optional(), skip: z.coerce.number().int().min(0).optional() })
+const gitCreateBranchSchema = z.object({ name: z.string().min(1), from: z.string().optional() })
+const gitDeleteBranchSchema = z.object({ name: z.string().min(1), force: z.boolean().optional() })
+const gitStashSchema = z.object({ message: z.string().optional() })
+const gitStashPopSchema = z.object({ index: z.number().int().min(0).optional() })
+const gitMergeSchema = z.object({ branch: z.string().min(1) })
+const gitDiscardChangesSchema = z.object({ filePath: z.string().min(1) })
 
 function parseBooleanParam(value: string | undefined): boolean | undefined {
     if (value === 'true') return true
@@ -306,6 +314,132 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         const body = z.object({ filePath: z.string().min(1) }).safeParse(await c.req.json())
         if (!body.success) return c.json({ error: 'Invalid request' }, 400)
         const result = await runRpc(() => engine.gitRollbackFile(sessionResult.sessionId, { cwd: sessionPath, filePath: body.data.filePath }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-push', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitPushSchema.safeParse(await c.req.json().catch(() => ({})))
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitPush(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.get('/sessions/:id/git-log', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const parsed = gitLogSchema.safeParse(c.req.query())
+        if (!parsed.success) return c.json({ error: 'Invalid query' }, 400)
+        const result = await runRpc(() => engine.gitLog(sessionResult.sessionId, { cwd: sessionPath, limit: parsed.data.limit, skip: parsed.data.skip }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-create-branch', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitCreateBranchSchema.safeParse(await c.req.json())
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitCreateBranch(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-delete-branch', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitDeleteBranchSchema.safeParse(await c.req.json())
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitDeleteBranch(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-stash', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitStashSchema.safeParse(await c.req.json().catch(() => ({})))
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitStash(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-stash-pop', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitStashPopSchema.safeParse(await c.req.json().catch(() => ({})))
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitStashPop(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.get('/sessions/:id/git-stash-list', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const result = await runRpc(() => engine.gitStashList(sessionResult.sessionId, { cwd: sessionPath }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-merge', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitMergeSchema.safeParse(await c.req.json())
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitMerge(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-discard-changes', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitDiscardChangesSchema.safeParse(await c.req.json())
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitDiscardChanges(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.get('/sessions/:id/git-remote-branches', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const result = await runRpc(() => engine.gitRemoteBranches(sessionResult.sessionId, { cwd: sessionPath }))
         return c.json(result)
     })
 

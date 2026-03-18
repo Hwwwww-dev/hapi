@@ -1,3 +1,4 @@
+/** @deprecated Use ChangesTab instead. Kept for reference during migration. */
 import { useState } from 'react'
 import type { ApiClient } from '@/api/client'
 import type { GitStatusFiles } from '@/types/api'

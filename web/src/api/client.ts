@@ -306,6 +306,78 @@ export class ApiClient {
         })
     }
 
+    async gitPush(sessionId: string, remote?: string, branch?: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-push`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...(remote ? { remote } : {}), ...(branch ? { branch } : {}) })
+        })
+    }
+
+    async gitLog(sessionId: string, limit?: number, skip?: number): Promise<GitCommandResponse> {
+        const params = new URLSearchParams()
+        if (limit !== undefined) params.set('limit', String(limit))
+        if (skip !== undefined) params.set('skip', String(skip))
+        const qs = params.toString()
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-log${qs ? `?${qs}` : ''}`)
+    }
+
+    async gitCreateBranch(sessionId: string, name: string, from?: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-create-branch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, ...(from ? { from } : {}) })
+        })
+    }
+
+    async gitDeleteBranch(sessionId: string, name: string, force?: boolean): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-delete-branch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, ...(force !== undefined ? { force } : {}) })
+        })
+    }
+
+    async gitStash(sessionId: string, message?: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-stash`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(message ? { message } : {})
+        })
+    }
+
+    async gitStashPop(sessionId: string, index?: number): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-stash-pop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(index !== undefined ? { index } : {})
+        })
+    }
+
+    async gitStashList(sessionId: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-stash-list`)
+    }
+
+    async gitMerge(sessionId: string, branch: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-merge`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ branch })
+        })
+    }
+
+    async gitDiscardChanges(sessionId: string, filePath: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-discard-changes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filePath })
+        })
+    }
+
+    async gitRemoteBranches(sessionId: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-remote-branches`)
+    }
+
     async searchSessionFiles(sessionId: string, query: string, limit?: number): Promise<FileSearchResponse> {
         const params = new URLSearchParams()
         if (query) {

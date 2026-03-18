@@ -176,4 +176,87 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         if (data.branch) args.push(data.branch)
         return await runGitCommand(args, resolved.cwd, data.timeout ?? 60_000)
     })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; filePath: string; timeout?: number }, GitCommandResponse>('git-rollback-file', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        const fileError = validateFilePath(data.filePath, workingDirectory)
+        if (fileError) return rpcError(fileError)
+        return await runGitCommand(['checkout', 'HEAD', '--', data.filePath], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; remote?: string; branch?: string; timeout?: number }, GitCommandResponse>('git-push', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        const args = ['push']
+        if (data.remote) args.push(data.remote)
+        if (data.branch) args.push(data.branch)
+        return await runGitCommand(args, resolved.cwd, data.timeout ?? 60_000)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; limit?: number; skip?: number; timeout?: number }, GitCommandResponse>('git-log', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        const limit = Math.min(Math.max(data.limit ?? 50, 1), 500)
+        const args = ['log', '--format=%H%x00%h%x00%an%x00%ae%x00%at%x00%s', '-n', String(limit)]
+        if (data.skip && data.skip > 0) args.push('--skip=' + String(data.skip))
+        return await runGitCommand(args, resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; name: string; from?: string; timeout?: number }, GitCommandResponse>('git-create-branch', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.name || typeof data.name !== 'string') return rpcError('branch name is required')
+        const args = ['checkout', '-b', data.name]
+        if (data.from) args.push(data.from)
+        return await runGitCommand(args, resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; name: string; force?: boolean; timeout?: number }, GitCommandResponse>('git-delete-branch', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.name || typeof data.name !== 'string') return rpcError('branch name is required')
+        return await runGitCommand(['branch', data.force ? '-D' : '-d', data.name], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; message?: string; timeout?: number }, GitCommandResponse>('git-stash', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        const args = data.message ? ['stash', 'push', '-m', data.message] : ['stash']
+        return await runGitCommand(args, resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; index?: number; timeout?: number }, GitCommandResponse>('git-stash-pop', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        const args = data.index !== undefined ? ['stash', 'pop', String(data.index)] : ['stash', 'pop']
+        return await runGitCommand(args, resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; timeout?: number }, GitCommandResponse>('git-stash-list', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        return await runGitCommand(['stash', 'list'], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; branch: string; timeout?: number }, GitCommandResponse>('git-merge', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.branch || typeof data.branch !== 'string') return rpcError('branch name is required')
+        return await runGitCommand(['merge', data.branch], resolved.cwd, data.timeout ?? 30_000)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; filePath: string; timeout?: number }, GitCommandResponse>('git-discard-changes', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        const fileError = validateFilePath(data.filePath, workingDirectory)
+        if (fileError) return rpcError(fileError)
+        return await runGitCommand(['checkout', '--', data.filePath], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; timeout?: number }, GitCommandResponse>('git-remote-branches', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        return await runGitCommand(['branch', '-r', '--format=%(refname:short)'], resolved.cwd, data.timeout)
+    })
 }

@@ -1,4 +1,4 @@
-import type { GitFileStatus, GitStatusFiles } from '@/types/api'
+import type { CommitEntry, GitBranchEntry, GitFileStatus, GitStatusFiles, StashEntry } from '@/types/api'
 
 export type GitFileEntryV2 = {
     path: string
@@ -343,4 +343,45 @@ function normalizeNumstatPath(rawPath: string): { newPath: string; oldPath?: str
     }
 
     return { newPath: trimmed }
+}
+
+export function parseGitLog(stdout: string): CommitEntry[] {
+    if (!stdout.trim()) return []
+    return stdout.trim().split('\n').map((line) => {
+        const parts = line.split('\0')
+        if (parts.length < 6) return null
+        return {
+            hash: parts[0],
+            short: parts[1],
+            author: parts[2],
+            email: parts[3],
+            date: parseInt(parts[4], 10),
+            subject: parts[5]
+        }
+    }).filter((entry): entry is CommitEntry => entry !== null)
+}
+
+export function parseBranchList(stdout: string, isRemote: boolean, currentBranch: string | null): GitBranchEntry[] {
+    if (!stdout.trim()) return []
+    return stdout.trim().split('\n').map((line) => {
+        const name = line.trim()
+        if (!name) return null
+        return {
+            name,
+            isCurrent: !isRemote && name === currentBranch,
+            isRemote
+        }
+    }).filter((entry): entry is GitBranchEntry => entry !== null)
+}
+
+export function parseStashList(stdout: string): StashEntry[] {
+    if (!stdout.trim()) return []
+    return stdout.trim().split('\n').map((line) => {
+        const match = line.match(/^stash@\{(\d+)\}:\s*(.*)$/)
+        if (!match) return null
+        return {
+            index: parseInt(match[1], 10),
+            message: match[2]
+        }
+    }).filter((entry): entry is StashEntry => entry !== null)
 }

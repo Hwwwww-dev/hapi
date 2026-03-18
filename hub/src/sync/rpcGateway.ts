@@ -229,6 +229,46 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-rollback-file', options) as RpcCommandResponse
     }
 
+    async gitPush(sessionId: string, options: { cwd?: string; remote?: string; branch?: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-push', options) as RpcCommandResponse
+    }
+
+    async gitLog(sessionId: string, options: { cwd?: string; limit?: number; skip?: number }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-log', options) as RpcCommandResponse
+    }
+
+    async gitCreateBranch(sessionId: string, options: { cwd?: string; name: string; from?: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-create-branch', options) as RpcCommandResponse
+    }
+
+    async gitDeleteBranch(sessionId: string, options: { cwd?: string; name: string; force?: boolean }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-delete-branch', options) as RpcCommandResponse
+    }
+
+    async gitStash(sessionId: string, options: { cwd?: string; message?: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-stash', options) as RpcCommandResponse
+    }
+
+    async gitStashPop(sessionId: string, options: { cwd?: string; index?: number }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-stash-pop', options) as RpcCommandResponse
+    }
+
+    async gitStashList(sessionId: string, options: { cwd?: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-stash-list', options) as RpcCommandResponse
+    }
+
+    async gitMerge(sessionId: string, options: { cwd?: string; branch: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-merge', options) as RpcCommandResponse
+    }
+
+    async gitDiscardChanges(sessionId: string, options: { cwd?: string; filePath: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-discard-changes', options) as RpcCommandResponse
+    }
+
+    async gitRemoteBranches(sessionId: string, options: { cwd?: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-remote-branches', options) as RpcCommandResponse
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.sessionRpc(sessionId, 'readFile', { path }) as RpcReadFileResponse
     }

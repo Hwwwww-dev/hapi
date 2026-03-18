@@ -14,6 +14,9 @@ export const queryKeys = {
         path,
         staged ? 'staged' : 'unstaged'
     ] as const,
+    gitLog: (sessionId: string) => ['git-log', sessionId] as const,
+    gitBranches: (sessionId: string) => ['git-branches', sessionId] as const,
+    gitStashList: (sessionId: string) => ['git-stash-list', sessionId] as const,
     slashCommands: (sessionId: string) => ['slash-commands', sessionId] as const,
     skills: (sessionId: string) => ['skills', sessionId] as const,
 }

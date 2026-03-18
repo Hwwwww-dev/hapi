@@ -178,6 +178,26 @@ export type GitStatusFiles = {
     totalUnstaged: number
 }
 
+export type CommitEntry = {
+    hash: string
+    short: string
+    author: string
+    email: string
+    date: number
+    subject: string
+}
+
+export type GitBranchEntry = {
+    name: string
+    isCurrent: boolean
+    isRemote: boolean
+}
+
+export type StashEntry = {
+    index: number
+    message: string
+}
+
 export type SlashCommand = {
     name: string
     description?: string

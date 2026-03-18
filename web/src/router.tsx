@@ -104,7 +104,7 @@ function SessionsPage() {
     const { t } = useTranslation()
     const search = useSearch({ from: '/sessions' })
     const agentTab = normalizeSessionAgentTab(search.agent)
-    const { sessions, groups, isLoading, error, refetch, loadMoreForDirectory, isLoadingMoreFor } = useSessions(api, agentTab)
+    const { sessions, groups, isLoading, error, refetch, removeSession, loadMoreForDirectory, isLoadingMoreFor } = useSessions(api, agentTab)
 
     const handleRefresh = useCallback(() => {
         void refetch()
@@ -185,6 +185,11 @@ function SessionsPage() {
                         api={api}
                         loadMoreForDirectory={loadMoreForDirectory}
                         isLoadingMoreFor={isLoadingMoreFor}
+                        removeSession={removeSession}
+                        onDeletedNavigate={() => navigate({
+                            to: '/sessions',
+                            search: toSessionAgentSearch(agentTab),
+                        })}
                     />
                 </div>
             </div>
@@ -443,13 +448,10 @@ const sessionDetailRoute = createRoute({
 const sessionFilesRoute = createRoute({
     getParentRoute: () => sessionDetailRoute,
     path: 'files',
-    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'directories' } => {
+    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'history' | 'branches' | 'directories' } => {
         const tabValue = typeof search.tab === 'string' ? search.tab : undefined
-        const tab = tabValue === 'directories'
-            ? 'directories'
-            : tabValue === 'changes'
-                ? 'changes'
-                : undefined
+        const validTabs = ['changes', 'history', 'branches', 'directories'] as const
+        const tab = validTabs.find(t => t === tabValue)
 
         return tab ? { tab } : {}
     },
@@ -465,7 +467,7 @@ const sessionTerminalRoute = createRoute({
 type SessionFileSearch = {
     path: string
     staged?: boolean
-    tab?: 'changes' | 'directories'
+    tab?: 'changes' | 'history' | 'branches' | 'directories'
 }
 
 const sessionFileRoute = createRoute({

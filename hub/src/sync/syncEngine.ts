@@ -953,6 +953,46 @@ export class SyncEngine {
         return await this.rpcGateway.gitRollbackFile(sessionId, options)
     }
 
+    async gitPush(sessionId: string, options: { cwd?: string; remote?: string; branch?: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitPush(sessionId, options)
+    }
+
+    async gitLog(sessionId: string, options: { cwd?: string; limit?: number; skip?: number }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitLog(sessionId, options)
+    }
+
+    async gitCreateBranch(sessionId: string, options: { cwd?: string; name: string; from?: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitCreateBranch(sessionId, options)
+    }
+
+    async gitDeleteBranch(sessionId: string, options: { cwd?: string; name: string; force?: boolean }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitDeleteBranch(sessionId, options)
+    }
+
+    async gitStash(sessionId: string, options: { cwd?: string; message?: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitStash(sessionId, options)
+    }
+
+    async gitStashPop(sessionId: string, options: { cwd?: string; index?: number }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitStashPop(sessionId, options)
+    }
+
+    async gitStashList(sessionId: string, options: { cwd?: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitStashList(sessionId, options)
+    }
+
+    async gitMerge(sessionId: string, options: { cwd?: string; branch: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitMerge(sessionId, options)
+    }
+
+    async gitDiscardChanges(sessionId: string, options: { cwd?: string; filePath: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitDiscardChanges(sessionId, options)
+    }
+
+    async gitRemoteBranches(sessionId: string, options: { cwd?: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitRemoteBranches(sessionId, options)
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.rpcGateway.readSessionFile(sessionId, path)
     }
