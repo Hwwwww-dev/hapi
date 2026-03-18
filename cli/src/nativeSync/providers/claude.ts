@@ -167,8 +167,8 @@ export function createClaudeNativeProvider(): NativeSyncProvider {
                 const { createdAt, discoveredAt, lastActivityAt } = resolveClaudeSummaryTimes(entries, fileStat)
                 const title = extractTitle(entries.find((entry) => entry.event.type === 'user')?.event)
 
-                // Skip internal metadata probe sessions created by hapi
-                if (title === HAPI_METADATA_PROBE_MARKER) {
+                // Skip internal metadata probe sessions created by hapi (current marker and legacy 'hello' prompt)
+                if (title === HAPI_METADATA_PROBE_MARKER || title === 'hello') {
                     summaryCache.set(filePath, { mtimeMs, summary: null })
                     continue
                 }

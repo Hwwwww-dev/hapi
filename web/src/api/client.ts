@@ -322,6 +322,18 @@ export class ApiClient {
         return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-log${qs ? `?${qs}` : ''}`)
     }
 
+    async gitShowStat(sessionId: string, hash: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-show-stat?hash=${encodeURIComponent(hash)}`)
+    }
+
+    async gitShowFile(sessionId: string, hash: string, filePath: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-show-file?hash=${encodeURIComponent(hash)}&filePath=${encodeURIComponent(filePath)}`)
+    }
+
+    async gitShowFileContent(sessionId: string, hash: string, filePath: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-show-file-content?hash=${encodeURIComponent(hash)}&filePath=${encodeURIComponent(filePath)}`)
+    }
+
     async gitCreateBranch(sessionId: string, name: string, from?: string): Promise<GitCommandResponse> {
         return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-create-branch`, {
             method: 'POST',

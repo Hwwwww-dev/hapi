@@ -27,7 +27,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
     const filteredRemote = q ? remote.filter(b => b.name.toLowerCase().includes(q)) : remote
 
     const handleCheckout = async (branch: GitBranchEntry) => {
-        if (branch.isCurrent || branch.isRemote) return
+        if (branch.isCurrent) return
         setActionLoading(branch.name)
         setError(null)
         try {
@@ -124,8 +124,8 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                 <BranchRow
                                     key={branch.name}
                                     branch={branch}
-                                    loading={false}
-                                    onClick={() => {}}
+                                    loading={actionLoading === branch.name}
+                                    onClick={() => handleCheckout(branch)}
                                 />
                             ))}
                         </div>
@@ -186,7 +186,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
 }
 
 function BranchRow({ branch, loading, onClick }: { branch: GitBranchEntry; loading: boolean; onClick: () => void }) {
-    const isClickable = !branch.isCurrent && !branch.isRemote
+    const isClickable = !branch.isCurrent
 
     return (
         <button
@@ -195,7 +195,7 @@ function BranchRow({ branch, loading, onClick }: { branch: GitBranchEntry; loadi
             disabled={!isClickable || loading}
             className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left transition-colors min-h-[44px]
                 ${isClickable ? 'hover:bg-[var(--app-subtle-bg)] cursor-pointer' : 'cursor-default'}
-                ${branch.isCurrent ? 'text-[var(--app-fg)]' : 'text-[var(--app-fg)]'}
+                ${branch.isCurrent ? 'bg-[var(--app-link)]/10 text-[var(--app-link)] font-semibold' : 'text-[var(--app-fg)]'}
                 ${branch.isRemote ? 'text-[var(--app-hint)]' : ''}
             `}
         >

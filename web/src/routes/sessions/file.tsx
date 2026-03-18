@@ -125,15 +125,20 @@ export default function FilePage() {
     const search = useSearch({ from: '/sessions/$sessionId/file' })
     const encodedPath = typeof search.path === 'string' ? search.path : ''
     const staged = search.staged
+    const commitHash = search.hash
 
     const filePath = useMemo(() => decodePath(encodedPath), [encodedPath])
     const fileName = filePath.split('/').pop() || filePath || 'File'
 
+    // When viewing a commit file, use gitShowFile; otherwise use regular diff
     const diffQuery = useQuery({
-        queryKey: queryKeys.gitFileDiff(sessionId, filePath, staged),
+        queryKey: commitHash
+            ? ['gitShowFile', sessionId, commitHash, filePath]
+            : queryKeys.gitFileDiff(sessionId, filePath, staged),
         queryFn: async () => {
-            if (!api || !sessionId || !filePath) {
-                throw new Error('Missing session or path')
+            if (!api || !sessionId || !filePath) throw new Error('Missing session or path')
+            if (commitHash) {
+                return await api.gitShowFile(sessionId, commitHash, filePath)
             }
             return await api.getGitDiffFile(sessionId, filePath, staged)
         },
@@ -148,9 +153,19 @@ export default function FilePage() {
             }
             return await api.readSessionFile(sessionId, filePath)
         },
-        enabled: Boolean(api && sessionId && filePath)
+        enabled: Boolean(api && sessionId && filePath && !commitHash)
     })
 
+    const commitFileQuery = useQuery({
+        queryKey: ['gitShowFileContent', sessionId, commitHash, filePath],
+        queryFn: async () => {
+            if (!api || !sessionId || !filePath || !commitHash) throw new Error('Missing params')
+            return await api.gitShowFileContent(sessionId, commitHash, filePath)
+        },
+        enabled: Boolean(api && sessionId && filePath && commitHash)
+    })
+
+    // In commit hash mode, gitShowFile returns diff output
     const diffContent = diffQuery.data?.success ? (diffQuery.data.stdout ?? '') : ''
     const diffError = extractCommandError(diffQuery.data)
     const diffSuccess = diffQuery.data?.success === true
@@ -160,10 +175,11 @@ export default function FilePage() {
     const decodedContentResult = fileContentResult?.success && fileContentResult.content
         ? decodeBase64(fileContentResult.content)
         : { text: '', ok: true }
-    const decodedContent = decodedContentResult.text
-    const binaryFile = fileContentResult?.success
-        ? !decodedContentResult.ok || isBinaryContent(decodedContent)
-        : false
+    const commitFileContent = commitHash && commitFileQuery.data?.success ? (commitFileQuery.data.stdout ?? '') : ''
+    const decodedContent = commitHash ? commitFileContent : decodedContentResult.text
+    const binaryFile = commitHash
+        ? isBinaryContent(commitFileContent)
+        : (fileContentResult?.success ? !decodedContentResult.ok || isBinaryContent(decodedContentResult.text) : false)
 
     const language = useMemo(() => resolveLanguage(filePath), [filePath])
     const highlighted = useShikiHighlighter(decodedContent, language)
@@ -171,14 +187,18 @@ export default function FilePage() {
         () => (decodedContent ? getUtf8ByteLength(decodedContent) : 0),
         [decodedContent]
     )
-    const canCopyContent = fileContentResult?.success === true
-        && !binaryFile
+    const canCopyContent = !binaryFile
         && decodedContent.length > 0
-        && contentSizeBytes <= MAX_COPYABLE_FILE_BYTES
+        && (commitHash ? true : fileContentResult?.success === true)
+        && (commitHash ? getUtf8ByteLength(decodedContent) <= MAX_COPYABLE_FILE_BYTES : contentSizeBytes <= MAX_COPYABLE_FILE_BYTES)
 
     const [displayMode, setDisplayMode] = useState<'diff' | 'file'>('diff')
 
     useEffect(() => {
+        if (commitHash) {
+            setDisplayMode('diff')
+            return
+        }
         if (diffSuccess && !diffContent) {
             setDisplayMode('file')
             return
@@ -186,9 +206,9 @@ export default function FilePage() {
         if (diffFailed) {
             setDisplayMode('file')
         }
-    }, [diffSuccess, diffFailed, diffContent])
+    }, [commitHash, diffSuccess, diffFailed, diffContent])
 
-    const loading = diffQuery.isLoading || fileQuery.isLoading
+    const loading = diffQuery.isLoading || fileQuery.isLoading || commitFileQuery.isLoading
     const fileError = fileContentResult && !fileContentResult.success
         ? (fileContentResult.error ?? 'Failed to read file')
         : null

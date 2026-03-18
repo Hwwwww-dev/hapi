@@ -133,7 +133,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
     rpcHandlerManager.registerHandler<{ cwd?: string; timeout?: number }, GitCommandResponse>('git-branches', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
-        return await runGitCommand(['branch', '--format=%(refname:short)'], resolved.cwd, data.timeout)
+        return await runGitCommand(['branch', '--format=%(refname:strip=2)'], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; branch: string; timeout?: number }, GitCommandResponse>('git-checkout', async (data) => {
@@ -257,6 +257,30 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
     rpcHandlerManager.registerHandler<{ cwd?: string; timeout?: number }, GitCommandResponse>('git-remote-branches', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
-        return await runGitCommand(['branch', '-r', '--format=%(refname:short)'], resolved.cwd, data.timeout)
+        return await runGitCommand(['branch', '-r', '--format=%(refname:strip=2)'], resolved.cwd, data.timeout)
     })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; hash: string; timeout?: number }, GitCommandResponse>('git-show-stat', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.hash || typeof data.hash !== 'string') return rpcError('commit hash is required')
+        return await runGitCommand(['diff-tree', '--no-commit-id', '-r', '-m', '--name-status', data.hash], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; hash: string; filePath: string; timeout?: number }, GitCommandResponse>('git-show-file', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.hash || typeof data.hash !== 'string') return rpcError('commit hash is required')
+        if (!data.filePath || typeof data.filePath !== 'string') return rpcError('file path is required')
+        return await runGitCommand(['diff-tree', '--no-commit-id', '-r', '-p', '-m', data.hash, '--', data.filePath], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; hash: string; filePath: string; timeout?: number }, GitCommandResponse>('git-show-file-content', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.hash || typeof data.hash !== 'string') return rpcError('commit hash is required')
+        if (!data.filePath || typeof data.filePath !== 'string') return rpcError('file path is required')
+        return await runGitCommand(['show', `${data.hash}:${data.filePath}`], resolved.cwd, data.timeout)
+    })
+
 }

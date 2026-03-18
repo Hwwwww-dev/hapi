@@ -467,6 +467,7 @@ const sessionTerminalRoute = createRoute({
 type SessionFileSearch = {
     path: string
     staged?: boolean
+    hash?: string
     tab?: 'changes' | 'history' | 'branches' | 'directories'
 }
 
@@ -481,20 +482,23 @@ const sessionFileRoute = createRoute({
                 ? false
                 : undefined
 
+        const hash = typeof search.hash === 'string' && search.hash ? search.hash : undefined
+
         const tabValue = typeof search.tab === 'string' ? search.tab : undefined
         const tab = tabValue === 'directories'
             ? 'directories'
             : tabValue === 'changes'
                 ? 'changes'
-                : undefined
+                : tabValue === 'history'
+                    ? 'history'
+                    : tabValue === 'branches'
+                        ? 'branches'
+                        : undefined
 
         const result: SessionFileSearch = { path }
-        if (staged !== undefined) {
-            result.staged = staged
-        }
-        if (tab !== undefined) {
-            result.tab = tab
-        }
+        if (staged !== undefined) result.staged = staged
+        if (hash !== undefined) result.hash = hash
+        if (tab !== undefined) result.tab = tab
         return result
     },
     component: FilePage,

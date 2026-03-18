@@ -191,7 +191,11 @@ export function createDiffStatsMap(summary: DiffSummary): Record<string, { added
 
 export function getCurrentBranchV2(summary: GitStatusSummaryV2): string | null {
     const head = summary.branch.head
-    if (!head || head === '(detached)' || head === '(initial)') return null
+    if (!head || head === '(initial)') return null
+    if (head === '(detached)') {
+        const oid = summary.branch.oid
+        return oid ? `HEAD:${oid.slice(0, 7)}` : null
+    }
     return head
 }
 
@@ -366,6 +370,8 @@ export function parseBranchList(stdout: string, isRemote: boolean, currentBranch
     return stdout.trim().split('\n').map((line) => {
         const name = line.trim()
         if (!name) return null
+        // Skip detached HEAD lines like "(HEAD detached at ...)"
+        if (name.startsWith('(')) return null
         return {
             name,
             isCurrent: !isRemote && name === currentBranch,

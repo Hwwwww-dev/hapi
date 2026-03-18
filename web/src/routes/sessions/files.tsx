@@ -5,11 +5,11 @@ import { DirectoryTree } from '@/components/SessionFiles/DirectoryTree'
 import { ChangesTab } from '@/components/SessionFiles/ChangesTab'
 import { HistoryTab } from '@/components/SessionFiles/HistoryTab'
 import { BranchesTab } from '@/components/SessionFiles/BranchesTab'
+import { FileViewDialog } from '@/components/SessionFiles/FileViewDialog'
 import { useAppContext } from '@/lib/app-context'
 import { useAppGoBack } from '@/hooks/useAppGoBack'
 import { useGitStatusFiles } from '@/hooks/queries/useGitStatusFiles'
 import { useSession } from '@/hooks/queries/useSession'
-import { encodeBase64 } from '@/lib/utils'
 
 function BackIcon(props: { className?: string }) {
     return (
@@ -89,19 +89,21 @@ export default function FilesPage() {
 
     const { status: gitStatus, isLoading: gitLoading, refetch: refetchGit } = useGitStatusFiles(api, sessionId)
 
-    const branchLabel = gitStatus?.branch ?? 'detached'
+    const rawBranch = gitStatus?.branch ?? ''
+    const branchLabel = rawBranch.startsWith('HEAD:')
+        ? `detached @ ${rawBranch.slice(5)}`
+        : rawBranch || 'detached'
     const rootLabel = useMemo(() => {
         const base = session?.metadata?.path ?? sessionId
         const parts = base.split(/[/\\]/).filter(Boolean)
         return parts.length ? parts[parts.length - 1] : base
     }, [session?.metadata?.path, sessionId])
 
+    const [dialogFile, setDialogFile] = useState<{ path: string; staged?: boolean } | null>(null)
+
     const handleOpenFile = useCallback((path: string, staged?: boolean) => {
-        const fileSearch = staged === undefined
-            ? (activeTab === 'directories' ? { path: encodeBase64(path), tab: 'directories' as const } : { path: encodeBase64(path) })
-            : (activeTab === 'directories' ? { path: encodeBase64(path), staged, tab: 'directories' as const } : { path: encodeBase64(path), staged })
-        navigate({ to: '/sessions/$sessionId/file', params: { sessionId }, search: fileSearch })
-    }, [activeTab, navigate, sessionId])
+        setDialogFile({ path, staged })
+    }, [])
 
     const handleTabChange = useCallback((nextTab: TabType) => {
         setActiveTab(nextTab)
@@ -117,9 +119,11 @@ export default function FilesPage() {
         { key: 'changes', label: 'Changes' },
         { key: 'history', label: 'History' },
         { key: 'branches', label: 'Branches' },
+        { key: 'directories', label: 'Files' },
     ]
 
     return (
+        <>
         <div className="flex h-full flex-col">
             {/* Header */}
             <div className="bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
@@ -142,7 +146,7 @@ export default function FilesPage() {
 
             {/* Tab Bar */}
             <div className="bg-[var(--app-bg)] border-b border-[var(--app-divider)]" role="tablist">
-                <div className="mx-auto w-full max-w-content grid grid-cols-3">
+                <div className="mx-auto w-full max-w-content grid grid-cols-4">
                     {visibleTabs.map(tab => (
                         <button
                             key={tab.key}
@@ -177,5 +181,15 @@ export default function FilesPage() {
                 </div>
             </div>
         </div>
+        {dialogFile && api && (
+            <FileViewDialog
+                api={api}
+                sessionId={sessionId}
+                filePath={dialogFile.path}
+                staged={dialogFile.staged}
+                onClose={() => setDialogFile(null)}
+            />
+        )}
+        </>
     )
 }

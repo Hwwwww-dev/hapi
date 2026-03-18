@@ -36,7 +36,7 @@ export function HistoryTab({ api, sessionId }: HistoryTabProps) {
     return (
         <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
             {allCommits.map(commit => (
-                <CommitRow key={commit.hash} commit={commit} />
+                <CommitRow key={commit.hash} commit={commit} api={api} sessionId={sessionId} />
             ))}
             {isLoading && (
                 <div className="flex justify-center py-4">

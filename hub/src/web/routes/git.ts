@@ -343,6 +343,49 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         return c.json(result)
     })
 
+    app.get('/sessions/:id/git-show-stat', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const hash = c.req.query('hash')
+        if (!hash) return c.json({ error: 'hash is required' }, 400)
+        const result = await runRpc(() => engine.gitShowStat(sessionResult.sessionId, { cwd: sessionPath, hash }))
+        return c.json(result)
+    })
+
+    app.get('/sessions/:id/git-show-file', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const hash = c.req.query('hash')
+        const filePath = c.req.query('filePath')
+        if (!hash) return c.json({ error: 'hash is required' }, 400)
+        if (!filePath) return c.json({ error: 'filePath is required' }, 400)
+        const result = await runRpc(() => engine.gitShowFile(sessionResult.sessionId, { cwd: sessionPath, hash, filePath }))
+        return c.json(result)
+    })
+
+    app.get('/sessions/:id/git-show-file-content', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const hash = c.req.query('hash')
+        const filePath = c.req.query('filePath')
+        if (!hash) return c.json({ error: 'hash is required' }, 400)
+        if (!filePath) return c.json({ error: 'filePath is required' }, 400)
+        const result = await runRpc(() => engine.gitShowFileContent(sessionResult.sessionId, { cwd: sessionPath, hash, filePath }))
+        return c.json(result)
+    })
+
     app.post('/sessions/:id/git-create-branch', async (c) => {
         const engine = requireSyncEngine(c, getSyncEngine)
         if (engine instanceof Response) return engine

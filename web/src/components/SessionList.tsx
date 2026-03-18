@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { getExplicitSessionTitle, getSessionListFallbackTitle, type SessionSummary } from '@/types/api'
 import type { ApiClient } from '@/api/client'

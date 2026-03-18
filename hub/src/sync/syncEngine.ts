@@ -961,6 +961,18 @@ export class SyncEngine {
         return await this.rpcGateway.gitLog(sessionId, options)
     }
 
+    async gitShowStat(sessionId: string, options: { cwd?: string; hash: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitShowStat(sessionId, options)
+    }
+
+    async gitShowFile(sessionId: string, options: { cwd?: string; hash: string; filePath: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitShowFile(sessionId, options)
+    }
+
+    async gitShowFileContent(sessionId: string, options: { cwd?: string; hash: string; filePath: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitShowFileContent(sessionId, options)
+    }
+
     async gitCreateBranch(sessionId: string, options: { cwd?: string; name: string; from?: string }): Promise<RpcCommandResponse> {
         return await this.rpcGateway.gitCreateBranch(sessionId, options)
     }
