@@ -107,18 +107,20 @@ export function HappyComposer(props: {
 
     const waitForIdle = useCallback((timeout = 10000): Promise<void> => {
         return new Promise((resolve, reject) => {
-            if (!threadIsRunning) { resolve(); return }
-            const timer = setTimeout(() => reject(new Error('waitForIdle timeout')), timeout)
+            if (!api.getState().thread.isRunning) { resolve(); return }
+            const timer = setTimeout(() => {
+                unsub()
+                reject(new Error('waitForIdle timeout'))
+            }, timeout)
             const unsub = api.subscribe(() => {
-                const state = api.getState()
-                if (!state.thread.isRunning) {
+                if (!api.getState().thread.isRunning) {
                     clearTimeout(timer)
                     unsub()
                     resolve()
                 }
             })
         })
-    }, [threadIsRunning, api])
+    }, [api])
 
     const messageQueue = useMessageQueue(
         props.sessionId ?? null,
@@ -268,8 +270,10 @@ export function HappyComposer(props: {
     }, [abortDisabled, api, haptic])
 
     const handleQueueEdit = useCallback((item: QueuedMessage) => {
-        api.composer().setText(item.text)
-        messageQueue.remove(item.id)
+        const edited = messageQueue.editInComposer(item.id)
+        if (edited) {
+            api.composer().setText(edited.text)
+        }
         textareaRef.current?.focus()
     }, [api, messageQueue])
 

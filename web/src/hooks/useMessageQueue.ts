@@ -51,6 +51,8 @@ export function useMessageQueue(
     const queueRef = useRef(queue)
     const threadIsRunningRef = useRef(threadIsRunning)
     threadIsRunningRef.current = threadIsRunning
+    const depsRef = useRef(deps)
+    depsRef.current = deps
 
     // Keep ref in sync
     useEffect(() => {
@@ -81,7 +83,7 @@ export function useMessageQueue(
         if (!sessionId) return
         const prev = queueRef.current
         if (prev.length >= MAX_QUEUE_SIZE) {
-            deps.onQueueFull?.()
+            depsRef.current.onQueueFull?.()
             return
         }
         const item: QueuedMessage = {
@@ -93,7 +95,7 @@ export function useMessageQueue(
         const next = [...prev, item]
         persist(next)
         setQueueAndRef(next)
-    }, [sessionId, persist, deps, setQueueAndRef])
+    }, [sessionId, persist, setQueueAndRef])
 
     const remove = useCallback((id: string) => {
         const next = queueRef.current.filter((m) => m.id !== id)
@@ -127,8 +129,8 @@ export function useMessageQueue(
 
         try {
             if (threadIsRunningRef.current) {
-                deps.abort()
-                await deps.waitForIdle()
+                depsRef.current.abort()
+                await depsRef.current.waitForIdle()
             }
 
             // Snapshot and clear
@@ -138,7 +140,7 @@ export function useMessageQueue(
 
             for (let i = 0; i < snapshot.length; i++) {
                 try {
-                    await deps.sendMessage(snapshot[i].text, snapshot[i].attachments)
+                    await depsRef.current.sendMessage(snapshot[i].text, snapshot[i].attachments)
                 } catch {
                     // Restore failed + remaining
                     const remaining = snapshot.slice(i)
@@ -151,7 +153,7 @@ export function useMessageQueue(
             flushingRef.current = false
             setIsFlushing(false)
         }
-    }, [sessionId, deps, persist, setQueueAndRef])
+    }, [sessionId, persist, setQueueAndRef])
 
     const clear = useCallback(() => {
         setQueueAndRef([])
