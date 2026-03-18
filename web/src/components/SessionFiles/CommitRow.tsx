@@ -5,7 +5,7 @@ import { FileViewDialog } from './FileViewDialog'
 import { notify } from '@/lib/notify'
 import { useTranslation } from '@/lib/use-translation'
 
-function formatRelativeTime(timestamp: number, t: (key: string, params?: Record<string, unknown>) => string): string {
+function formatRelativeTime(timestamp: number, t: (key: string, params?: Record<string, string | number>) => string): string {
     const now = Date.now() / 1000
     const diff = now - timestamp
     if (diff < 60) return t('git.justNow')

@@ -11,7 +11,7 @@ const variantStyles: Record<NotifyVariant, { icon: string; color: string; bar: s
 function NotifyMessage({ item, onDone }: { item: NotifyItem; onDone: () => void }) {
     const style = variantStyles[item.variant]
     const [leaving, setLeaving] = useState(false)
-    const timerRef = useRef<ReturnType<typeof setTimeout>>()
+    const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
     const dismiss = () => {
         if (leaving) return

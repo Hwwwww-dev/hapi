@@ -169,17 +169,9 @@ function HappyNestedBlockList(props: {
                                             </div>
                                         ) : null}
                                         {taskChildren && taskChildren.rest.length > 0 ? (
-                                            <details className="mt-2 rounded-lg border border-[var(--app-divider)]">
-                                                <summary className="cursor-pointer select-none rounded-lg px-3 py-2 text-xs text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]">
-                                                    <span className="inline-flex items-center gap-1.5">
-                                                        <span>▸</span>
-                                                        <span>Task details ({taskChildren.rest.length})</span>
-                                                    </span>
-                                                </summary>
-                                                <div className="border-t border-[var(--app-divider)] p-2">
-                                                    <HappyNestedBlockList blocks={taskChildren.rest} />
-                                                </div>
-                                            </details>
+                                            <div className="mt-2 pl-3 border-l-2 border-[var(--app-divider)]">
+                                                <HappyNestedBlockList blocks={taskChildren.rest} />
+                                            </div>
                                         ) : null}
                                     </>
                                 ) : (
@@ -262,14 +254,9 @@ export function HappyToolMessage(props: ToolCallMessagePartProps) {
                             </div>
                         ) : null}
                         {taskChildren && taskChildren.rest.length > 0 ? (
-                            <details className="mt-2">
-                                <summary className="cursor-pointer text-xs text-[var(--app-hint)]">
-                                    Task details ({taskChildren.rest.length})
-                                </summary>
-                                <div className="mt-2 pl-3">
-                                    <HappyNestedBlockList blocks={taskChildren.rest} />
-                                </div>
-                            </details>
+                            <div className="mt-2 pl-3 border-l-2 border-[var(--app-divider)]">
+                                <HappyNestedBlockList blocks={taskChildren.rest} />
+                            </div>
                         ) : null}
                     </>
                 ) : (

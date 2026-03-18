@@ -144,6 +144,7 @@ function renderChat(session: Session, apiOverrides: Record<string, unknown> = {}
                 isSending={false}
                 pendingCount={0}
                 messagesVersion={0}
+                totalMessages={null}
                 onBack={vi.fn()}
                 onRefresh={vi.fn()}
                 onLoadMore={vi.fn(async () => undefined)}
@@ -179,6 +180,7 @@ describe('SessionChat connection controls', () => {
                     isSending={false}
                     pendingCount={0}
                     messagesVersion={0}
+                    totalMessages={null}
                     onBack={vi.fn()}
                     onRefresh={onRefresh}
                     onLoadMore={vi.fn(async () => undefined)}

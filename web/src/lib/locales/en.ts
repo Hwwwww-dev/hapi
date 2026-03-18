@@ -233,6 +233,7 @@ export default {
   'tool.input': 'Input',
   'tool.result': 'Result',
   'tool.questionsAnswers': 'Questions & Answers',
+  'tool.taskSteps': 'Task Steps',
   'tool.submit': 'Submit',
   'tool.submitting': 'Submitting…',
   'tool.prev': '← Prev',

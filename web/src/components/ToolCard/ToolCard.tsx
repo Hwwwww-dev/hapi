@@ -3,6 +3,7 @@ import type { ApiClient } from '@/api/client'
 import type { SessionMetadataSummary } from '@/types/api'
 import { memo, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { isObject, safeStringify } from '@hapi/protocol'
+import type { ChatBlock } from '@/chat/types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CodeBlock } from '@/components/CodeBlock'
 import { MarkdownRenderer } from '@/components/MarkdownRenderer'
@@ -77,8 +78,7 @@ function TaskStateIcon(props: { state: ToolCallBlock['tool']['state'] }) {
 }
 
 function getTaskSummaryChildren(block: ToolCallBlock): {
-    visible: ToolCallBlock[]
-    remaining: number
+    children: ToolCallBlock[]
     total: number
     completedCount: number
 } | null {
@@ -91,15 +91,14 @@ function getTaskSummaryChildren(block: ToolCallBlock): {
     if (children.length === 0) return null
 
     const completedCount = children.filter(c => c.tool.state === 'completed').length
-    const visible = children.slice(-3)
-    return { visible, remaining: children.length - visible.length, total: children.length, completedCount }
+    return { children, total: children.length, completedCount }
 }
 
 function renderTaskSummary(block: ToolCallBlock, metadata: SessionMetadataSummary | null): ReactNode | null {
     const summary = getTaskSummaryChildren(block)
     if (!summary) return null
 
-    const { visible, remaining, total, completedCount } = summary
+    const { children, total, completedCount } = summary
     const isRunning = block.tool.state === 'running'
     const progressPct = total > 0 ? Math.round((completedCount / total) * 100) : 0
 
@@ -117,9 +116,9 @@ function renderTaskSummary(block: ToolCallBlock, metadata: SessionMetadataSummar
                     {completedCount}/{total}
                 </span>
             </div>
-            {/* Recent steps */}
-            <div className="flex flex-col gap-0.5">
-                {visible.map((child) => {
+            {/* All steps */}
+            <div className="flex flex-col gap-0.5 max-h-[300px] overflow-y-auto">
+                {children.map((child) => {
                     const isError = child.tool.state === 'error'
                     const isActive = child.tool.state === 'running'
                     return (
@@ -133,11 +132,6 @@ function renderTaskSummary(block: ToolCallBlock, metadata: SessionMetadataSummar
                         </div>
                     )
                 })}
-                {remaining > 0 ? (
-                    <div className="px-2 text-[10px] text-[var(--app-hint)] italic">
-                        +{remaining} earlier steps
-                    </div>
-                ) : null}
             </div>
         </div>
     )
@@ -337,6 +331,75 @@ function DetailsIcon() {
     )
 }
 
+/**
+ * Lightweight renderer for Task children blocks inside ToolCard dialog.
+ * Renders tool-call, agent-text, user-text, cli-output blocks.
+ */
+function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metadata: SessionMetadataSummary | null }) {
+    if (children.length === 0) return null
+
+    return (
+        <div className="flex flex-col gap-1.5">
+            {children.map((block) => {
+                if (block.kind === 'tool-call') {
+                    const isError = block.tool.state === 'error'
+                    const isActive = block.tool.state === 'running'
+                    const label = formatTaskChildLabel(block, metadata)
+                    return (
+                        <div key={block.id} className={`flex items-start gap-2 rounded px-2 py-1.5 ${isActive ? 'bg-amber-50 dark:bg-amber-950/20' : isError ? 'bg-red-50 dark:bg-red-950/20' : 'bg-[var(--app-secondary-bg)]'}`}>
+                            <span className="shrink-0 w-3 text-center text-[10px] mt-0.5">
+                                <TaskStateIcon state={block.tool.state} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <span className={`font-mono text-xs ${isError ? 'text-red-600' : isActive ? 'text-amber-700 dark:text-amber-400' : 'text-[var(--app-fg)]'}`}>
+                                    {label}
+                                </span>
+                                {block.tool.result !== undefined && block.tool.result !== null ? (
+                                    <div className="mt-1 text-[10px] text-[var(--app-hint)] line-clamp-3 break-all">
+                                        {typeof block.tool.result === 'string' ? block.tool.result : safeStringify(block.tool.result)}
+                                    </div>
+                                ) : null}
+                                {block.children.length > 0 ? (
+                                    <div className="mt-1 ml-2 border-l-2 border-[var(--app-divider)] pl-2">
+                                        <TaskChildrenList children={block.children} metadata={metadata} />
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+                    )
+                }
+
+                if (block.kind === 'agent-text') {
+                    return (
+                        <div key={block.id} className="px-2 py-1">
+                            <MarkdownRenderer content={block.text} />
+                        </div>
+                    )
+                }
+
+                if (block.kind === 'user-text') {
+                    return (
+                        <div key={block.id} className="px-2 py-1 rounded bg-[var(--app-secondary-bg)]">
+                            <div className="text-[10px] text-[var(--app-hint)] mb-0.5">User</div>
+                            <div className="text-xs text-[var(--app-fg)]">{block.text}</div>
+                        </div>
+                    )
+                }
+
+                if (block.kind === 'cli-output') {
+                    return (
+                        <div key={block.id} className="px-2 py-1">
+                            <CodeBlock code={block.text} language="text" />
+                        </div>
+                    )
+                }
+
+                return null
+            })}
+        </div>
+    )
+}
+
 type ToolCardProps = {
     api: ApiClient
     sessionId: string
@@ -481,6 +544,12 @@ function ToolCardInner(props: ToolCardProps) {
                                             )}
                                         </div>
                                     )}
+                                    {canonicalToolName === 'Task' && props.block.children.length > 0 ? (
+                                        <div>
+                                            <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">{t('tool.taskSteps')}</div>
+                                            <TaskChildrenList children={props.block.children} metadata={props.metadata} />
+                                        </div>
+                                    ) : null}
                                 </div>
                             )
                         })()}

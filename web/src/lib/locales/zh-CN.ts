@@ -235,6 +235,7 @@ export default {
   'tool.input': '输入',
   'tool.result': '结果',
   'tool.questionsAnswers': '问答',
+  'tool.taskSteps': '任务步骤',
   'tool.submit': '提交',
   'tool.submitting': '提交中…',
   'tool.prev': '← 上一个',
