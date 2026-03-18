@@ -282,6 +282,26 @@ function normalizeUserOutput(
         }
     }
 
+    // When content is an array with a single text element, normalize to user role
+    // so that skill-content / compact messages are rendered by UserMessage
+    if (
+        Array.isArray(messageContent) &&
+        messageContent.length === 1 &&
+        isObject(messageContent[0]) &&
+        messageContent[0].type === 'text' &&
+        typeof messageContent[0].text === 'string'
+    ) {
+        return {
+            id: messageId,
+            localId,
+            createdAt,
+            role: 'user',
+            isSidechain: false,
+            content: { type: 'text', text: messageContent[0].text },
+            meta
+        }
+    }
+
     const blocks: NormalizedAgentContent[] = []
 
     if (Array.isArray(messageContent)) {
