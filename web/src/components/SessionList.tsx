@@ -282,6 +282,8 @@ function SessionItem(props: {
     api: ApiClient | null
     selected?: boolean
     selectedSessionId?: string | null
+    removeSession?: (sessionId: string) => void
+    onDeletedNavigate?: () => void
 }) {
     const { t } = useTranslation()
     const { session: s, onSelect, groupDirectory, api, selected = false } = props
@@ -296,12 +298,21 @@ function SessionItem(props: {
     const hasActiveChild = props.nativeChildren.some(c => c.active)
     const [childrenExpanded, setChildrenExpanded] = useState(() => hasActiveChild)
 
+    const handleDeleted = useCallback(() => {
+        // Optimistic: remove from list immediately
+        props.removeSession?.(s.id)
+        // Navigate only if this session was selected
+        if (selected) {
+            props.onDeletedNavigate?.()
+        }
+    }, [props.removeSession, props.onDeletedNavigate, s.id, selected])
+
     const { archiveSession, renameSession, deleteSession, isPending } = useSessionActions(
         api,
         s.id,
         s.metadata?.flavor ?? null,
         undefined,
-        selected ? () => navigate({ to: '/' }) : undefined
+        handleDeleted
     )
 
     const longPressHandlers = useLongPress({
@@ -509,6 +520,8 @@ export function SessionList(props: {
     onAgentTabChange?: (tab: SessionAgentTab) => void
     loadMoreForDirectory?: (directory: string) => Promise<void>
     isLoadingMoreFor?: (directory: string) => boolean
+    removeSession?: (sessionId: string) => void
+    onDeletedNavigate?: () => void
 }) {
     const { t } = useTranslation()
     const { renderHeader = true, api, selectedSessionId, agentTab = 'claude', onAgentTabChange } = props
@@ -666,6 +679,8 @@ export function SessionList(props: {
                                             api={api}
                                             selected={item.session.id === selectedSessionId}
                                             selectedSessionId={selectedSessionId}
+                                            removeSession={props.removeSession}
+                                            onDeletedNavigate={props.onDeletedNavigate}
                                         />
                                     ))}
                                     {group.hasMore ? (

@@ -115,14 +115,18 @@ export function useSessionActions(
             if (!api || !sessionId) {
                 throw new Error('Session unavailable')
             }
+            // Trigger optimistic removal before awaiting API
+            onDeleted?.()
             await api.deleteSession(sessionId)
         },
         onSuccess: async () => {
             if (!sessionId) return
             queryClient.removeQueries({ queryKey: queryKeys.session(sessionId) })
             clearMessageWindow(sessionId)
+        },
+        onError: async () => {
+            // Optimistic removal failed — refetch to restore correct state
             await queryClient.invalidateQueries({ queryKey: queryKeys.sessions })
-            onDeleted?.()
         },
     })
 

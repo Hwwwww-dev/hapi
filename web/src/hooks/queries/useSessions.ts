@@ -12,6 +12,14 @@ export type SessionGroupState = {
     offset: number  // next offset to load (= count of main sessions loaded so far)
 }
 
+/** Sort sessions: active first, then by updatedAt descending */
+function sortSessions(sessions: SessionSummary[]): SessionSummary[] {
+    return sessions.slice().sort((a, b) => {
+        if (a.active !== b.active) return a.active ? -1 : 1
+        return (b.updatedAt || 0) - (a.updatedAt || 0)
+    })
+}
+
 function mergeGroups(
     existing: Map<string, SessionGroupState>,
     incoming: SessionGroup[],
@@ -26,13 +34,13 @@ function mergeGroups(
             const mainCount = g.sessions.filter(s => !s.metadata?.parentNativeSessionId).length
             next.set(g.directory, {
                 directory: g.directory,
-                sessions: g.sessions,
+                sessions: sortSessions(g.sessions),
                 hasMore: g.hasMore,
                 total: g.total,
                 offset: mainCount,
             })
         } else {
-            // Incremental auto-refresh: upsert by id, don't replace
+            // Incremental auto-refresh: upsert by id, preserve sort order
             const existingIds = new Set(prev.sessions.map(s => s.id))
             const newSessions = g.sessions.filter(s => !existingIds.has(s.id))
             const updated = prev.sessions.map(s => {
@@ -41,7 +49,7 @@ function mergeGroups(
             })
             next.set(g.directory, {
                 ...prev,
-                sessions: [...updated, ...newSessions],
+                sessions: sortSessions([...updated, ...newSessions]),
                 total: g.total,
             })
         }
@@ -56,16 +64,19 @@ export function useSessions(api: ApiClient | null, flavor?: string): {
     isLoading: boolean
     error: string | null
     refetch: () => Promise<unknown>
+    removeSession: (sessionId: string) => void
     loadMoreForDirectory: (directory: string) => Promise<void>
     isLoadingMoreFor: (directory: string) => boolean
 } {
     const [groupMap, setGroupMap] = useState<Map<string, SessionGroupState>>(new Map())
     const [loadingDirs, setLoadingDirs] = useState<Set<string>>(new Set())
     const isInitialRef = useRef(true)
+    const flavorRef = useRef(flavor)
     const queryClient = useQueryClient()
 
     // Reset state when flavor changes
     useEffect(() => {
+        flavorRef.current = flavor
         setGroupMap(new Map())
         isInitialRef.current = true
     }, [flavor])
@@ -74,7 +85,11 @@ export function useSessions(api: ApiClient | null, flavor?: string): {
         queryKey: [...queryKeys.sessions, flavor],
         queryFn: async () => {
             if (!api) throw new Error('API unavailable')
+            // Capture the flavor at request time to detect stale responses
+            const requestFlavor = flavorRef.current
             const result = await api.getSessions(flavor)
+            // Discard response if flavor changed while request was in-flight
+            if (flavorRef.current !== requestFlavor) return result
             const isInitial = isInitialRef.current
             isInitialRef.current = false
             setGroupMap(prev => mergeGroups(prev, result.groups, isInitial))
@@ -82,6 +97,7 @@ export function useSessions(api: ApiClient | null, flavor?: string): {
         },
         enabled: Boolean(api),
         refetchInterval: 5000,
+        refetchOnWindowFocus: true,
     })
 
     const loadMoreForDirectory = useCallback(async (directory: string) => {
@@ -119,6 +135,21 @@ export function useSessions(api: ApiClient | null, flavor?: string): {
         }
     }, [api, groupMap, loadingDirs, flavor])
 
+    const removeSession = useCallback((sessionId: string) => {
+        setGroupMap(prev => {
+            const next = new Map<string, SessionGroupState>()
+            for (const [dir, group] of prev) {
+                const filtered = group.sessions.filter(s => s.id !== sessionId)
+                if (filtered.length !== group.sessions.length) {
+                    next.set(dir, { ...group, sessions: filtered, total: group.total - 1 })
+                } else {
+                    next.set(dir, group)
+                }
+            }
+            return next
+        })
+    }, [])
+
     const refetch = useCallback(async () => {
         isInitialRef.current = false
         return queryClient.invalidateQueries({ queryKey: [...queryKeys.sessions, flavor] })
@@ -131,6 +162,7 @@ export function useSessions(api: ApiClient | null, flavor?: string): {
         isLoading: query.isLoading,
         error: query.error instanceof Error ? query.error.message : query.error ? 'Failed to load sessions' : null,
         refetch,
+        removeSession,
         loadMoreForDirectory,
         isLoadingMoreFor: (dir) => loadingDirs.has(dir),
     }
