@@ -197,6 +197,7 @@ function SessionsPage() {
                             to: '/sessions/$sessionId',
                             params: { sessionId },
                             search: toSessionAgentSearch(agentTab),
+                            replace: !!selectedSessionId,
                         })}
                         onNewSession={() => navigate({ to: '/sessions/new' })}
                         onRefresh={handleRefresh}
@@ -209,6 +210,7 @@ function SessionsPage() {
                         onDeletedNavigate={() => navigate({
                             to: '/sessions',
                             search: toSessionAgentSearch(agentTab),
+                            replace: true,
                         })}
                     />
                 </div>
@@ -390,7 +392,7 @@ function NewSessionPage() {
     const { t } = useTranslation()
 
     const handleCancel = useCallback(() => {
-        navigate({ to: '/sessions' })
+        navigate({ to: '/sessions', replace: true })
     }, [navigate])
 
     const handleSuccess = useCallback((sessionId: string) => {
