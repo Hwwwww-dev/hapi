@@ -277,7 +277,8 @@ export function buildGitStatusFiles(
         unstagedFiles,
         branch: branchName,
         totalStaged: stagedFiles.length,
-        totalUnstaged: unstagedFiles.length
+        totalUnstaged: unstagedFiles.length,
+        ahead: statusSummary.branch.ahead ?? 0
     }
 }
 

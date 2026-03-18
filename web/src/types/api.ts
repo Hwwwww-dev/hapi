@@ -176,6 +176,7 @@ export type GitStatusFiles = {
     branch: string | null
     totalStaged: number
     totalUnstaged: number
+    ahead: number
 }
 
 export type CommitEntry = {

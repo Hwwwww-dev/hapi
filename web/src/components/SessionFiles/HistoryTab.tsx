@@ -7,9 +7,10 @@ import { CommitRow } from './CommitRow'
 type HistoryTabProps = {
     api: ApiClient
     sessionId: string
+    ahead: number
 }
 
-export function HistoryTab({ api, sessionId }: HistoryTabProps) {
+export function HistoryTab({ api, sessionId, ahead }: HistoryTabProps) {
     const [allCommits, setAllCommits] = useState<CommitEntry[]>([])
     const [skip, setSkip] = useState(0)
     const [hasMore, setHasMore] = useState(true)
@@ -35,8 +36,8 @@ export function HistoryTab({ api, sessionId }: HistoryTabProps) {
 
     return (
         <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
-            {allCommits.map(commit => (
-                <CommitRow key={commit.hash} commit={commit} api={api} sessionId={sessionId} />
+            {allCommits.map((commit, index) => (
+                <CommitRow key={commit.hash} commit={commit} api={api} sessionId={sessionId} isLocal={index < ahead} />
             ))}
             {isLoading && (
                 <div className="flex justify-center py-4">

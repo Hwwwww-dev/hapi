@@ -36,9 +36,10 @@ type CommitRowProps = {
     commit: CommitEntry
     api: ApiClient
     sessionId: string
+    isLocal?: boolean
 }
 
-export function CommitRow({ commit, api, sessionId }: CommitRowProps) {
+export function CommitRow({ commit, api, sessionId, isLocal }: CommitRowProps) {
     const [expanded, setExpanded] = useState(false)
     const [files, setFiles] = useState<FileEntry[]>([])
     const [loading, setLoading] = useState(false)
@@ -74,7 +75,11 @@ export function CommitRow({ commit, api, sessionId }: CommitRowProps) {
                         <div className="w-px flex-1 min-h-[16px] bg-[var(--app-border)]" />
                     </div>
                     <div className="flex-1 min-w-0 pb-2">
-                        <div className="text-sm text-[var(--app-fg)] truncate">{commit.subject}</div>
+                        <div className="text-sm text-[var(--app-fg)] truncate flex items-center gap-1.5">
+                            {isLocal && <span className="shrink-0 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-amber-500/15 text-amber-600">local</span>}
+                            {!isLocal && <span className="shrink-0 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-emerald-500/15 text-emerald-600">remote</span>}
+                            <span className="truncate">{commit.subject}</span>
+                        </div>
                         <div className="text-xs text-[var(--app-hint)] mt-0.5 flex items-center gap-1">
                             <span className="font-mono">{commit.short}</span>
                             <span>·</span>
