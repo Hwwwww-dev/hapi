@@ -419,11 +419,17 @@ function flushIngestBuffers(): void {
 
 function applyIncomingMessages(sessionId: string, incoming: DecryptedMessage[]): void {
     updateState(sessionId, (prev) => {
+        const incomingNewCount = incoming.filter(msg =>
+            !prev.messages.some(m => m.id === msg.id) &&
+            !prev.pending.some(m => m.id === msg.id)
+        ).length
+        const nextTotal = prev.totalMessages != null ? prev.totalMessages + incomingNewCount : prev.totalMessages
+
         if (prev.atBottom) {
             const merged = mergeMessages(prev.messages, incoming)
             const trimmed = trimVisible(merged, 'append')
             const pending = filterPendingAgainstVisible(prev.pending, trimmed)
-            return buildState(prev, { messages: trimmed, pending })
+            return buildState(prev, { messages: trimmed, pending, totalMessages: nextTotal })
         }
         const agentMessages = incoming.filter(msg => !isUserMessage(msg))
         const userMessages = incoming.filter(msg => isUserMessage(msg))
@@ -433,7 +439,7 @@ function applyIncomingMessages(sessionId: string, incoming: DecryptedMessage[]):
             const merged = mergeMessages(state.messages, agentMessages)
             const trimmed = trimVisible(merged, 'append')
             const pending = filterPendingAgainstVisible(state.pending, trimmed)
-            state = buildState(state, { messages: trimmed, pending })
+            state = buildState(state, { messages: trimmed, pending, totalMessages: nextTotal })
         }
         if (userMessages.length > 0) {
             const pendingResult = mergeIntoPending(state, userMessages)
@@ -443,6 +449,7 @@ function applyIncomingMessages(sessionId: string, incoming: DecryptedMessage[]):
                 pendingOverflowCount: pendingResult.pendingOverflowCount,
                 pendingOverflowVisibleCount: pendingResult.pendingOverflowVisibleCount,
                 warning: pendingResult.warning,
+                totalMessages: state.totalMessages === prev.totalMessages ? nextTotal : state.totalMessages,
             })
         }
         return state
