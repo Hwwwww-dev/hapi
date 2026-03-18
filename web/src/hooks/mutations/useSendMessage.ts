@@ -46,6 +46,7 @@ export function useSendMessage(
     options?: UseSendMessageOptions
 ): {
     sendMessage: (text: string, attachments?: AttachmentMetadata[]) => void
+    sendQueued: (text: string, attachments?: AttachmentMetadata[]) => Promise<void>
     retryMessage: (localId: string) => void
     isSending: boolean
 } {
@@ -137,6 +138,47 @@ export function useSendMessage(
         })()
     }
 
+    const sendQueued = async (text: string, attachments?: AttachmentMetadata[]): Promise<void> => {
+        if (!api) throw new Error('API unavailable')
+        if (!sessionId) throw new Error('No session')
+
+        const localId = makeClientSideId('local')
+        const createdAt = Date.now()
+
+        let targetSessionId = sessionId
+        if (options?.resolveSessionId) {
+            const resolved = await options.resolveSessionId(sessionId)
+            if (resolved && resolved !== sessionId) {
+                options.onSessionResolved?.(resolved)
+                targetSessionId = resolved
+            }
+        }
+
+        const optimisticMessage: DecryptedMessage = {
+            id: localId,
+            seq: null,
+            localId,
+            content: {
+                role: 'user',
+                content: { type: 'text', text, attachments }
+            },
+            createdAt,
+            status: 'sending',
+            originalText: text,
+        }
+        appendOptimisticMessage(targetSessionId, optimisticMessage)
+
+        try {
+            await api.sendMessage(targetSessionId, text, localId, attachments)
+            updateMessageStatus(targetSessionId, localId, 'sent')
+            haptic.notification('success')
+        } catch (error) {
+            updateMessageStatus(targetSessionId, localId, 'failed')
+            haptic.notification('error')
+            throw error
+        }
+    }
+
     const retryMessage = (localId: string) => {
         if (!api) {
             options?.onBlocked?.('no-api')
@@ -168,6 +210,7 @@ export function useSendMessage(
 
     return {
         sendMessage,
+        sendQueued,
         retryMessage,
         isSending: mutation.isPending || isResolving,
     }
