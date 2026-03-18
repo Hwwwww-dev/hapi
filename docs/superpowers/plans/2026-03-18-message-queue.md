@@ -182,6 +182,7 @@ type MessageQueueDeps = {
     sendMessage: (text: string, attachments?: AttachmentMetadata[]) => Promise<void>
     abort: () => void
     waitForIdle: () => Promise<void>
+    onQueueFull?: () => void
 }
 
 const QUEUE_KEY_PREFIX = 'hapi_msg_queue::'
@@ -230,7 +231,11 @@ export function useMessageQueue(
     const enqueue = useCallback((text: string, attachments?: AttachmentMetadata[]) => {
         if (!sessionId) return
         setQueue((prev) => {
-            if (prev.length >= MAX_QUEUE_SIZE) return prev
+            if (prev.length >= MAX_QUEUE_SIZE) {
+                // Caller should handle toast via onQueueFull callback
+                deps.onQueueFull?.()
+                return prev
+            }
             const item: QueuedMessage = {
                 id: makeClientSideId('queue'),
                 text,
@@ -497,27 +502,28 @@ const sendQueued = async (text: string, attachments?: AttachmentMetadata[]): Pro
 }
 ```
 
-- [ ] **Step 2: Add `waitForIdle` method**
+- [ ] **Step 2: Remove waitForIdle from useSendMessage — it will be provided by HappyComposer**
+
+`waitForIdle` needs access to `threadIsRunning` from `useAssistantState`, which `useSendMessage` doesn't have. Instead, `HappyComposer` will create `waitForIdle` and pass it to `useMessageQueue`:
 
 ```typescript
-const waitForIdle = (timeout = 10000): Promise<void> => {
+// In HappyComposer — will be implemented in Task 5
+const waitForIdle = useCallback((timeout = 10000): Promise<void> => {
     return new Promise((resolve, reject) => {
-        // Check immediately — threadIsRunning is captured via closure from the hook's render
-        // We need to subscribe to the assistant state for real-time updates
-        if (!mutation.isPending) { resolve(); return }
+        if (!threadIsRunning) { resolve(); return }
         const timer = setTimeout(() => reject(new Error('waitForIdle timeout')), timeout)
-        const check = setInterval(() => {
-            if (!mutation.isPending) {
+        // Subscribe to assistant state changes
+        const unsub = api.subscribe(() => {
+            const state = api.getState()
+            if (!state.thread.isRunning) {
                 clearTimeout(timer)
-                clearInterval(check)
+                unsub()
                 resolve()
             }
-        }, 100)
+        })
     })
-}
+}, [threadIsRunning, api])
 ```
-
-Note: The actual `threadIsRunning` check will be done in `HappyComposer` which has access to `useAssistantState`. The `waitForIdle` here checks mutation pending state. The composer-level integration will handle the thread-level idle check.
 
 - [ ] **Step 3: Update return type**
 
@@ -526,7 +532,6 @@ return {
     sendMessage,
     sendQueued,
     retryMessage,
-    waitForIdle,
     isSending: mutation.isPending || isResolving,
 }
 ```
@@ -540,7 +545,7 @@ Expected: All existing tests PASS
 
 ```bash
 git add web/src/hooks/mutations/useSendMessage.ts
-git commit -m "feat: add sendQueued and waitForIdle to useSendMessage"
+git commit -m "feat: add sendQueued to useSendMessage"
 ```
 
 ## Chunk 3: MessageQueuePreview Component
@@ -769,8 +774,15 @@ if (key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
 - [ ] **Step 3: Add queue edit handler**
 
 ```typescript
-const handleQueueEdit = useCallback((item: QueuedMessage) => {
+const handleQueueEdit = useCallback(async (item: QueuedMessage) => {
     api.composer().setText(item.text)
+    // Restore attachments if present
+    if (item.attachments?.length) {
+        await api.composer().clearAttachments()
+        // Note: AttachmentMetadata cannot be directly re-added as File objects.
+        // For MVP, we only restore text. Attachment restore requires storing File refs
+        // which don't survive localStorage serialization. Document this limitation.
+    }
     messageQueue.remove(item.id)
     textareaRef.current?.focus()
 }, [api, messageQueue])
@@ -798,15 +810,20 @@ Inside the `<div className="overflow-hidden rounded-[20px] ...">`, before the at
 />
 ```
 
-- [ ] **Step 5: Update placeholder text**
+- [ ] **Step 5: Update placeholder text and send button behavior**
 
 ```typescript
+const queueActive = messageQueue.queue.length > 0 || threadIsRunning
 const queuePlaceholder = messageQueue.queue.length > 0
     ? t('misc.typeMessageQueue')  // "输入消息，Enter 入队 / Ctrl+Enter 发送全部"
     : showContinueHint ? t('misc.typeMessage') : t('misc.typeAMessage')
 ```
 
 Use `queuePlaceholder` in the `ComposerPrimitive.Input` placeholder prop.
+
+Note on send button icon: The `ComposerButtons` component's send button should show a "+" icon when `queueActive` is true (indicating enqueue mode). Pass `queueActive` as a new prop to `ComposerButtons`. The actual icon change is a CSS/SVG swap — implementer should check existing icon patterns in the codebase.
+
+Note on queue count badge: Add a small count badge to the `MessageQueuePreview` component's left side showing `queue.length`. This is already partially handled by the bubble list itself being visible.
 
 - [ ] **Step 6: Run all tests**
 
