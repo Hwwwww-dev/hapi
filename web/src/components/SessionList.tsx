@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { getExplicitSessionTitle, getSessionListFallbackTitle, type SessionSummary } from '@/types/api'
 import type { ApiClient } from '@/api/client'
@@ -274,7 +274,7 @@ function getRelativeSessionPath(session: SessionSummary, groupDirectory: string)
     return sessionPath
 }
 
-function SessionItem(props: {
+const SessionItem = memo(function SessionItem(props: {
     session: SessionSummary
     nativeChildren: SessionSummary[]
     onSelect: (sessionId: string) => void
@@ -502,7 +502,7 @@ function SessionItem(props: {
             />
         </>
     )
-}
+})
 
 export function SessionList(props: {
     groups: SessionGroupState[]

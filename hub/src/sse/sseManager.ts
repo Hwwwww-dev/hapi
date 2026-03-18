@@ -20,6 +20,9 @@ export class SSEManager {
     private heartbeatTimer: NodeJS.Timeout | null = null
     private readonly heartbeatMs: number
     private readonly visibilityTracker: VisibilityTracker
+    private eventQueue: SyncEvent[] = []
+    private batchTimer: ReturnType<typeof setTimeout> | null = null
+    private readonly batchMs = 50  // 50ms batch window
 
     constructor(heartbeatMs = 30_000, visibilityTracker: VisibilityTracker) {
         this.heartbeatMs = heartbeatMs
@@ -105,14 +108,24 @@ export class SSEManager {
     }
 
     broadcast(event: SyncEvent): void {
-        for (const connection of this.connections.values()) {
-            if (!this.shouldSend(connection, event)) {
-                continue
-            }
+        this.eventQueue.push(event)
+        if (!this.batchTimer) {
+            this.batchTimer = setTimeout(() => this.flushBatch(), this.batchMs)
+        }
+    }
 
-            void Promise.resolve(connection.send(event)).catch(() => {
-                this.unsubscribe(connection.id)
-            })
+    private flushBatch(): void {
+        this.batchTimer = null
+        const events = this.eventQueue
+        this.eventQueue = []
+
+        for (const connection of this.connections.values()) {
+            const toSend = events.filter(event => this.shouldSend(connection, event))
+            for (const event of toSend) {
+                void Promise.resolve(connection.send(event)).catch(() => {
+                    this.unsubscribe(connection.id)
+                })
+            }
         }
     }
 
@@ -139,6 +152,14 @@ export class SSEManager {
     }
 
     private stopHeartbeat(): void {
+        if (this.batchTimer) {
+            clearTimeout(this.batchTimer)
+            this.batchTimer = null
+        }
+        if (this.eventQueue.length > 0) {
+            this.flushBatch()
+        }
+
         if (!this.heartbeatTimer) {
             return
         }

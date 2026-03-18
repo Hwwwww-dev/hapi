@@ -18,8 +18,8 @@ export type MessageWindowState = {
     messagesVersion: number
 }
 
-export const VISIBLE_WINDOW_SIZE = 400
-export const PENDING_WINDOW_SIZE = 200
+export const VISIBLE_WINDOW_SIZE = 200
+export const PENDING_WINDOW_SIZE = 100
 const PAGE_SIZE = 50
 const PENDING_OVERFLOW_WARNING = 'New messages arrived while you were away. Scroll to bottom to refresh.'
 
@@ -37,6 +37,10 @@ type PendingVisibilityCacheEntry = {
 const states = new Map<string, InternalState>()
 const listeners = new Map<string, Set<() => void>>()
 const pendingVisibilityCacheBySession = new Map<string, Map<string, PendingVisibilityCacheEntry>>()
+
+// Batched ingestion: accumulate incoming messages and flush on microtask
+const ingestBuffers = new Map<string, DecryptedMessage[]>()
+let ingestFlushScheduled = false
 
 function getPendingVisibilityCache(sessionId: string): Map<string, PendingVisibilityCacheEntry> {
     const existing = pendingVisibilityCacheBySession.get(sessionId)
@@ -388,6 +392,27 @@ export function ingestIncomingMessages(sessionId: string, incoming: DecryptedMes
     if (incoming.length === 0) {
         return
     }
+    // Buffer incoming messages and flush on microtask to batch rapid SSE updates
+    const buffer = ingestBuffers.get(sessionId) ?? []
+    buffer.push(...incoming)
+    ingestBuffers.set(sessionId, buffer)
+
+    if (!ingestFlushScheduled) {
+        ingestFlushScheduled = true
+        queueMicrotask(flushIngestBuffers)
+    }
+}
+
+function flushIngestBuffers(): void {
+    ingestFlushScheduled = false
+    for (const [sessionId, buffered] of ingestBuffers) {
+        ingestBuffers.delete(sessionId)
+        if (buffered.length === 0) continue
+        applyIncomingMessages(sessionId, buffered)
+    }
+}
+
+function applyIncomingMessages(sessionId: string, incoming: DecryptedMessage[]): void {
     updateState(sessionId, (prev) => {
         if (prev.atBottom) {
             const merged = mergeMessages(prev.messages, incoming)
@@ -395,8 +420,6 @@ export function ingestIncomingMessages(sessionId: string, incoming: DecryptedMes
             const pending = filterPendingAgainstVisible(prev.pending, trimmed)
             return buildState(prev, { messages: trimmed, pending })
         }
-        // 不在底部时：agent 消息立即显示，user 消息才放入 pending
-        // 原因：用户必须看到 AI 回复才能继续交互，pending 机制会导致回复滞后
         const agentMessages = incoming.filter(msg => !isUserMessage(msg))
         const userMessages = incoming.filter(msg => isUserMessage(msg))
 

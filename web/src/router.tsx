@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { lazy, Suspense, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
     Navigate,
@@ -32,10 +32,10 @@ import { useToast } from '@/lib/toast-context'
 import { useTranslation } from '@/lib/use-translation'
 import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message-window-store'
 import { normalizeSessionAgentTab, toSessionAgentSearch, getTabFlavor, getTabActive, type SessionAgentTab } from '@/lib/agentFlavorUtils'
-import FilesPage from '@/routes/sessions/files'
-import FilePage from '@/routes/sessions/file'
-import TerminalPage from '@/routes/sessions/terminal'
-import SettingsPage from '@/routes/settings'
+const FilesPage = lazy(() => import('@/routes/sessions/files'))
+const FilePage = lazy(() => import('@/routes/sessions/file'))
+const TerminalPage = lazy(() => import('@/routes/sessions/terminal'))
+const SettingsPage = lazy(() => import('@/routes/settings'))
 
 function BackIcon(props: { className?: string }) {
     return (
@@ -436,6 +436,12 @@ function NewSessionPage() {
     )
 }
 
+const LazySuspense = (props: { children: React.ReactNode }) => (
+    <Suspense fallback={<div className="flex justify-center py-8"><span className="w-5 h-5 border-2 border-[var(--app-link)] border-t-transparent rounded-full animate-spin" /></div>}>
+        {props.children}
+    </Suspense>
+)
+
 const rootRoute = createRootRoute({
     component: App,
 })
@@ -478,13 +484,13 @@ const sessionFilesRoute = createRoute({
 
         return tab ? { tab } : {}
     },
-    component: FilesPage,
+    component: () => <LazySuspense><FilesPage /></LazySuspense>,
 })
 
 const sessionTerminalRoute = createRoute({
     getParentRoute: () => sessionDetailRoute,
     path: 'terminal',
-    component: TerminalPage,
+    component: () => <LazySuspense><TerminalPage /></LazySuspense>,
 })
 
 type SessionFileSearch = {
@@ -524,7 +530,7 @@ const sessionFileRoute = createRoute({
         if (tab !== undefined) result.tab = tab
         return result
     },
-    component: FilePage,
+    component: () => <LazySuspense><FilePage /></LazySuspense>,
 })
 
 const newSessionRoute = createRoute({
@@ -536,7 +542,7 @@ const newSessionRoute = createRoute({
 const settingsRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/settings',
-    component: SettingsPage,
+    component: () => <LazySuspense><SettingsPage /></LazySuspense>,
 })
 
 export const routeTree = rootRoute.addChildren([

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { MessagePrimitive, useAssistantState } from '@assistant-ui/react'
 import { LazyRainbowText } from '@/components/LazyRainbowText'
 import { useHappyChatContext } from '@/components/AssistantChat/context'
@@ -32,7 +32,7 @@ function isCompactContent(text: string): boolean {
     return text.startsWith(COMPACT_CONTENT_PREFIX)
 }
 
-export function HappyUserMessage() {
+export const HappyUserMessage = memo(function HappyUserMessage() {
     const ctx = useHappyChatContext()
     const role = useAssistantState(({ message }) => message.role)
     const text = useAssistantState(({ message }) => {
@@ -191,4 +191,4 @@ export function HappyUserMessage() {
             </div>
         </MessagePrimitive.Root>
     )
-}
+})

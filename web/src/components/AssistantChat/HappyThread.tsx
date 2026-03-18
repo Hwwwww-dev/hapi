@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, forwardRef } from 'react'
+import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, forwardRef } from 'react'
 import { ThreadPrimitive } from '@assistant-ui/react'
 import type { ApiClient } from '@/api/client'
 import type { SessionMetadataSummary } from '@/types/api'
@@ -120,34 +120,42 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
         onLoadMoreRef.current = props.onLoadMore
     }, [props.onLoadMore])
 
-    // Track scroll position to toggle autoScroll (stable listener using refs)
+    // Track scroll position to toggle autoScroll (throttled for performance)
     useEffect(() => {
         const viewport = viewportRef.current
         if (!viewport) return
 
         const THRESHOLD_PX = 120
+        let rafId: number | null = null
 
         const handleScroll = () => {
-            const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
-            const isNearBottom = distanceFromBottom < THRESHOLD_PX
+            if (rafId !== null) return
+            rafId = requestAnimationFrame(() => {
+                rafId = null
+                const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
+                const isNearBottom = distanceFromBottom < THRESHOLD_PX
 
-            if (isNearBottom) {
-                if (!autoScrollEnabledRef.current) setAutoScrollEnabled(true)
-            } else if (autoScrollEnabledRef.current) {
-                setAutoScrollEnabled(false)
-            }
-
-            if (isNearBottom !== atBottomRef.current) {
-                atBottomRef.current = isNearBottom
-                onAtBottomChangeRef.current(isNearBottom)
                 if (isNearBottom) {
-                    onFlushPendingRef.current()
+                    if (!autoScrollEnabledRef.current) setAutoScrollEnabled(true)
+                } else if (autoScrollEnabledRef.current) {
+                    setAutoScrollEnabled(false)
                 }
-            }
+
+                if (isNearBottom !== atBottomRef.current) {
+                    atBottomRef.current = isNearBottom
+                    onAtBottomChangeRef.current(isNearBottom)
+                    if (isNearBottom) {
+                        onFlushPendingRef.current()
+                    }
+                }
+            })
         }
 
         viewport.addEventListener('scroll', handleScroll, { passive: true })
-        return () => viewport.removeEventListener('scroll', handleScroll)
+        return () => {
+            viewport.removeEventListener('scroll', handleScroll)
+            if (rafId !== null) cancelAnimationFrame(rafId)
+        }
     }, []) // Stable: no dependencies, reads from refs
 
     // Scroll to bottom handler for the indicator button
@@ -248,6 +256,7 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
         return () => observer.disconnect()
     }, [props.hasMoreMessages, props.isLoadingMessages])
 
+    // Restore scroll position after loading older messages (double-check with rAF)
     useLayoutEffect(() => {
         const pending = pendingScrollRef.current
         const viewport = viewportRef.current
@@ -256,6 +265,15 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
         }
         const delta = viewport.scrollHeight - pending.scrollHeight
         viewport.scrollTop = pending.scrollTop + delta
+        // Double-check after browser paint to handle late layout shifts
+        requestAnimationFrame(() => {
+            if (!pendingScrollRef.current && viewport) {
+                const newDelta = viewport.scrollHeight - pending.scrollHeight
+                if (Math.abs(newDelta - delta) > 2) {
+                    viewport.scrollTop = pending.scrollTop + newDelta
+                }
+            }
+        })
         pendingScrollRef.current = null
         loadLockRef.current = false
     }, [props.messagesVersion])
@@ -274,15 +292,17 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
 
     const showSkeleton = props.isLoadingMessages && props.rawMessagesCount === 0 && props.pendingCount === 0
 
+    const chatContextValue = useMemo(() => ({
+        api: props.api,
+        sessionId: props.sessionId,
+        metadata: props.metadata,
+        disabled: props.disabled,
+        onRefresh: props.onRefresh,
+        onRetryMessage: props.onRetryMessage
+    }), [props.api, props.sessionId, props.metadata, props.disabled, props.onRefresh, props.onRetryMessage])
+
     return (
-        <HappyChatProvider value={{
-            api: props.api,
-            sessionId: props.sessionId,
-            metadata: props.metadata,
-            disabled: props.disabled,
-            onRefresh: props.onRefresh,
-            onRetryMessage: props.onRetryMessage
-        }}>
+        <HappyChatProvider value={chatContextValue}>
             <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col relative">
                 <ThreadPrimitive.Viewport asChild autoScroll={autoScrollEnabled}>
                     <div ref={viewportRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">

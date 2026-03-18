@@ -6,6 +6,23 @@ import { rpcError } from '../rpcResponses'
 
 const execFileAsync = promisify(execFile)
 
+// Git operation queue - serializes commands per working directory
+const gitQueues = new Map<string, Promise<unknown>>()
+
+async function queuedGitCommand(
+    args: string[],
+    cwd: string,
+    timeout?: number
+): Promise<GitCommandResponse> {
+    const prev = gitQueues.get(cwd) ?? Promise.resolve()
+    const next = prev.then(
+        () => runGitCommand(args, cwd, timeout),
+        () => runGitCommand(args, cwd, timeout)
+    )
+    gitQueues.set(cwd, next.catch(() => {}))
+    return next
+}
+
 interface GitStatusRequest {
     cwd?: string
     timeout?: number
@@ -96,7 +113,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         if (resolved.error) {
             return rpcError(resolved.error)
         }
-        return await runGitCommand(
+        return await queuedGitCommand(
             ['status', '--porcelain=v2', '--branch', '--untracked-files=all'],
             resolved.cwd,
             data.timeout
@@ -111,7 +128,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         const args = data.staged
             ? ['diff', '--cached', '--numstat']
             : ['diff', '--numstat']
-        return await runGitCommand(args, resolved.cwd, data.timeout)
+        return await queuedGitCommand(args, resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<GitDiffFileRequest, GitCommandResponse>('git-diff-file', async (data) => {
@@ -127,20 +144,20 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         const args = data.staged
             ? ['diff', '--cached', '--no-ext-diff', '--', data.filePath]
             : ['diff', '--no-ext-diff', '--', data.filePath]
-        return await runGitCommand(args, resolved.cwd, data.timeout)
+        return await queuedGitCommand(args, resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; timeout?: number }, GitCommandResponse>('git-branches', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
-        return await runGitCommand(['branch', '--format=%(refname:strip=2)'], resolved.cwd, data.timeout)
+        return await queuedGitCommand(['branch', '--format=%(refname:strip=2)'], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; branch: string; timeout?: number }, GitCommandResponse>('git-checkout', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
         if (!data.branch || typeof data.branch !== 'string') return rpcError('branch is required')
-        return await runGitCommand(['checkout', data.branch], resolved.cwd, data.timeout)
+        return await queuedGitCommand(['checkout', data.branch], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; filePath: string; stage: boolean; timeout?: number }, GitCommandResponse>('git-stage', async (data) => {
@@ -151,21 +168,21 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         const args = data.stage
             ? ['add', data.filePath]
             : ['restore', '--staged', data.filePath]
-        return await runGitCommand(args, resolved.cwd, data.timeout)
+        return await queuedGitCommand(args, resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; message: string; timeout?: number }, GitCommandResponse>('git-commit', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
         if (!data.message?.trim()) return rpcError('commit message is required')
-        return await runGitCommand(['commit', '-m', data.message], resolved.cwd, data.timeout)
+        return await queuedGitCommand(['commit', '-m', data.message], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; remote?: string; timeout?: number }, GitCommandResponse>('git-fetch', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
         const args = data.remote ? ['fetch', data.remote] : ['fetch']
-        return await runGitCommand(args, resolved.cwd, data.timeout ?? 30_000)
+        return await queuedGitCommand(args, resolved.cwd, data.timeout ?? 30_000)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; remote?: string; branch?: string; timeout?: number }, GitCommandResponse>('git-pull', async (data) => {
@@ -174,7 +191,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         const args = ['pull']
         if (data.remote) args.push(data.remote)
         if (data.branch) args.push(data.branch)
-        return await runGitCommand(args, resolved.cwd, data.timeout ?? 60_000)
+        return await queuedGitCommand(args, resolved.cwd, data.timeout ?? 60_000)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; filePath: string; timeout?: number }, GitCommandResponse>('git-rollback-file', async (data) => {
@@ -182,7 +199,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         if (resolved.error) return rpcError(resolved.error)
         const fileError = validateFilePath(data.filePath, workingDirectory)
         if (fileError) return rpcError(fileError)
-        return await runGitCommand(['checkout', 'HEAD', '--', data.filePath], resolved.cwd, data.timeout)
+        return await queuedGitCommand(['checkout', 'HEAD', '--', data.filePath], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; remote?: string; branch?: string; timeout?: number }, GitCommandResponse>('git-push', async (data) => {
@@ -191,7 +208,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         const args = ['push']
         if (data.remote) args.push(data.remote)
         if (data.branch) args.push(data.branch)
-        return await runGitCommand(args, resolved.cwd, data.timeout ?? 60_000)
+        return await queuedGitCommand(args, resolved.cwd, data.timeout ?? 60_000)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; limit?: number; skip?: number; timeout?: number }, GitCommandResponse>('git-log', async (data) => {
@@ -200,7 +217,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         const limit = Math.min(Math.max(data.limit ?? 50, 1), 500)
         const args = ['log', '--format=%H%x00%h%x00%an%x00%ae%x00%at%x00%s', '-n', String(limit)]
         if (data.skip && data.skip > 0) args.push('--skip=' + String(data.skip))
-        return await runGitCommand(args, resolved.cwd, data.timeout)
+        return await queuedGitCommand(args, resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; name: string; from?: string; timeout?: number }, GitCommandResponse>('git-create-branch', async (data) => {
@@ -209,41 +226,41 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         if (!data.name || typeof data.name !== 'string') return rpcError('branch name is required')
         const args = ['checkout', '-b', data.name]
         if (data.from) args.push(data.from)
-        return await runGitCommand(args, resolved.cwd, data.timeout)
+        return await queuedGitCommand(args, resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; name: string; force?: boolean; timeout?: number }, GitCommandResponse>('git-delete-branch', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
         if (!data.name || typeof data.name !== 'string') return rpcError('branch name is required')
-        return await runGitCommand(['branch', data.force ? '-D' : '-d', data.name], resolved.cwd, data.timeout)
+        return await queuedGitCommand(['branch', data.force ? '-D' : '-d', data.name], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; message?: string; timeout?: number }, GitCommandResponse>('git-stash', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
         const args = data.message ? ['stash', 'push', '-m', data.message] : ['stash']
-        return await runGitCommand(args, resolved.cwd, data.timeout)
+        return await queuedGitCommand(args, resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; index?: number; timeout?: number }, GitCommandResponse>('git-stash-pop', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
         const args = data.index !== undefined ? ['stash', 'pop', String(data.index)] : ['stash', 'pop']
-        return await runGitCommand(args, resolved.cwd, data.timeout)
+        return await queuedGitCommand(args, resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; timeout?: number }, GitCommandResponse>('git-stash-list', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
-        return await runGitCommand(['stash', 'list'], resolved.cwd, data.timeout)
+        return await queuedGitCommand(['stash', 'list'], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; branch: string; timeout?: number }, GitCommandResponse>('git-merge', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
         if (!data.branch || typeof data.branch !== 'string') return rpcError('branch name is required')
-        return await runGitCommand(['merge', data.branch], resolved.cwd, data.timeout ?? 30_000)
+        return await queuedGitCommand(['merge', data.branch], resolved.cwd, data.timeout ?? 30_000)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; filePath: string; timeout?: number }, GitCommandResponse>('git-discard-changes', async (data) => {
@@ -251,20 +268,20 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         if (resolved.error) return rpcError(resolved.error)
         const fileError = validateFilePath(data.filePath, workingDirectory)
         if (fileError) return rpcError(fileError)
-        return await runGitCommand(['checkout', '--', data.filePath], resolved.cwd, data.timeout)
+        return await queuedGitCommand(['checkout', '--', data.filePath], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; timeout?: number }, GitCommandResponse>('git-remote-branches', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
-        return await runGitCommand(['branch', '-r', '--format=%(refname:strip=2)'], resolved.cwd, data.timeout)
+        return await queuedGitCommand(['branch', '-r', '--format=%(refname:strip=2)'], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; hash: string; timeout?: number }, GitCommandResponse>('git-show-stat', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
         if (!data.hash || typeof data.hash !== 'string') return rpcError('commit hash is required')
-        return await runGitCommand(['diff-tree', '--no-commit-id', '-r', '-m', '--name-status', data.hash], resolved.cwd, data.timeout)
+        return await queuedGitCommand(['diff-tree', '--no-commit-id', '-r', '-m', '--name-status', data.hash], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; hash: string; filePath: string; timeout?: number }, GitCommandResponse>('git-show-file', async (data) => {
@@ -272,7 +289,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         if (resolved.error) return rpcError(resolved.error)
         if (!data.hash || typeof data.hash !== 'string') return rpcError('commit hash is required')
         if (!data.filePath || typeof data.filePath !== 'string') return rpcError('file path is required')
-        return await runGitCommand(['diff-tree', '--no-commit-id', '-r', '-p', '-m', data.hash, '--', data.filePath], resolved.cwd, data.timeout)
+        return await queuedGitCommand(['diff-tree', '--no-commit-id', '-r', '-p', '-m', data.hash, '--', data.filePath], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; hash: string; filePath: string; timeout?: number }, GitCommandResponse>('git-show-file-content', async (data) => {
@@ -280,7 +297,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         if (resolved.error) return rpcError(resolved.error)
         if (!data.hash || typeof data.hash !== 'string') return rpcError('commit hash is required')
         if (!data.filePath || typeof data.filePath !== 'string') return rpcError('file path is required')
-        return await runGitCommand(['show', `${data.hash}:${data.filePath}`], resolved.cwd, data.timeout)
+        return await queuedGitCommand(['show', `${data.hash}:${data.filePath}`], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; filePath: string; timeout?: number }, GitCommandResponse>('git-clean-file', async (data) => {
@@ -288,7 +305,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         if (resolved.error) return rpcError(resolved.error)
         const fileError = validateFilePath(data.filePath, workingDirectory)
         if (fileError) return rpcError(fileError)
-        return await runGitCommand(['clean', '-f', '--', data.filePath], resolved.cwd, data.timeout)
+        return await queuedGitCommand(['clean', '-f', '--', data.filePath], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; files: Array<{ filePath: string; stage: boolean }>; timeout?: number }, GitCommandResponse>('git-batch-stage', async (data) => {
@@ -304,7 +321,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
                 const fileError = validateFilePath(fp, workingDirectory)
                 if (fileError) return rpcError(fileError)
             }
-            const result = await runGitCommand(['add', '--', ...toStage], resolved.cwd, data.timeout)
+            const result = await queuedGitCommand(['add', '--', ...toStage], resolved.cwd, data.timeout)
             if (!result.success) return result
         }
 
@@ -313,7 +330,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
                 const fileError = validateFilePath(fp, workingDirectory)
                 if (fileError) return rpcError(fileError)
             }
-            const result = await runGitCommand(['restore', '--staged', '--', ...toUnstage], resolved.cwd, data.timeout)
+            const result = await queuedGitCommand(['restore', '--staged', '--', ...toUnstage], resolved.cwd, data.timeout)
             if (!result.success) return result
         }
 

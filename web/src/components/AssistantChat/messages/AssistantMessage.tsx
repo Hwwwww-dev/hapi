@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { MessagePrimitive, useAssistantState } from '@assistant-ui/react'
 import { MarkdownText } from '@/components/assistant-ui/markdown-text'
 import { Reasoning, ReasoningGroup } from '@/components/assistant-ui/reasoning'
@@ -17,7 +18,7 @@ const MESSAGE_PART_COMPONENTS = {
     tools: TOOL_COMPONENTS
 } as const
 
-export function HappyAssistantMessage() {
+export const HappyAssistantMessage = memo(function HappyAssistantMessage() {
     const isCliOutput = useAssistantState(({ message }) => {
         const custom = message.metadata.custom as Partial<HappyChatMessageMetadata> | undefined
         return custom?.kind === 'cli-output'
@@ -56,4 +57,4 @@ export function HappyAssistantMessage() {
             </div>
         </MessagePrimitive.Root>
     )
-}
+})
