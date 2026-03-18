@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, forwardRef } from 'react'
 import { ThreadPrimitive } from '@assistant-ui/react'
 import type { ApiClient } from '@/api/client'
 import type { SessionMetadataSummary } from '@/types/api'
@@ -55,7 +55,11 @@ const THREAD_MESSAGE_COMPONENTS = {
     SystemMessage: HappySystemMessage
 } as const
 
-export function HappyThread(props: {
+export interface HappyThreadHandle {
+    scrollToBottom: () => void
+}
+
+export const HappyThread = forwardRef<HappyThreadHandle, {
     api: ApiClient
     sessionId: string
     metadata: SessionMetadataSummary | null
@@ -74,7 +78,7 @@ export function HappyThread(props: {
     normalizedMessagesCount: number
     messagesVersion: number
     forceScrollToken: number
-}) {
+}>(function HappyThread(props, ref) {
     const { t } = useTranslation()
     const viewportRef = useRef<HTMLDivElement | null>(null)
     const topSentinelRef = useRef<HTMLDivElement | null>(null)
@@ -159,6 +163,8 @@ export function HappyThread(props: {
         }
         onFlushPendingRef.current()
     }, [])
+
+    useImperativeHandle(ref, () => ({ scrollToBottom }), [scrollToBottom])
 
     // Reset state when session changes
     useEffect(() => {
@@ -336,4 +342,4 @@ export function HappyThread(props: {
             </ThreadPrimitive.Root>
         </HappyChatProvider>
     )
-}
+})

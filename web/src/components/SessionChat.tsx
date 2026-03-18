@@ -10,6 +10,7 @@ import { reduceChatBlocks } from '@/chat/reducer'
 import { reconcileChatBlocks } from '@/chat/reconcile'
 import { HappyComposer } from '@/components/AssistantChat/HappyComposer'
 import { HappyThread } from '@/components/AssistantChat/HappyThread'
+import type { HappyThreadHandle } from '@/components/AssistantChat/HappyThread'
 import { useHappyRuntime } from '@/lib/assistant-runtime'
 import { createAttachmentAdapter } from '@/lib/attachmentAdapter'
 import { SessionHeader } from '@/components/SessionHeader'
@@ -19,6 +20,7 @@ import { useSessionActions } from '@/hooks/mutations/useSessionActions'
 import { useTranslation } from '@/lib/use-translation'
 import { useVoiceOptional } from '@/lib/voice-context'
 import { RealtimeVoiceSession, registerSessionStore, registerVoiceHooksStore, voiceHooks } from '@/realtime'
+import { ScrollToBottomButton } from '@/components/AssistantChat/ScrollToBottomButton'
 
 const SESSION_CHAT_RENDERER_INSTANCE_ID = Date.now()
 
@@ -49,6 +51,8 @@ export function SessionChat(props: {
     const normalizedCacheRef = useRef<Map<string, { source: DecryptedMessage; normalized: NormalizedMessage | null }>>(new Map())
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
+    const [atBottom, setAtBottom] = useState(true)
+    const threadRef = useRef<HappyThreadHandle>(null)
     const [statusActionPending, setStatusActionPending] = useState<'resume' | 'disconnect' | 'refresh' | null>(null)
     const agentFlavor = props.session.metadata?.flavor ?? null
     const controlledByUser = props.session.agentState?.controlledByUser === true
@@ -272,6 +276,15 @@ export function SessionChat(props: {
         setForceScrollToken((token) => token + 1)
     }, [props.onSend])
 
+    const handleAtBottomChange = useCallback((value: boolean) => {
+        setAtBottom(value)
+        props.onAtBottomChange(value)
+    }, [props.onAtBottomChange])
+
+    const handleScrollToBottom = useCallback(() => {
+        threadRef.current?.scrollToBottom()
+    }, [])
+
     const handleResume = useCallback(async () => {
         try {
             setStatusActionPending('resume')
@@ -359,6 +372,7 @@ export function SessionChat(props: {
             <AssistantRuntimeProvider runtime={runtime}>
                 <div className="relative flex min-h-0 flex-1 flex-col">
                     <HappyThread
+                        ref={threadRef}
                         key={props.session.id}
                         api={props.api}
                         sessionId={props.session.id}
@@ -367,7 +381,7 @@ export function SessionChat(props: {
                         onRefresh={props.onRefresh}
                         onRetryMessage={props.onRetryMessage}
                         onFlushPending={props.onFlushPending}
-                        onAtBottomChange={props.onAtBottomChange}
+                        onAtBottomChange={handleAtBottomChange}
                         isLoadingMessages={props.isLoadingMessages}
                         messagesWarning={props.messagesWarning}
                         hasMoreMessages={props.hasMoreMessages}
@@ -381,6 +395,8 @@ export function SessionChat(props: {
                     />
 
                     {!isSubagent && (
+                    <>
+                    <ScrollToBottomButton visible={!atBottom} onClick={handleScrollToBottom} />
                     <HappyComposer
                         disabled={props.isSending}
                         permissionMode={props.session.permissionMode}
@@ -408,6 +424,7 @@ export function SessionChat(props: {
                         onVoiceToggle={voice ? handleVoiceToggle : undefined}
                         onVoiceMicToggle={voice ? handleVoiceMicToggle : undefined}
                     />
+                    </>
                     )}
                 </div>
             </AssistantRuntimeProvider>
