@@ -1,6 +1,7 @@
 import { useId, useMemo, useRef, useState } from 'react'
 import { getExplicitSessionTitle, getSessionPathFallbackTitle, type Session } from '@/types/api'
 import type { ApiClient } from '@/api/client'
+import { formatFlavorName } from '@/lib/agentFlavorUtils'
 import { isTelegramApp } from '@/hooks/useTelegram'
 import { useSessionActions } from '@/hooks/mutations/useSessionActions'
 import { SessionActionMenu } from '@/components/SessionActionMenu'
@@ -9,6 +10,7 @@ import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { getSessionModelLabel } from '@/lib/sessionModelLabel'
 import { useTranslation } from '@/lib/use-translation'
+import { notify } from '@/lib/notify'
 
 function getSessionTitle(session: Session): string {
     return getExplicitSessionTitle(session) ?? getSessionPathFallbackTitle(session)
@@ -66,9 +68,7 @@ export function SessionHeader(props: {
     const { session, api, onSessionDeleted } = props
     const title = useMemo(() => getSessionTitle(session), [session])
     const worktreeBranch = session.metadata?.worktree?.branch
-    const nativeOrigin = session.metadata?.nativeProvider && session.metadata?.nativeSessionId
-        ? `${t('session.item.nativeSource')}: ${session.metadata.nativeProvider} · ${session.metadata.nativeSessionId}`
-        : null
+    const nativeSessionId = session.metadata?.nativeSessionId?.trim() || null
     const modelLabel = getSessionModelLabel(session)
 
     const [menuOpen, setMenuOpen] = useState(false)
@@ -78,6 +78,14 @@ export function SessionHeader(props: {
     const [renameOpen, setRenameOpen] = useState(false)
     const [archiveOpen, setArchiveOpen] = useState(false)
     const [deleteOpen, setDeleteOpen] = useState(false)
+    const [titleExpanded, setTitleExpanded] = useState(false)
+
+    const handleTitleClick = () => {
+        if (!titleExpanded) {
+            navigator.clipboard?.writeText(title).then(() => notify.success(t('notify.copied'), 2000)).catch(() => {})
+        }
+        setTitleExpanded((v) => !v)
+    }
 
     const { archiveSession, renameSession, deleteSession, isPending } = useSessionActions(
         api,
@@ -129,29 +137,35 @@ export function SessionHeader(props: {
                         </svg>
                     </button>
 
-                    {/* Session info - two lines: title and path */}
+                    {/* Session info */}
                     <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 min-w-0">
-                            <div className="truncate font-semibold">
+                        <div className="flex items-start gap-1.5 min-w-0">
+                            <div
+                                className={`text-sm font-semibold break-all cursor-pointer ${titleExpanded ? '' : 'truncate'}`}
+                                onClick={handleTitleClick}
+                            >
                                 {title}
                             </div>
-                            <SessionSourceBadge source={session.metadata?.source} className="shrink-0" />
+                            <SessionSourceBadge source={session.metadata?.source} className="shrink-0 mt-0.5" />
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[var(--app-hint)]">
-                            <span className="inline-flex items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-[var(--app-hint)]">
+                            <span className="inline-flex items-center gap-0.5 shrink-0">
                                 <span aria-hidden="true">❖</span>
-                                {session.metadata?.flavor?.trim() || 'unknown'}
+                                {formatFlavorName(session.metadata?.flavor)}
                             </span>
                             {modelLabel ? (
-                                <span>
-                                    {t(modelLabel.key)}: {modelLabel.value}
-                                </span>
+                                <span className="shrink-0">{modelLabel.value}</span>
                             ) : null}
                             {worktreeBranch ? (
-                                <span>{t('session.item.worktree')}: {worktreeBranch}</span>
+                                <span className="shrink-0">{worktreeBranch}</span>
                             ) : null}
-                            {nativeOrigin ? (
-                                <span>{nativeOrigin}</span>
+                            {nativeSessionId ? (
+                                <span
+                                    className="font-mono break-all cursor-pointer hover:text-[var(--app-fg)] transition-colors"
+                                    onClick={() => navigator.clipboard?.writeText(nativeSessionId).then(() => notify.success(t('notify.copied'), 2000)).catch(() => {})}
+                                >
+                                    {nativeSessionId}
+                                </span>
                             ) : null}
                         </div>
                     </div>

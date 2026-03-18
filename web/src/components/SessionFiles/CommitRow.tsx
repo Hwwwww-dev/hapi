@@ -122,6 +122,7 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit }: Commi
                             {isLocal && <span className="shrink-0 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-amber-500/15 text-amber-600">{t('git.local')}</span>}
                             {!isLocal && <span className="shrink-0 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-emerald-500/15 text-emerald-600">{t('git.remote')}</span>}
                             <span className="truncate">{commit.subject}</span>
+                            {loading && <span className="shrink-0 w-3.5 h-3.5 border border-[var(--app-link)] border-t-transparent rounded-full animate-spin inline-block" />}
                         </div>
                         <div className="text-xs text-[var(--app-hint)] mt-0.5 flex items-center gap-1">
                             <span className="font-mono">{commit.short}</span>
@@ -130,12 +131,6 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit }: Commi
                             <span>·</span>
                             <span>{formatRelativeTime(commit.date, t)}</span>
                         </div>
-                    </div>
-                    <div className="shrink-0 pt-1.5 text-[var(--app-hint)]">
-                        {loading
-                            ? <span className="w-3.5 h-3.5 border border-[var(--app-link)] border-t-transparent rounded-full animate-spin inline-block" />
-                            : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${expanded ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9" /></svg>
-                        }
                     </div>
                 </button>
                 {onUncommit && (

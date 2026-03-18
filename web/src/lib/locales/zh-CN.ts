@@ -344,8 +344,8 @@ export default {
   'misc.permissionRequired': '需要权限',
   'misc.percentLeft': '剩余 {percent}%',
   'misc.tokenUsed': '已用 {used}',
-  'misc.contextUsage': '上下文 已用 {percent}% ({used} / {total})',
-  'misc.messageCount': '消息数：{current} / {total}',
+  'misc.contextUsage': '上下文 {percent}% ({used} / {total})',
+  'misc.messageCount': '{current} / {total}',
   'misc.online': '在线',
 
   // Queue

@@ -445,7 +445,7 @@ function ToolCardInner(props: ToolCardProps) {
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
                         <DialogHeader>
-                            <DialogTitle>{toolTitle}</DialogTitle>
+                            <DialogTitle className="break-all">{toolTitle}</DialogTitle>
                         </DialogHeader>
                         {(() => {
                             const isQuestionToolWithAnswers = isQuestionTool

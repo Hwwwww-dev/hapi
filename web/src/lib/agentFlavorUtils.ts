@@ -46,3 +46,17 @@ export function filterSessionsByAgentTab(sessions: SessionSummary[], tab: Sessio
 export function toSessionAgentSearch(tab: SessionAgentTab): SessionAgentSearch {
     return { agent: tab }
 }
+
+const FLAVOR_DISPLAY_NAMES: Record<string, string> = {
+    claude: 'Claude Code',
+    codex: 'Codex',
+    cursor: 'Cursor',
+    gemini: 'Gemini',
+    opencode: 'OpenCode',
+}
+
+export function formatFlavorName(flavor?: string | null): string {
+    const key = flavor?.trim()
+    if (!key) return 'Unknown'
+    return FLAVOR_DISPLAY_NAMES[key] ?? key
+}

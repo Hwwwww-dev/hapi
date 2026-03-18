@@ -342,8 +342,8 @@ export default {
   'misc.permissionRequired': 'permission required',
   'misc.percentLeft': '{percent}% left',
   'misc.tokenUsed': '{used} used',
-  'misc.contextUsage': 'Context {percent}% used ({used} / {total})',
-  'misc.messageCount': 'Messages: {current} / {total}',
+  'misc.contextUsage': '{percent}% used ({used} / {total})',
+  'misc.messageCount': '{current} / {total}',
   'misc.online': 'online',
 
   // Queue

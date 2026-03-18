@@ -9,7 +9,7 @@ import { SessionActionMenu } from '@/components/SessionActionMenu'
 import { SessionSourceBadge } from '@/components/SessionSourceBadge'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { SESSION_AGENT_TABS, type SessionAgentTab } from '@/lib/agentFlavorUtils'
+import { SESSION_AGENT_TABS, type SessionAgentTab, formatFlavorName } from '@/lib/agentFlavorUtils'
 import { getSessionModelLabel } from '@/lib/sessionModelLabel'
 import { useTranslation } from '@/lib/use-translation'
 import type { SessionGroupState } from '@/hooks/queries/useSessions'
@@ -192,9 +192,7 @@ function getTodoProgress(session: SessionSummary): { completed: number; total: n
 }
 
 function getAgentLabel(session: SessionSummary): string {
-    const flavor = session.metadata?.flavor?.trim()
-    if (flavor) return flavor
-    return 'unknown'
+    return formatFlavorName(session.metadata?.flavor)
 }
 
 function getNativeOriginLabel(session: SessionSummary): string | null {

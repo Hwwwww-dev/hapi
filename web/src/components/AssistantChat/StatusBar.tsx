@@ -172,12 +172,12 @@ export function StatusBar(props: {
                     </span>
                 </div>
                 {contextWarning ? (
-                    <span className={`text-xs ${contextWarning.color}`}>
+                    <span className={`text-[10px] ${contextWarning.color}`}>
                         {contextWarning.text}
                     </span>
                 ) : null}
                 {props.totalMessages != null && props.messageCount != null ? (
-                    <span className="text-xs text-[var(--app-hint)] tabular-nums">
+                    <span className="text-[10px] text-[var(--app-hint)] tabular-nums">
                         {t('misc.messageCount', { current: props.messageCount, total: props.totalMessages })}
                     </span>
                 ) : null}

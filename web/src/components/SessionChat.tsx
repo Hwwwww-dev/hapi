@@ -364,16 +364,15 @@ export function SessionChat(props: {
                 <TeamPanel teamState={props.session.teamState} />
             )}
 
-            {sessionInactive ? (
-                <div className="border-b border-[var(--app-divider)] bg-[var(--app-bg)]">
-                    <div className="mx-auto w-full max-w-content px-3 py-2 text-xs text-[var(--app-hint)]">
-                        {t('session.chat.inactive')}
-                    </div>
-                </div>
-            ) : null}
-
             <AssistantRuntimeProvider runtime={runtime}>
                 <div className="relative flex min-h-0 flex-1 flex-col">
+                    {sessionInactive ? (
+                        <div className="absolute left-0 right-0 z-20 flex justify-center pointer-events-none">
+                            <div className="mt-2 rounded-full bg-amber-100 dark:bg-amber-950 px-4 py-1.5 text-xs text-amber-700 dark:text-amber-500 shadow-md pointer-events-auto animate-slide-down-fade">
+                                {t('session.chat.inactive')}
+                            </div>
+                        </div>
+                    ) : null}
                     <HappyThread
                         ref={threadRef}
                         key={props.session.id}
