@@ -126,6 +126,12 @@ export default {
   'dialog.git.checkout.confirm': '切换',
   'dialog.git.checkout.confirming': '切换中…',
 
+  'dialog.git.rollback.title': '回退文件',
+  'dialog.git.rollback.description': '确定要回退 "{file}" 吗？这将丢弃所有更改，且无法撤销。',
+  'dialog.git.rollback.description.untracked': '确定要删除未跟踪的文件 "{file}" 吗？此操作无法撤销。',
+  'dialog.git.rollback.confirm': '回退',
+  'dialog.git.rollback.confirming': '回退中…',
+
   // Common buttons
   'button.cancel': '取消',
   'button.save': '保存',

@@ -283,4 +283,41 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         return await runGitCommand(['show', `${data.hash}:${data.filePath}`], resolved.cwd, data.timeout)
     })
 
+    rpcHandlerManager.registerHandler<{ cwd?: string; filePath: string; timeout?: number }, GitCommandResponse>('git-clean-file', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        const fileError = validateFilePath(data.filePath, workingDirectory)
+        if (fileError) return rpcError(fileError)
+        return await runGitCommand(['clean', '-f', '--', data.filePath], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; files: Array<{ filePath: string; stage: boolean }>; timeout?: number }, GitCommandResponse>('git-batch-stage', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!Array.isArray(data.files) || data.files.length === 0) return rpcError('files array is required')
+
+        const toStage = data.files.filter(f => f.stage).map(f => f.filePath)
+        const toUnstage = data.files.filter(f => !f.stage).map(f => f.filePath)
+
+        if (toStage.length > 0) {
+            for (const fp of toStage) {
+                const fileError = validateFilePath(fp, workingDirectory)
+                if (fileError) return rpcError(fileError)
+            }
+            const result = await runGitCommand(['add', '--', ...toStage], resolved.cwd, data.timeout)
+            if (!result.success) return result
+        }
+
+        if (toUnstage.length > 0) {
+            for (const fp of toUnstage) {
+                const fileError = validateFilePath(fp, workingDirectory)
+                if (fileError) return rpcError(fileError)
+            }
+            const result = await runGitCommand(['restore', '--staged', '--', ...toUnstage], resolved.cwd, data.timeout)
+            if (!result.success) return result
+        }
+
+        return { success: true, stdout: '', stderr: '', exitCode: 0 }
+    })
+
 }

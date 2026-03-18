@@ -953,6 +953,14 @@ export class SyncEngine {
         return await this.rpcGateway.gitRollbackFile(sessionId, options)
     }
 
+    async gitCleanFile(sessionId: string, options: { cwd?: string; filePath: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitCleanFile(sessionId, options)
+    }
+
+    async gitBatchStage(sessionId: string, options: { cwd?: string; files: Array<{ filePath: string; stage: boolean }> }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitBatchStage(sessionId, options)
+    }
+
     async gitPush(sessionId: string, options: { cwd?: string; remote?: string; branch?: string }): Promise<RpcCommandResponse> {
         return await this.rpcGateway.gitPush(sessionId, options)
     }

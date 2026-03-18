@@ -229,6 +229,14 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-rollback-file', options) as RpcCommandResponse
     }
 
+    async gitCleanFile(sessionId: string, options: { cwd?: string; filePath: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-clean-file', options) as RpcCommandResponse
+    }
+
+    async gitBatchStage(sessionId: string, options: { cwd?: string; files: Array<{ filePath: string; stage: boolean }> }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-batch-stage', options) as RpcCommandResponse
+    }
+
     async gitPush(sessionId: string, options: { cwd?: string; remote?: string; branch?: string }): Promise<RpcCommandResponse> {
         return await this.sessionRpc(sessionId, 'git-push', options) as RpcCommandResponse
     }

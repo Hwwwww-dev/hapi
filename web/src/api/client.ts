@@ -309,6 +309,22 @@ export class ApiClient {
         })
     }
 
+    async gitCleanFile(sessionId: string, filePath: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-clean-file`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filePath })
+        })
+    }
+
+    async gitBatchStage(sessionId: string, files: Array<{ filePath: string; stage: boolean }>): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-batch-stage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files })
+        })
+    }
+
     async gitPush(sessionId: string, remote?: string, branch?: string): Promise<GitCommandResponse> {
         return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-push`, {
             method: 'POST',

@@ -124,6 +124,12 @@ export default {
   'dialog.git.checkout.confirm': 'Switch',
   'dialog.git.checkout.confirming': 'Switching…',
 
+  'dialog.git.rollback.title': 'Rollback File',
+  'dialog.git.rollback.description': 'Are you sure you want to rollback "{file}"? This will discard all changes and cannot be undone.',
+  'dialog.git.rollback.description.untracked': 'Are you sure you want to delete the untracked file "{file}"? This cannot be undone.',
+  'dialog.git.rollback.confirm': 'Rollback',
+  'dialog.git.rollback.confirming': 'Rolling back…',
+
   // Common buttons
   'button.cancel': 'Cancel',
   'button.save': 'Save',
