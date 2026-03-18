@@ -388,7 +388,7 @@ export const knownTools: Record<string, {
             return skill ? `Skill: ${skill}` : 'Skill'
         },
         subtitle: (opts) => getInputStringAny(opts.input, ['args']) ?? null,
-        minimal: false
+        minimal: true
     },
     AskUserQuestion: {
         icon: () => <QuestionIcon className={DEFAULT_ICON_CLASS} />,
