@@ -170,7 +170,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                 type="button"
                                 onClick={handleCreateBranch}
                                 disabled={!newBranchName.trim() || actionLoading === 'create'}
-                                className="flex-1 min-h-[44px] text-sm font-medium rounded bg-[var(--app-link)] text-white disabled:opacity-50 transition-opacity"
+                                className="flex-1 min-h-[44px] text-sm font-medium rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50 transition-opacity"
                             >
                                 {actionLoading === 'create' ? 'Creating...' : 'Create'}
                             </button>

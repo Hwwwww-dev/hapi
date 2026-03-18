@@ -132,7 +132,7 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
                     type="button"
                     onClick={() => setConfirmAction('commit')}
                     disabled={commitLoading || !commitMessage.trim() || staged.length === 0}
-                    className="text-xs px-3 py-1.5 rounded bg-[var(--app-link)] text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
+                    className="text-xs px-3 py-1.5 rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-40 hover:opacity-90 transition-opacity"
                 >
                     {commitLoading ? 'Committing...' : `Commit${staged.length > 0 ? ` (${staged.length})` : ''}`}
                 </button>

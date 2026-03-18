@@ -152,12 +152,17 @@ export function createSessionsRoutes(getSyncEngine: () => SyncEngine | null): Ho
         const offsetParam = c.req.query('offset')
         const directoryParam = c.req.query('directory')
         const flavorParam = c.req.query('flavor')
+        const activeParam = c.req.query('active')
         const offset = offsetParam ? Math.max(0, parseInt(offsetParam, 10) || 0) : 0
         const targetDirectory = directoryParam ? decodeURIComponent(directoryParam) : null
 
         let allSessions = engine.getSessionsByNamespace(namespace)
         if (flavorParam) {
             allSessions = allSessions.filter(s => s.metadata?.flavor === flavorParam)
+        }
+        if (activeParam !== undefined) {
+            const wantActive = activeParam === 'true' || activeParam === '1'
+            allSessions = allSessions.filter(s => s.active === wantActive)
         }
 
         const groups = groupAndPaginateSessions(allSessions, targetDirectory, offset, DEFAULT_PAGE_LIMIT)

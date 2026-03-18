@@ -58,7 +58,7 @@ function mergeGroups(
     return next
 }
 
-export function useSessions(api: ApiClient | null, flavor?: string): {
+export function useSessions(api: ApiClient | null, flavor?: string, active?: boolean): {
     groups: SessionGroupState[]
     sessions: SessionSummary[]
     isLoading: boolean
@@ -74,20 +74,20 @@ export function useSessions(api: ApiClient | null, flavor?: string): {
     const flavorRef = useRef(flavor)
     const queryClient = useQueryClient()
 
-    // Reset state when flavor changes
+    // Reset state when flavor or active filter changes
     useEffect(() => {
         flavorRef.current = flavor
         setGroupMap(new Map())
         isInitialRef.current = true
-    }, [flavor])
+    }, [flavor, active])
 
     const query = useQuery({
-        queryKey: [...queryKeys.sessions, flavor],
+        queryKey: [...queryKeys.sessions, flavor, active],
         queryFn: async () => {
             if (!api) throw new Error('API unavailable')
             // Capture the flavor at request time to detect stale responses
             const requestFlavor = flavorRef.current
-            const result = await api.getSessions(flavor)
+            const result = await api.getSessions(flavor, active)
             // Discard response if flavor changed while request was in-flight
             if (flavorRef.current !== requestFlavor) return result
             const isInitial = isInitialRef.current
@@ -159,8 +159,8 @@ export function useSessions(api: ApiClient | null, flavor?: string): {
 
     const refetch = useCallback(async () => {
         isInitialRef.current = false
-        return queryClient.invalidateQueries({ queryKey: [...queryKeys.sessions, flavor] })
-    }, [queryClient, flavor])
+        return queryClient.invalidateQueries({ queryKey: [...queryKeys.sessions, flavor, active] })
+    }, [queryClient, flavor, active])
 
     const groups = Array.from(groupMap.values())
     return {

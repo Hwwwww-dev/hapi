@@ -83,7 +83,7 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
                         type="button"
                         onClick={handleStash}
                         disabled={actionLoading}
-                        className="min-h-[44px] text-sm px-3 rounded bg-[var(--app-link)] text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
+                        className="min-h-[44px] text-sm px-3 rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-40 hover:opacity-90 transition-opacity"
                     >
                         {actionLoading ? 'Working...' : 'Stash Changes'}
                     </button>

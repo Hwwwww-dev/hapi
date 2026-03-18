@@ -90,7 +90,7 @@ export function CommitDrawer({ api, sessionId, gitStatus, onCommitted, onStaged,
                 type="button"
                 onClick={handleCommit}
                 disabled={isPending || !message.trim() || gitStatus.stagedFiles.length === 0}
-                className="text-xs px-3 py-1.5 rounded bg-[var(--app-link)] text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
+                className="text-xs px-3 py-1.5 rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-40 hover:opacity-90 transition-opacity"
             >
                 {isPending ? 'Committing...' : `Commit${gitStatus.stagedFiles.length > 0 ? ` (${gitStatus.stagedFiles.length})` : ''}`}
             </button>

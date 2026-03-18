@@ -337,17 +337,17 @@ function SessionItem(props: {
     const modelLabel = getSessionModelLabel(s)
     const statusBg = s.active
         ? (s.thinking
-            ? 'bg-blue-50 border-blue-200 hover:!bg-blue-100 animate-bg-breathe'
+            ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 hover:!bg-blue-100 dark:hover:!bg-blue-950/50 animate-bg-breathe'
             : s.pendingRequestsCount > 0
-                ? 'bg-amber-50 border-amber-200 hover:!bg-amber-100'
-                : 'bg-emerald-50 border-emerald-200 hover:!bg-emerald-100')
+                ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 hover:!bg-amber-100 dark:hover:!bg-amber-950/50'
+                : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 hover:!bg-emerald-100 dark:hover:!bg-emerald-950/50')
         : ''
     const selectedBg = s.active
         ? (s.thinking
-            ? 'bg-blue-50 border-blue-400 hover:!bg-blue-100 animate-bg-breathe'
+            ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-400 dark:border-blue-600 hover:!bg-blue-100 dark:hover:!bg-blue-950/50 animate-bg-breathe'
             : s.pendingRequestsCount > 0
-                ? 'bg-amber-50 border-amber-400 hover:!bg-amber-100'
-                : 'bg-emerald-50 border-emerald-400 hover:!bg-emerald-100')
+                ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-400 dark:border-amber-600 hover:!bg-amber-100 dark:hover:!bg-amber-950/50'
+                : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-600 hover:!bg-emerald-100 dark:hover:!bg-emerald-950/50')
         : 'border-[var(--app-link)] bg-[var(--app-secondary-bg)]'
     return (
         <>
@@ -541,9 +541,16 @@ export function SessionList(props: {
             .filter(g => g.sessions.length > 0)
     }, [props.groups])
 
+    // Online tab: flat list of all active sessions across all groups (backend already filtered)
+    const isOnlineTab = agentTab === 'online'
+    const onlineSessions: SessionWithChildren[] = useMemo(() => {
+        if (!isOnlineTab) return []
+        return groups.flatMap(g => g.sessions)
+    }, [isOnlineTab, groups])
+
     const visibleSessionCount = useMemo(
-        () => groups.reduce((sum, group) => sum + group.sessions.length, 0),
-        [groups]
+        () => isOnlineTab ? onlineSessions.length : groups.reduce((sum, group) => sum + group.sessions.length, 0),
+        [isOnlineTab, onlineSessions, groups]
     )
     const contentAnimationKey = useMemo(
         () => getSessionListContentAnimationKey(agentTab, groups),
@@ -623,12 +630,39 @@ export function SessionList(props: {
                 data-testid="session-list-content"
                 className="animate-session-list-swap flex flex-col gap-2 px-2 pb-2"
             >
-                {groups.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-[var(--app-divider)] px-4 py-6 text-center text-sm text-[var(--app-hint)]">
-                        {t('sessions.empty')}
-                    </div>
-                ) : null}
-                {groups.map((group) => {
+                {isOnlineTab ? (
+                    /* Online tab: flat list of active sessions */
+                    onlineSessions.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-[var(--app-divider)] px-4 py-6 text-center text-sm text-[var(--app-hint)]">
+                            {t('sessions.emptyOnline')}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-2">
+                            {onlineSessions.map((item) => (
+                                <SessionItem
+                                    key={item.session.id}
+                                    session={item.session}
+                                    nativeChildren={item.nativeChildren}
+                                    onSelect={props.onSelect}
+                                    groupDirectory={item.session.metadata?.path ?? 'Other'}
+                                    api={api}
+                                    selected={item.session.id === selectedSessionId}
+                                    selectedSessionId={selectedSessionId}
+                                    removeSession={props.removeSession}
+                                    onDeletedNavigate={props.onDeletedNavigate}
+                                />
+                            ))}
+                        </div>
+                    )
+                ) : (
+                    /* Normal tabs: grouped by directory */
+                    <>
+                        {groups.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed border-[var(--app-divider)] px-4 py-6 text-center text-sm text-[var(--app-hint)]">
+                                {t('sessions.empty')}
+                            </div>
+                        ) : null}
+                        {groups.map((group) => {
                     const isCollapsed = isGroupCollapsed(group)
                     const mainCount = group.sessions.filter(item => !item.session.metadata?.parentNativeSessionId).length
                     const countLabel = group.hasMore ? `${mainCount}/${group.totalSessions}` : `${mainCount}`
@@ -696,6 +730,8 @@ export function SessionList(props: {
                         </div>
                     )
                 })}
+                    </>
+                )}
             </div>
         </div>
     )

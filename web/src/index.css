@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 
+@custom-variant dark (&:is([data-theme="dark"] *));
+
 :root {
     --app-bg: var(--tg-theme-bg-color, #ffffff);
     --app-fg: var(--tg-theme-text-color, #111827);
@@ -125,8 +127,15 @@ body {
     0%, 100% { background-color: rgb(239 246 255); }
     50% { background-color: rgb(219 234 254); }
 }
+@keyframes bg-breathe-dark {
+    0%, 100% { background-color: rgb(23 37 84 / 0.3); }
+    50% { background-color: rgb(23 37 84 / 0.5); }
+}
 .animate-bg-breathe {
     animation: bg-breathe 2s ease-in-out infinite;
+}
+[data-theme="dark"] .animate-bg-breathe {
+    animation: bg-breathe-dark 2s ease-in-out infinite;
 }
 
 .scrollbar-hidden {
@@ -136,6 +145,26 @@ body {
 
 .scrollbar-hidden::-webkit-scrollbar {
     display: none;
+}
+
+/* Global thin styled scrollbar */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--app-hint) transparent;
+}
+*::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+    background: var(--app-hint);
+    border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--app-hint);
 }
 
 /* Desktop-only: move the sidebar scrollbar to the left without flipping content. */

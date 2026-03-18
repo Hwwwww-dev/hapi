@@ -31,7 +31,7 @@ import { queryKeys } from '@/lib/query-keys'
 import { useToast } from '@/lib/toast-context'
 import { useTranslation } from '@/lib/use-translation'
 import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message-window-store'
-import { normalizeSessionAgentTab, toSessionAgentSearch, type SessionAgentTab } from '@/lib/agentFlavorUtils'
+import { normalizeSessionAgentTab, toSessionAgentSearch, getTabFlavor, getTabActive, type SessionAgentTab } from '@/lib/agentFlavorUtils'
 import FilesPage from '@/routes/sessions/files'
 import FilePage from '@/routes/sessions/file'
 import TerminalPage from '@/routes/sessions/terminal'
@@ -115,7 +115,7 @@ function SessionsPage() {
     const { t } = useTranslation()
     const search = useSearch({ from: '/sessions' })
     const agentTab = normalizeSessionAgentTab(search.agent)
-    const { sessions, groups, isLoading, error, refetch, removeSession, loadMoreForDirectory, isLoadingMoreFor } = useSessions(api, agentTab)
+    const { sessions, groups, isLoading, error, refetch, removeSession, loadMoreForDirectory, isLoadingMoreFor } = useSessions(api, getTabFlavor(agentTab), getTabActive(agentTab))
 
     const handleRefresh = useCallback(() => {
         void refetch()
@@ -182,7 +182,7 @@ function SessionsPage() {
                     </div>
                 </div>
 
-                <div className="flex-1 min-h-0 overflow-y-auto desktop-scrollbar-left">
+                <div className="flex-1 min-h-0 overflow-y-auto desktop-scrollbar-left bg-[var(--app-bg)]">
                     {error ? (
                         <div className="mx-auto w-full max-w-content px-3 py-2">
                             <div className="text-sm text-red-600">{error}</div>

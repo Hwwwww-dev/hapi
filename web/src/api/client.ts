@@ -181,9 +181,12 @@ export class ApiClient {
         return await res.json() as AuthResponse
     }
 
-    async getSessions(flavor?: string): Promise<SessionsResponse> {
-        const params = flavor ? `?flavor=${encodeURIComponent(flavor)}` : ''
-        return await this.request<SessionsResponse>(`/api/sessions${params}`)
+    async getSessions(flavor?: string, active?: boolean): Promise<SessionsResponse> {
+        const params = new URLSearchParams()
+        if (flavor) params.set('flavor', flavor)
+        if (active !== undefined) params.set('active', String(active))
+        const qs = params.toString()
+        return await this.request<SessionsResponse>(`/api/sessions${qs ? `?${qs}` : ''}`)
     }
 
     async getSessionsForDirectory(directory: string, offset: number, flavor?: string): Promise<SessionsResponse> {

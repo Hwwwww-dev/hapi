@@ -1,6 +1,6 @@
 import type { SessionSummary } from '@/types/api'
 
-export const SESSION_AGENT_TABS = ['claude', 'codex', 'cursor'] as const
+export const SESSION_AGENT_TABS = ['online', 'claude', 'codex', 'cursor'] as const
 
 export type SessionAgentTab = (typeof SESSION_AGENT_TABS)[number]
 export type SessionAgentSearch = { agent?: SessionAgentTab }
@@ -23,6 +23,16 @@ export function isKnownFlavor(flavor?: string | null): boolean {
 
 export function normalizeSessionAgentTab(value?: string | null): SessionAgentTab {
     return SESSION_AGENT_TABS.includes(value as SessionAgentTab) ? (value as SessionAgentTab) : 'claude'
+}
+
+/** Returns the API flavor string for a tab, or undefined for tabs that don't filter by flavor */
+export function getTabFlavor(tab: SessionAgentTab): string | undefined {
+    return tab === 'online' ? undefined : tab
+}
+
+/** Returns whether the tab should filter by active status */
+export function getTabActive(tab: SessionAgentTab): boolean | undefined {
+    return tab === 'online' ? true : undefined
 }
 
 export function matchesSessionAgentTab(flavor: string | null | undefined, tab: SessionAgentTab): boolean {
