@@ -28,7 +28,7 @@ const HEARTBEAT_WATCHDOG_INTERVAL_MS = 10_000
 const RECONNECT_BASE_DELAY_MS = 1_000
 const RECONNECT_MAX_DELAY_MS = 30_000
 const RECONNECT_JITTER_MS = 500
-const INVALIDATION_BATCH_MS = 16
+const INVALIDATION_BATCH_MS = 500
 
 type SessionPatch = Partial<Pick<Session, 'active' | 'thinking' | 'activeAt' | 'updatedAt' | 'model' | 'permissionMode' | 'collaborationMode'>>
 
@@ -341,14 +341,33 @@ export function useSSE(options: {
         }
 
         const upsertSessionSummary = (_session: Session) => {
-            void queryClient.invalidateQueries({ queryKey: queryKeys.sessions })
+            queueSessionListInvalidation()
         }
 
         const patchSessionSummary = (sessionId: string, patch: SessionPatch): boolean => {
-            void queryClient.invalidateQueries({ queryKey: queryKeys.sessions })
+            // Patch sessions list cache in-place (avoid full refetch)
+            let listPatched = false
+            queryClient.setQueriesData<SessionsResponse>(
+                { queryKey: queryKeys.sessions },
+                (previous) => {
+                    if (!previous?.groups) return previous
+                    let changed = false
+                    const nextGroups = previous.groups.map(g => {
+                        const idx = g.sessions.findIndex(s => s.id === sessionId)
+                        if (idx === -1) return g
+                        changed = true
+                        const sessions = g.sessions.slice()
+                        sessions[idx] = { ...sessions[idx], ...patch } as SessionSummary
+                        return { ...g, sessions }
+                    })
+                    if (!changed) return previous
+                    listPatched = true
+                    return { ...previous, groups: nextGroups }
+                }
+            )
             // Also patch the detail cache for immediate feedback
             const detailCache = queryClient.getQueryData<SessionResponse | undefined>(queryKeys.session(sessionId))
-            if (!detailCache?.session) return false
+            if (!detailCache?.session) return listPatched
             queryClient.setQueryData<SessionResponse | undefined>(queryKeys.session(sessionId), (previous) => {
                 if (!previous?.session) return previous
                 return {
@@ -367,7 +386,7 @@ export function useSSE(options: {
         }
 
         const removeSessionSummary = (_sessionId: string) => {
-            void queryClient.invalidateQueries({ queryKey: queryKeys.sessions })
+            queueSessionListInvalidation()
         }
 
         const patchSessionDetail = (sessionId: string, patch: SessionPatch): boolean => {

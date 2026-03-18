@@ -19,6 +19,7 @@ export function useSession(api: ApiClient | null, sessionId: string | null): {
             return await api.getSession(sessionId)
         },
         enabled: Boolean(api && sessionId),
+        staleTime: 10_000,
     })
 
     return {

@@ -335,26 +335,33 @@ function SessionItem(props: {
     const relativeSessionPath = getRelativeSessionPath(s, groupDirectory)
     const sessionTimes = formatSessionTimes(s, t)
     const modelLabel = getSessionModelLabel(s)
-    const statusDotClass = s.active
-        ? (s.thinking ? 'bg-[#007AFF]' : 'bg-[var(--app-badge-success-text)]')
-        : 'bg-[var(--app-hint)]'
+    const statusBg = s.active
+        ? (s.thinking
+            ? 'bg-blue-50 border-blue-200 hover:!bg-blue-100 animate-bg-breathe'
+            : s.pendingRequestsCount > 0
+                ? 'bg-amber-50 border-amber-200 hover:!bg-amber-100'
+                : 'bg-emerald-50 border-emerald-200 hover:!bg-emerald-100')
+        : ''
+    const selectedBg = s.active
+        ? (s.thinking
+            ? 'bg-blue-50 border-blue-400 hover:!bg-blue-100 animate-bg-breathe'
+            : s.pendingRequestsCount > 0
+                ? 'bg-amber-50 border-amber-400 hover:!bg-amber-100'
+                : 'bg-emerald-50 border-emerald-400 hover:!bg-emerald-100')
+        : 'border-[var(--app-link)] bg-[var(--app-secondary-bg)]'
     return (
         <>
             <button
                 type="button"
                 {...longPressHandlers}
-                className={`session-list-item flex w-full flex-col gap-2 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] select-none ${selected ? 'border-[var(--app-link)] bg-[var(--app-secondary-bg)]' : 'border-[var(--app-divider)] bg-[var(--app-bg)] hover:bg-[var(--app-secondary-bg)]'}`}
+                className={`session-list-item flex w-full flex-col gap-2 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] select-none ${selected ? selectedBg : statusBg || 'border-[var(--app-divider)] bg-[var(--app-bg)] hover:bg-[var(--app-secondary-bg)]'}`}
                 style={{ WebkitTouchCallout: 'none' }}
+                data-active={s.active ? '' : undefined}
                 aria-current={selected ? 'page' : undefined}
             >
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2">
-                        <span className="flex h-4 w-4 items-center justify-center" aria-hidden="true">
-                            <span
-                                className={`h-2 w-2 rounded-full ${statusDotClass}`}
-                            />
-                        </span>
-                        <div className="truncate text-sm font-medium sm:text-base">
+                        <div className="truncate text-sm font-medium sm:text-base ml-2">
                             {sessionName}
                         </div>
                     </div>
@@ -386,39 +393,32 @@ function SessionItem(props: {
                         </div>
                     </div>
                 </div>
-                <div className="space-y-1 pl-6 text-[10px] leading-4 text-[var(--app-hint)]">
-                    <div className="break-all font-mono">
-                        <span className="mr-2 font-semibold text-[var(--app-fg)]">HAPI</span>
-                        <span>{s.id}</span>
+                <div className="ml-2 text-[10px] leading-4 text-[var(--app-hint)] space-y-0.5">
+                    <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1">
+                            <span aria-hidden="true">❖</span>
+                            {getAgentLabel(s)}
+                        </span>
+                        {nativeSessionId ? (
+                            <span className="break-all font-mono">{nativeSessionId}</span>
+                        ) : null}
                     </div>
-                    {nativeSessionId && nativeSessionProviderLabel ? (
-                        <div className="break-all font-mono">
-                            <span className="mr-2 font-semibold text-[var(--app-fg)]">{nativeSessionProviderLabel}</span>
-                            <span>{nativeSessionId}</span>
-                        </div>
-                    ) : null}
+                    <div className="flex flex-wrap items-center gap-2">
+                        {modelLabel ? (
+                            <span>{t(modelLabel.key)}: {modelLabel.value}</span>
+                        ) : null}
+                        {s.metadata?.worktree?.branch ? (
+                            <span>{t('session.item.worktree')}: {s.metadata.worktree.branch}</span>
+                        ) : null}
+                    </div>
                 </div>
                 {relativeSessionPath ? (
-                    <div className="break-all pl-6 text-[11px] leading-4 text-[var(--app-hint)]">
+                    <div className="break-all ml-2 text-[11px] leading-4 text-[var(--app-hint)]">
                         {relativeSessionPath}
                     </div>
                 ) : null}
-                <div className="flex flex-wrap items-center gap-2 pl-6 text-[11px] text-[var(--app-hint)]">
-                    <span className="inline-flex items-center gap-1.5">
-                        <span className="flex h-4 w-4 items-center justify-center" aria-hidden="true">
-                            ❖
-                        </span>
-                        {getAgentLabel(s)}
-                    </span>
-                    {modelLabel ? (
-                        <span>{t(modelLabel.key)}: {modelLabel.value}</span>
-                    ) : null}
-                    {s.metadata?.worktree?.branch ? (
-                        <span>{t('session.item.worktree')}: {s.metadata.worktree.branch}</span>
-                    ) : null}
-                </div>
                 {sessionTimes ? (
-                    <div className="pl-6 text-[11px] leading-4 text-[var(--app-hint)]">
+                    <div className="ml-2 text-[11px] leading-4 text-[var(--app-hint)]">
                         {sessionTimes}
                     </div>
                 ) : null}
@@ -443,14 +443,11 @@ function SessionItem(props: {
                             key={child.id}
                             type="button"
                             onClick={() => props.onSelect(child.id)}
-                            className={`flex w-full flex-col gap-1 rounded-lg border px-3 py-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] ${child.id === props.selectedSessionId ? 'border-[var(--app-link)] bg-[var(--app-secondary-bg)]' : 'border-[var(--app-divider)] bg-[var(--app-bg)] hover:bg-[var(--app-secondary-bg)]'}`}
+                            className={`flex w-full flex-col gap-1 rounded-lg border px-3 py-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] ${child.id === props.selectedSessionId ? 'border-[var(--app-link)] bg-[var(--app-secondary-bg)]' : child.active ? (child.thinking ? 'bg-blue-500/8 border-blue-400/30' : 'bg-emerald-500/8 border-emerald-400/30') : 'border-[var(--app-divider)] bg-[var(--app-bg)] hover:bg-[var(--app-secondary-bg)]'}`}
                         >
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-[var(--app-hint)] shrink-0">↳</span>
                                 <span className="truncate font-medium">{getSessionTitle(child)}</span>
-                                {child.active && (
-                                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${child.thinking ? 'bg-[#007AFF] animate-pulse' : 'bg-[var(--app-badge-success-text)]'}`} />
-                                )}
                             </div>
                             {child.metadata?.nativeSessionId ? (
                                 <div className="pl-4 font-mono text-[10px] text-[var(--app-hint)] truncate">

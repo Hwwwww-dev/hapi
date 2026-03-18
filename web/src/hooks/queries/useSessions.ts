@@ -96,9 +96,16 @@ export function useSessions(api: ApiClient | null, flavor?: string): {
             return result
         },
         enabled: Boolean(api),
-        refetchInterval: 5000,
+        staleTime: 30_000,
+        refetchInterval: 30_000,
         refetchOnWindowFocus: true,
     })
+
+    // Sync groupMap when query cache is patched externally (e.g. SSE patchSessionSummary)
+    useEffect(() => {
+        if (!query.data?.groups) return
+        setGroupMap(prev => mergeGroups(prev, query.data.groups, false))
+    }, [query.data])
 
     const loadMoreForDirectory = useCallback(async (directory: string) => {
         if (!api || loadingDirs.has(directory)) return

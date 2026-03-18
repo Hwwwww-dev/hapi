@@ -115,10 +115,18 @@ body {
 }
 
 @media (hover: hover) and (pointer: fine) {
-    .session-list-item:hover,
+    .session-list-item:not([data-active]):hover,
     .session-list-new-button:hover {
         background-color: var(--app-subtle-bg);
     }
+}
+
+@keyframes bg-breathe {
+    0%, 100% { background-color: rgb(239 246 255); }
+    50% { background-color: rgb(219 234 254); }
+}
+.animate-bg-breathe {
+    animation: bg-breathe 2s ease-in-out infinite;
 }
 
 .scrollbar-hidden {
