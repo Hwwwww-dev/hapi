@@ -12,9 +12,12 @@ import {
     useRef,
     useState
 } from 'react'
-import type { AgentState, CodexCollaborationMode, PermissionMode } from '@/types/api'
+import type { AgentState, AttachmentMetadata, CodexCollaborationMode, PermissionMode } from '@/types/api'
 import type { Suggestion } from '@/hooks/useActiveSuggestions'
 import type { ConversationStatus } from '@/realtime/types'
+import { useMessageQueue } from '@/hooks/useMessageQueue'
+import type { QueuedMessage } from '@/hooks/useMessageQueue'
+import { MessageQueuePreview } from './MessageQueuePreview'
 import { useActiveWord } from '@/hooks/useActiveWord'
 import { useActiveSuggestions } from '@/hooks/useActiveSuggestions'
 import { applySuggestion } from '@/utils/applySuggestion'
@@ -61,6 +64,9 @@ export function HappyComposer(props: {
     voiceMicMuted?: boolean
     onVoiceToggle?: () => void
     onVoiceMicToggle?: () => void
+    // Message queue props
+    sendQueued?: (text: string, attachments?: AttachmentMetadata[]) => Promise<void>
+    sessionId?: string | null
 }) {
     const { t } = useTranslation()
     const {
@@ -98,6 +104,31 @@ export function HappyComposer(props: {
     const attachments = useAssistantState(({ composer }) => composer.attachments)
     const threadIsRunning = useAssistantState(({ thread }) => thread.isRunning)
     const threadIsDisabled = useAssistantState(({ thread }) => thread.isDisabled)
+
+    const waitForIdle = useCallback((timeout = 10000): Promise<void> => {
+        return new Promise((resolve, reject) => {
+            if (!threadIsRunning) { resolve(); return }
+            const timer = setTimeout(() => reject(new Error('waitForIdle timeout')), timeout)
+            const unsub = api.subscribe(() => {
+                const state = api.getState()
+                if (!state.thread.isRunning) {
+                    clearTimeout(timer)
+                    unsub()
+                    resolve()
+                }
+            })
+        })
+    }, [threadIsRunning, api])
+
+    const messageQueue = useMessageQueue(
+        props.sessionId ?? null,
+        {
+            sendMessage: props.sendQueued ?? (async () => {}),
+            abort: () => api.thread().cancelRun(),
+            waitForIdle,
+        },
+        threadIsRunning
+    )
 
     const controlsDisabled = disabled || (!active && !allowSendWhenInactive) || threadIsDisabled
     const trimmed = composerText.trim()
@@ -236,6 +267,20 @@ export function HappyComposer(props: {
         api.thread().cancelRun()
     }, [abortDisabled, api, haptic])
 
+    const handleQueueEdit = useCallback((item: QueuedMessage) => {
+        api.composer().setText(item.text)
+        messageQueue.remove(item.id)
+        textareaRef.current?.focus()
+    }, [api, messageQueue])
+
+    const handleQueueFlush = useCallback(() => {
+        if (hasText) {
+            messageQueue.enqueue(trimmed)
+            api.composer().setText('')
+        }
+        void messageQueue.flush()
+    }, [messageQueue, hasText, trimmed, api])
+
     const handleSwitch = useCallback(async () => {
         if (switchDisabled || !onSwitchToRemote) return
         haptic('light')
@@ -296,6 +341,32 @@ export function HappyComposer(props: {
             }
         }
 
+        // Message queue: Enter/Ctrl+Enter behavior
+        if (key === 'Enter' && !e.shiftKey) {
+            // Ctrl+Enter → enqueue current text + flush all
+            if (e.ctrlKey || e.metaKey) {
+                if (messageQueue.queue.length > 0 || hasText) {
+                    e.preventDefault()
+                    if (hasText) {
+                        messageQueue.enqueue(trimmed)
+                        api.composer().setText('')
+                    }
+                    void messageQueue.flush()
+                    return
+                }
+            }
+
+            // Enter with queue non-empty OR threadIsRunning → enqueue instead of send
+            if (messageQueue.queue.length > 0 || threadIsRunning) {
+                if (hasText) {
+                    e.preventDefault()
+                    messageQueue.enqueue(trimmed)
+                    api.composer().setText('')
+                }
+                return
+            }
+        }
+
         if (key === 'Escape' && threadIsRunning) {
             e.preventDefault()
             handleAbort()
@@ -317,6 +388,10 @@ export function HappyComposer(props: {
         moveDown,
         clearSuggestions,
         handleSuggestionSelect,
+        messageQueue,
+        hasText,
+        trimmed,
+        api,
         threadIsRunning,
         handleAbort,
         onPermissionModeChange,
@@ -599,6 +674,13 @@ export function HappyComposer(props: {
                     />
 
                     <div className="overflow-hidden rounded-[20px] bg-[var(--app-secondary-bg)]">
+                        <MessageQueuePreview
+                            queue={messageQueue.queue}
+                            onRemove={messageQueue.remove}
+                            onEdit={handleQueueEdit}
+                            onFlush={handleQueueFlush}
+                            isRunning={threadIsRunning}
+                        />
                         {attachments.length > 0 ? (
                             <div className="flex flex-wrap gap-2 px-4 pt-3">
                                 <ComposerPrimitive.Attachments components={{ Attachment: AttachmentItem }} />
@@ -609,7 +691,9 @@ export function HappyComposer(props: {
                             <ComposerPrimitive.Input
                                 ref={textareaRef}
                                 autoFocus={!controlsDisabled && !isTouch}
-                                placeholder={showContinueHint ? t('misc.typeMessage') : t('misc.typeAMessage')}
+                                placeholder={messageQueue.queue.length > 0
+                                    ? (isTouch ? 'Enter 入队' : 'Enter 入队 / Ctrl+Enter 发送全部')
+                                    : showContinueHint ? t('misc.typeMessage') : t('misc.typeAMessage')}
                                 disabled={controlsDisabled}
                                 maxRows={5}
                                 submitOnEnter={!isTouch}

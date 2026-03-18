@@ -43,6 +43,8 @@ export function SessionChat(props: {
     onAtBottomChange: (atBottom: boolean) => void
     onRetryMessage?: (localId: string) => void
     autocompleteSuggestions?: (query: string) => Promise<Suggestion[]>
+    onSendQueued?: (text: string, attachments?: AttachmentMetadata[]) => Promise<void>
+    sessionId?: string | null
 }) {
     const { t } = useTranslation()
     const { haptic } = usePlatform()
@@ -423,6 +425,8 @@ export function SessionChat(props: {
                         voiceMicMuted={voice?.micMuted}
                         onVoiceToggle={voice ? handleVoiceToggle : undefined}
                         onVoiceMicToggle={voice ? handleVoiceMicToggle : undefined}
+                        sendQueued={props.onSendQueued}
+                        sessionId={props.sessionId ?? props.session.id}
                     />
                     </div>
                     )}

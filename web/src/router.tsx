@@ -254,6 +254,7 @@ function SessionPage() {
     } = useMessages(api, sessionId)
     const {
         sendMessage,
+        sendQueued,
         retryMessage,
         isSending,
     } = useSendMessage(api, sessionId, {
@@ -363,6 +364,8 @@ function SessionPage() {
             onAtBottomChange={setAtBottom}
             onRetryMessage={retryMessage}
             autocompleteSuggestions={getAutocompleteSuggestions}
+            onSendQueued={sendQueued}
+            sessionId={sessionId}
         />
     )
 }
