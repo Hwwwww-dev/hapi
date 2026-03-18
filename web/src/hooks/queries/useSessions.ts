@@ -157,16 +157,27 @@ export function useSessions(api: ApiClient | null, flavor?: string, active?: boo
         })
     }, [])
 
+    const [isRefreshing, setIsRefreshing] = useState(false)
+
     const refetch = useCallback(async () => {
         isInitialRef.current = false
-        return queryClient.invalidateQueries({ queryKey: [...queryKeys.sessions, flavor, active] })
+        setIsRefreshing(true)
+        const minDelay = new Promise<void>(r => setTimeout(r, 500))
+        try {
+            await Promise.all([
+                queryClient.refetchQueries({ queryKey: [...queryKeys.sessions, flavor, active] }),
+                minDelay
+            ])
+        } finally {
+            setIsRefreshing(false)
+        }
     }, [queryClient, flavor, active])
 
     const groups = Array.from(groupMap.values())
     return {
         groups,
         sessions: groups.flatMap(g => g.sessions),
-        isLoading: query.isLoading,
+        isLoading: query.isLoading || isRefreshing,
         error: query.error instanceof Error ? query.error.message : query.error ? 'Failed to load sessions' : null,
         refetch,
         removeSession,

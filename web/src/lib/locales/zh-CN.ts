@@ -344,4 +344,10 @@ export default {
   'misc.permissionRequired': '需要权限',
   'misc.percentLeft': '剩余 {percent}%',
   'misc.online': '在线',
+
+  // Queue
+  'queue.title': '队列',
+  'queue.sendAll': '发送全部',
+  'queue.enqueue': 'Enter 入队',
+  'queue.enqueueOrSend': 'Enter 入队 / Ctrl+Enter 发送全部',
 } as const

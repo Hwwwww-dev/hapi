@@ -12,7 +12,7 @@ export type QueuedMessage = {
 export type MessageQueueDeps = {
     sendMessage: (text: string, attachments?: AttachmentMetadata[]) => Promise<void>
     abort: () => void
-    waitForIdle: () => Promise<void>
+    clearComposer?: () => void
     onQueueFull?: () => void
 }
 
@@ -49,10 +49,9 @@ export function useMessageQueue(
     const [isFlushing, setIsFlushing] = useState(false)
     const flushingRef = useRef(false)
     const queueRef = useRef(queue)
-    const threadIsRunningRef = useRef(threadIsRunning)
-    threadIsRunningRef.current = threadIsRunning
     const depsRef = useRef(deps)
     depsRef.current = deps
+    const prevRunningRef = useRef(threadIsRunning)
 
     // Keep ref in sync
     useEffect(() => {
@@ -124,13 +123,16 @@ export function useMessageQueue(
 
     const flush = useCallback(async () => {
         if (!sessionId || flushingRef.current) return
+        if (queueRef.current.length === 0) return
         flushingRef.current = true
         setIsFlushing(true)
 
         try {
-            if (threadIsRunningRef.current) {
+            // Abort current run if thread is active
+            if (prevRunningRef.current) {
                 depsRef.current.abort()
-                await depsRef.current.waitForIdle()
+                // Clear composer to prevent abort from refilling the input
+                depsRef.current.clearComposer?.()
             }
 
             // Snapshot and clear
@@ -162,6 +164,15 @@ export function useMessageQueue(
         setQueueAndRef([])
         if (sessionId) saveQueue(sessionId, [])
     }, [sessionId, setQueueAndRef])
+
+    // Auto-flush: when thread transitions from running → idle and queue is non-empty
+    useEffect(() => {
+        const wasRunning = prevRunningRef.current
+        prevRunningRef.current = threadIsRunning
+        if (wasRunning && !threadIsRunning && queueRef.current.length > 0) {
+            void flush()
+        }
+    }, [threadIsRunning, flush])
 
     return { queue, isFlushing, enqueue, remove, update, editInComposer, flush, clear }
 }

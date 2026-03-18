@@ -342,4 +342,10 @@ export default {
   'misc.permissionRequired': 'permission required',
   'misc.percentLeft': '{percent}% left',
   'misc.online': 'online',
+
+  // Queue
+  'queue.title': 'Queue',
+  'queue.sendAll': 'Send all',
+  'queue.enqueue': 'Enter to queue',
+  'queue.enqueueOrSend': 'Enter to queue / Ctrl+Enter to send all',
 } as const

@@ -375,9 +375,8 @@ export async function fetchOlderMessages(api: ApiClient, sessionId: string): Pro
         const response = await api.getMessages(sessionId, { limit: PAGE_SIZE, beforeSeq: initial.oldestSeq })
         updateState(sessionId, (prev) => {
             const merged = mergeMessages(response.messages, prev.messages)
-            const trimmed = trimVisible(merged, 'prepend')
             return buildState(prev, {
-                messages: trimmed,
+                messages: merged,
                 hasMore: response.page.hasMore,
                 isLoadingMore: false,
             })

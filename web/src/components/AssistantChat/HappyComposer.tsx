@@ -105,31 +105,14 @@ export function HappyComposer(props: {
     const threadIsRunning = useAssistantState(({ thread }) => thread.isRunning)
     const threadIsDisabled = useAssistantState(({ thread }) => thread.isDisabled)
 
-    const waitForIdle = useCallback((timeout = 10000): Promise<void> => {
-        return new Promise((resolve, reject) => {
-            if (!api.getState().thread.isRunning) { resolve(); return }
-            const timer = setTimeout(() => {
-                unsub()
-                reject(new Error('waitForIdle timeout'))
-            }, timeout)
-            const unsub = api.subscribe(() => {
-                if (!api.getState().thread.isRunning) {
-                    clearTimeout(timer)
-                    unsub()
-                    resolve()
-                }
-            })
-        })
-    }, [api])
-
     const messageQueue = useMessageQueue(
         props.sessionId ?? null,
         {
             sendMessage: props.sendQueued ?? (async () => {}),
             abort: () => api.thread().cancelRun(),
-            waitForIdle,
+            clearComposer: () => api.composer().setText(''),
         },
-        threadIsRunning
+        threadIsRunning,
     )
 
     const controlsDisabled = disabled || (!active && !allowSendWhenInactive) || threadIsDisabled
@@ -683,7 +666,8 @@ export function HappyComposer(props: {
                             onRemove={messageQueue.remove}
                             onEdit={handleQueueEdit}
                             onFlush={handleQueueFlush}
-                            isRunning={threadIsRunning}
+                            titleLabel={t('queue.title')}
+                            flushLabel={t('queue.sendAll')}
                         />
                         {attachments.length > 0 ? (
                             <div className="flex flex-wrap gap-2 px-4 pt-3">
@@ -696,7 +680,7 @@ export function HappyComposer(props: {
                                 ref={textareaRef}
                                 autoFocus={!controlsDisabled && !isTouch}
                                 placeholder={messageQueue.queue.length > 0
-                                    ? (isTouch ? 'Enter 入队' : 'Enter 入队 / Ctrl+Enter 发送全部')
+                                    ? (isTouch ? t('queue.enqueue') : t('queue.enqueueOrSend'))
                                     : showContinueHint ? t('misc.typeMessage') : t('misc.typeAMessage')}
                                 disabled={controlsDisabled}
                                 maxRows={5}

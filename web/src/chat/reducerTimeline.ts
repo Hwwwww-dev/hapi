@@ -182,6 +182,17 @@ export function reduceTimeline(
                         continue
                     }
 
+                    // Skip orphan tool-results whose tool-call is not in the current
+                    // message window.  Creating a standalone tool block for these
+                    // causes them to merge with adjacent assistant-text blocks in
+                    // useExternalMessageConverter (both are role=assistant), corrupting
+                    // the metadata.custom.kind via spread and breaking rendering.
+                    // When the user loads older messages the tool-call will appear and
+                    // the result will be properly associated.
+                    if (!toolBlocksById.has(c.tool_use_id)) {
+                        continue
+                    }
+
                     const permissionEntry = context.permissionsById.get(c.tool_use_id)
                     const permissionFromResult = c.permissions ? ({
                         id: c.tool_use_id,

@@ -12,30 +12,30 @@ describe('MessageQueuePreview', () => {
     afterEach(cleanup)
     it('renders nothing when queue is empty', () => {
         const { container } = render(
-            <MessageQueuePreview queue={[]} onRemove={vi.fn()} onEdit={vi.fn()} onFlush={vi.fn()} isRunning={false} />
+            <MessageQueuePreview queue={[]} onRemove={vi.fn()} onEdit={vi.fn()} onFlush={vi.fn()} titleLabel="Queue" flushLabel="Send all" />
         )
         expect(container.firstChild).toBeNull()
     })
 
     it('renders queue items', () => {
         render(
-            <MessageQueuePreview queue={mockQueue} onRemove={vi.fn()} onEdit={vi.fn()} onFlush={vi.fn()} isRunning={false} />
+            <MessageQueuePreview queue={mockQueue} onRemove={vi.fn()} onEdit={vi.fn()} onFlush={vi.fn()} titleLabel="Queue" flushLabel="Send all" />
         )
         expect(screen.getByText(/First message/)).toBeTruthy()
     })
 
     it('truncates long text', () => {
         render(
-            <MessageQueuePreview queue={mockQueue} onRemove={vi.fn()} onEdit={vi.fn()} onFlush={vi.fn()} isRunning={false} />
+            <MessageQueuePreview queue={mockQueue} onRemove={vi.fn()} onEdit={vi.fn()} onFlush={vi.fn()} titleLabel="Queue" flushLabel="Send all" />
         )
         const longItem = screen.getByText(/Second message/)
-        expect(longItem.textContent!.length).toBeLessThanOrEqual(53) // 50 + "..."
+        expect(longItem.textContent!.length).toBeLessThanOrEqual(83) // 80 + "..."
     })
 
     it('calls onRemove when clicking remove button', () => {
         const onRemove = vi.fn()
         render(
-            <MessageQueuePreview queue={mockQueue} onRemove={onRemove} onEdit={vi.fn()} onFlush={vi.fn()} isRunning={false} />
+            <MessageQueuePreview queue={mockQueue} onRemove={onRemove} onEdit={vi.fn()} onFlush={vi.fn()} titleLabel="Queue" flushLabel="Send all" />
         )
         const removeButtons = screen.getAllByRole('button', { name: /remove/i })
         fireEvent.click(removeButtons[0])
@@ -45,34 +45,26 @@ describe('MessageQueuePreview', () => {
     it('calls onEdit when clicking a bubble', () => {
         const onEdit = vi.fn()
         render(
-            <MessageQueuePreview queue={mockQueue} onRemove={vi.fn()} onEdit={onEdit} onFlush={vi.fn()} isRunning={false} />
+            <MessageQueuePreview queue={mockQueue} onRemove={vi.fn()} onEdit={onEdit} onFlush={vi.fn()} titleLabel="Queue" flushLabel="Send all" />
         )
         fireEvent.click(screen.getByText(/First message/))
         expect(onEdit).toHaveBeenCalledWith(mockQueue[0])
     })
 
-    it('shows flush button when idle', () => {
+    it('shows flush button', () => {
         render(
-            <MessageQueuePreview queue={mockQueue} onRemove={vi.fn()} onEdit={vi.fn()} onFlush={vi.fn()} isRunning={false} />
+            <MessageQueuePreview queue={mockQueue} onRemove={vi.fn()} onEdit={vi.fn()} onFlush={vi.fn()} titleLabel="Queue" flushLabel="Send all" />
         )
-        const flushBtn = screen.getByRole('button', { name: /发送全部|send all/i })
-        expect(flushBtn).toBeTruthy()
-    })
-
-    it('shows abort-and-send button when running', () => {
-        render(
-            <MessageQueuePreview queue={mockQueue} onRemove={vi.fn()} onEdit={vi.fn()} onFlush={vi.fn()} isRunning={true} />
-        )
-        const flushBtn = screen.getByRole('button', { name: /中止并发送|abort/i })
+        const flushBtn = screen.getByRole('button', { name: /send all/i })
         expect(flushBtn).toBeTruthy()
     })
 
     it('calls onFlush when clicking flush button', () => {
         const onFlush = vi.fn()
         render(
-            <MessageQueuePreview queue={mockQueue} onRemove={vi.fn()} onEdit={vi.fn()} onFlush={onFlush} isRunning={false} />
+            <MessageQueuePreview queue={mockQueue} onRemove={vi.fn()} onEdit={vi.fn()} onFlush={onFlush} titleLabel="Queue" flushLabel="Send all" />
         )
-        const flushBtn = screen.getByRole('button', { name: /发送全部|send all/i })
+        const flushBtn = screen.getByRole('button', { name: /send all/i })
         fireEvent.click(flushBtn)
         expect(onFlush).toHaveBeenCalled()
     })

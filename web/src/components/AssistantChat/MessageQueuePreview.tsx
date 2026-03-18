@@ -1,6 +1,6 @@
 import type { QueuedMessage } from '@/hooks/useMessageQueue'
 
-function truncate(text: string, max = 50): string {
+function truncate(text: string, max = 80): string {
     return text.length > max ? text.slice(0, max) + '...' : text
 }
 
@@ -9,25 +9,42 @@ export function MessageQueuePreview(props: {
     onRemove: (id: string) => void
     onEdit: (item: QueuedMessage) => void
     onFlush: () => void
-    isRunning: boolean
+    titleLabel: string
+    flushLabel: string
 }) {
-    const { queue, onRemove, onEdit, onFlush, isRunning } = props
+    const { queue, onRemove, onEdit, onFlush, titleLabel, flushLabel } = props
 
     if (queue.length === 0) return null
 
-    const flushLabel = isRunning ? '中止并发送' : '发送全部'
-
     return (
-        <div className="flex items-center gap-2 overflow-x-auto px-4 pt-3 pb-1">
-            <div className="flex items-center gap-1.5 overflow-x-auto">
-                {queue.map((item) => (
+        <div className="border-b border-[var(--app-divider)]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pt-2.5 pb-1.5">
+                <span className="text-xs font-medium text-[var(--app-hint)]">
+                    {titleLabel} ({queue.length})
+                </span>
+                <button
+                    type="button"
+                    className="rounded-md px-2.5 py-0.5 text-xs font-medium text-[var(--app-accent)] hover:bg-[var(--app-hover)] cursor-pointer transition-colors"
+                    onClick={onFlush}
+                >
+                    {flushLabel}
+                </button>
+            </div>
+
+            {/* Scrollable message list */}
+            <div className="max-h-[160px] overflow-y-auto px-2 pb-2">
+                {queue.map((item, index) => (
                     <div
                         key={item.id}
-                        className="flex shrink-0 items-center gap-1 rounded-full bg-[var(--app-bg)] px-3 py-1 text-xs text-[var(--app-fg)]"
+                        className="group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-[var(--app-hover)] transition-colors"
                     >
+                        <span className="mt-0.5 shrink-0 text-[10px] tabular-nums text-[var(--app-hint)]">
+                            {index + 1}
+                        </span>
                         <button
                             type="button"
-                            className="max-w-[200px] truncate hover:underline cursor-pointer"
+                            className="min-w-0 flex-1 text-left text-xs leading-relaxed text-[var(--app-fg)] hover:underline cursor-pointer break-words"
                             onClick={() => onEdit(item)}
                         >
                             {truncate(item.text)}
@@ -35,25 +52,19 @@ export function MessageQueuePreview(props: {
                         <button
                             type="button"
                             aria-label="remove"
-                            className="ml-0.5 text-[var(--app-hint)] hover:text-[var(--app-fg)] cursor-pointer"
+                            className="mt-0.5 shrink-0 rounded p-0.5 text-[var(--app-hint)] opacity-0 group-hover:opacity-100 hover:text-[var(--app-fg)] hover:bg-[var(--app-hover)] cursor-pointer transition-opacity"
                             onClick={(e) => {
                                 e.stopPropagation()
                                 onRemove(item.id)
                             }}
                         >
-                            ✕
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                                <path d="M3 3l6 6M9 3l-6 6" />
+                            </svg>
                         </button>
                     </div>
                 ))}
             </div>
-            <button
-                type="button"
-                aria-label={flushLabel}
-                className="shrink-0 rounded-full bg-[var(--app-button)] px-3 py-1 text-xs text-[var(--app-button-text)] hover:opacity-90 cursor-pointer"
-                onClick={onFlush}
-            >
-                {flushLabel}
-            </button>
         </div>
     )
 }

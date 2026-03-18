@@ -21,7 +21,6 @@ vi.mock('@/lib/messages', () => ({
 const mockDeps = {
     sendMessage: vi.fn(async () => {}),
     abort: vi.fn(),
-    waitForIdle: vi.fn(async () => {}),
 }
 
 describe('useMessageQueue', () => {
@@ -120,11 +119,10 @@ describe('useMessageQueue', () => {
     })
 
     describe('flush', () => {
-        it('calls sendMessage for each queued message in order', async () => {
-            const calls: string[] = []
+        it('merges and sends all queued messages', async () => {
             const deps = {
                 ...mockDeps,
-                sendMessage: vi.fn(async (text: string) => { calls.push(text) }),
+                sendMessage: vi.fn(async () => {}),
             }
             const { result } = renderHook(() => useMessageQueue('session-1', deps))
             act(() => {
@@ -132,41 +130,22 @@ describe('useMessageQueue', () => {
                 result.current.enqueue('second')
             })
             await act(async () => { await result.current.flush() })
-            expect(calls).toEqual(['first', 'second'])
+            expect(deps.sendMessage).toHaveBeenCalledWith('first\n\nsecond', undefined)
             expect(result.current.queue).toHaveLength(0)
         })
 
-        it('calls abort and waitForIdle when threadIsRunning', async () => {
+        it('restores queue on send failure', async () => {
             const deps = {
                 ...mockDeps,
-                abort: vi.fn(),
-                waitForIdle: vi.fn(async () => {}),
-            }
-            const { result } = renderHook(() => useMessageQueue('session-1', deps, true))
-            act(() => { result.current.enqueue('msg') })
-            await act(async () => { await result.current.flush() })
-            expect(deps.abort).toHaveBeenCalled()
-            expect(deps.waitForIdle).toHaveBeenCalled()
-        })
-
-        it('stops sending on failure and restores remaining messages', async () => {
-            let callCount = 0
-            const deps = {
-                ...mockDeps,
-                sendMessage: vi.fn(async () => {
-                    callCount++
-                    if (callCount === 2) throw new Error('send failed')
-                }),
+                sendMessage: vi.fn(async () => { throw new Error('send failed') }),
             }
             const { result } = renderHook(() => useMessageQueue('session-1', deps))
             act(() => {
                 result.current.enqueue('ok-1')
                 result.current.enqueue('fail-2')
-                result.current.enqueue('skip-3')
             })
             await act(async () => { await result.current.flush() })
             expect(result.current.queue).toHaveLength(2)
-            expect(result.current.queue[0].text).toBe('fail-2')
         })
 
         it('prevents concurrent flush calls', async () => {
