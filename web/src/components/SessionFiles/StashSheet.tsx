@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { ApiClient } from '@/api/client'
 import { useGitStashList } from '@/hooks/queries/useGitStashList'
+import { notify } from '@/lib/notify'
+import { useTranslation } from '@/lib/use-translation'
 
 type StashSheetProps = {
     api: ApiClient
@@ -11,6 +13,7 @@ type StashSheetProps = {
 }
 
 export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: StashSheetProps) {
+    const { t } = useTranslation()
     const [stashMessage, setStashMessage] = useState('')
     const [actionLoading, setActionLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -28,8 +31,11 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
             setStashMessage('')
             onStashChanged()
             refetch()
+            notify.success(t('notify.git.stashSaved'))
         } else {
-            setError(res.stderr ?? res.error ?? 'Stash failed')
+            const msg = res.stderr ?? res.error ?? 'Stash failed'
+            setError(msg)
+            notify.error(msg)
         }
     }
 
@@ -41,8 +47,11 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
         if (res.success) {
             onStashChanged()
             refetch()
+            notify.success(t('notify.git.stashPopped'))
         } else {
-            setError(res.stderr ?? res.error ?? 'Pop failed')
+            const msg = res.stderr ?? res.error ?? 'Pop failed'
+            setError(msg)
+            notify.error(msg)
         }
     }
 
@@ -50,12 +59,12 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
         <div className="fixed inset-0 z-50 flex items-end">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/40"
+                className="absolute inset-0 bg-black/40 animate-backdrop-fade"
                 onClick={onClose}
             />
 
             {/* Sheet */}
-            <div className="relative w-full bg-[var(--app-bg)] rounded-t-2xl flex flex-col max-h-[60vh] translate-y-0 transition-transform duration-200">
+            <div className="relative w-full bg-[var(--app-bg)] rounded-t-2xl flex flex-col max-h-[60vh] translate-y-0 transition-transform duration-200 animate-drawer-up">
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--app-divider)]">
                     <span className="text-sm font-semibold text-[var(--app-fg)]">Stash</span>

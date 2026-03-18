@@ -17,7 +17,7 @@ export function MessageQueuePreview(props: {
     if (queue.length === 0) return null
 
     return (
-        <div className="border-b border-[var(--app-divider)]">
+        <div className="border-b border-[var(--app-divider)] animate-drawer-up">
             {/* Header */}
             <div className="flex items-center justify-between px-4 pt-2.5 pb-1.5">
                 <span className="text-xs font-medium text-[var(--app-hint)]">

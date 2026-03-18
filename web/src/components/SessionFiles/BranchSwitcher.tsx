@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ApiClient } from '@/api/client'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useTranslation } from '@/lib/use-translation'
+import { notify } from '@/lib/notify'
 
 interface Props {
     api: ApiClient
@@ -43,7 +44,9 @@ export function BranchSwitcher({ api, sessionId, currentBranch, hasBlockingChang
         if (res.success && res.stdout) {
             setBranches(res.stdout.split('\n').map(b => b.trim()).filter(Boolean))
         } else {
-            setError(res.error ?? 'Failed to load branches')
+            const msg = res.error ?? 'Failed to load branches'
+            setError(msg)
+            notify.error(msg)
         }
     }
 
@@ -66,8 +69,10 @@ export function BranchSwitcher({ api, sessionId, currentBranch, hasBlockingChang
         if (res.success) {
             setConfirmBranch(null)
             onSwitched()
+            notify.success(t('notify.git.checkoutOk'))
         } else {
             const msg = res.stderr ?? res.error ?? 'Checkout failed'
+            notify.error(msg)
             throw new Error(msg)
         }
     }

@@ -2,6 +2,8 @@
 import { useState } from 'react'
 import type { ApiClient } from '@/api/client'
 import type { GitStatusFiles } from '@/types/api'
+import { notify } from '@/lib/notify'
+import { useTranslation } from '@/lib/use-translation'
 
 interface Props {
     api: ApiClient
@@ -13,6 +15,7 @@ interface Props {
 }
 
 export function CommitDrawer({ api, sessionId, gitStatus, onCommitted, onStaged, onClose }: Props) {
+    const { t } = useTranslation()
     const [message, setMessage] = useState('')
     const [isPending, setIsPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -28,7 +31,8 @@ export function CommitDrawer({ api, sessionId, gitStatus, onCommitted, onStaged,
         if (res.success) {
             onStaged()
         } else {
-            setError(res.stderr ?? res.error ?? 'Stage failed')
+            setError(res.stderr ?? res.error ?? t('notify.git.stageFailed'))
+            notify.error(res.stderr ?? res.error ?? t('notify.git.stageFailed'))
         }
     }
 
@@ -41,8 +45,10 @@ export function CommitDrawer({ api, sessionId, gitStatus, onCommitted, onStaged,
         if (res.success) {
             onCommitted()
             onClose()
+            notify.success(t('notify.git.commitOk'))
         } else {
-            setError(res.stderr ?? res.error ?? 'Commit failed')
+            setError(res.stderr ?? res.error ?? t('notify.git.commitFailed'))
+            notify.error(res.stderr ?? res.error ?? t('notify.git.commitFailed'))
         }
     }
 

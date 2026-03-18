@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState, useCallback } from 'react'
 import type { ApiClient } from '@/api/client'
 import type { GitStatusFiles } from '@/types/api'
 import { buildGitStatusFiles } from '@/lib/gitParsers'
@@ -10,7 +11,10 @@ export function useGitStatusFiles(api: ApiClient | null, sessionId: string | nul
     isLoading: boolean
     refetch: () => Promise<unknown>
 } {
+    const queryClient = useQueryClient()
     const resolvedSessionId = sessionId ?? 'unknown'
+    const [isRefreshing, setIsRefreshing] = useState(false)
+
     const query = useQuery({
         queryKey: queryKeys.gitStatus(resolvedSessionId),
         queryFn: async () => {
@@ -56,10 +60,23 @@ export function useGitStatusFiles(api: ApiClient | null, sessionId: string | nul
             ? 'Git status unavailable'
             : null
 
+    const refetch = useCallback(async () => {
+        setIsRefreshing(true)
+        const minDelay = new Promise<void>(r => setTimeout(r, 500))
+        try {
+            await Promise.all([
+                queryClient.refetchQueries({ queryKey: queryKeys.gitStatus(resolvedSessionId) }),
+                minDelay,
+            ])
+        } finally {
+            setIsRefreshing(false)
+        }
+    }, [queryClient, resolvedSessionId])
+
     return {
         status: query.data?.status ?? null,
         error: queryError ?? query.data?.error ?? null,
-        isLoading: query.isLoading,
-        refetch: query.refetch
+        isLoading: query.isLoading || isRefreshing,
+        refetch,
     }
 }

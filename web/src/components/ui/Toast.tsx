@@ -30,7 +30,7 @@ export function Toast({ title, body, onClose, className, variant, ...props }: To
     }
 
     return (
-        <div className={cn(toastVariants({ variant }), className)} role="status" {...props}>
+        <div className={cn(toastVariants({ variant }), 'animate-fade-in-up', className)} role="status" {...props}>
             <div className="flex items-start gap-3 p-3">
                 <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold leading-5">{title}</div>

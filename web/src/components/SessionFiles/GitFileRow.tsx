@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import type { GitFileStatus } from '@/types/api'
 import { StatusBadge } from './StatusBadge'
 import { FileIcon } from '@/components/FileIcon'
@@ -12,17 +13,63 @@ function LineChanges({ added, removed }: { added: number; removed: number }) {
     )
 }
 
+export type FileAction = {
+    label: string
+    onClick: () => void
+    destructive?: boolean
+}
+
 type GitFileRowProps = {
     file: GitFileStatus
     onOpen: (path: string, staged?: boolean) => void
-    onRollback?: (path: string) => void
+    actions?: FileAction[]
     showCheckbox?: boolean
     checked?: boolean
     onToggle?: (file: GitFileStatus) => void
     showDivider?: boolean
 }
 
-export function GitFileRow({ file, onOpen, onRollback, showCheckbox, checked, onToggle, showDivider }: GitFileRowProps) {
+function FileActionMenu({ actions }: { actions: FileAction[] }) {
+    const [open, setOpen] = useState(false)
+    const menuRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (!open) return
+        const handler = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false)
+        }
+        document.addEventListener('mousedown', handler)
+        return () => document.removeEventListener('mousedown', handler)
+    }, [open])
+
+    return (
+        <div className="relative shrink-0" ref={menuRef}>
+            <button
+                type="button"
+                onClick={() => setOpen(!open)}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] hover:text-[var(--app-fg)] transition-colors"
+            >
+                ⋯
+            </button>
+            {open && (
+                <div className="animate-fade-in-scale absolute right-0 top-full z-20 mt-1 min-w-[120px] rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] py-1 shadow-lg">
+                    {actions.map((action) => (
+                        <button
+                            key={action.label}
+                            type="button"
+                            onClick={() => { setOpen(false); action.onClick() }}
+                            className={`w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-[var(--app-subtle-bg)] ${action.destructive ? 'text-red-500' : 'text-[var(--app-fg)]'}`}
+                        >
+                            {action.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
+export function GitFileRow({ file, onOpen, actions, showCheckbox, checked, onToggle, showDivider }: GitFileRowProps) {
     const subtitle = file.filePath || 'project root'
 
     return (
@@ -50,16 +97,7 @@ export function GitFileRow({ file, onOpen, onRollback, showCheckbox, checked, on
                     <StatusBadge status={file.status} />
                 </div>
             </button>
-            {onRollback && (
-                <button
-                    type="button"
-                    onClick={() => onRollback(file.fullPath)}
-                    className="shrink-0 text-xs px-2 py-0.5 rounded border border-[var(--app-border)] text-red-500 hover:bg-red-500/10 transition-colors"
-                    title="Rollback file"
-                >
-                    Rollback
-                </button>
-            )}
+            {actions && actions.length > 0 && <FileActionMenu actions={actions} />}
         </div>
     )
 }

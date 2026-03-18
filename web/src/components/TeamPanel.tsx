@@ -66,7 +66,7 @@ export function TeamPanel(props: { teamState: TeamState }) {
             </button>
 
             {expanded && (
-                <div className="mt-1 rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2">
+                <div className="mt-1 rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] px-3 py-2 animate-fade-in-up">
                     {teamState.description && (
                         <p className="mb-2 text-xs text-[var(--app-hint)]">{teamState.description}</p>
                     )}

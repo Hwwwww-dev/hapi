@@ -29,7 +29,7 @@ export const Autocomplete = memo(function Autocomplete(props: AutocompleteProps)
     }
 
     return (
-        <div className="py-1" ref={listRef}>
+        <div className="py-1 animate-menu-pop" ref={listRef}>
             {suggestions.map((suggestion, index) => (
                 <button
                     key={suggestion.key}

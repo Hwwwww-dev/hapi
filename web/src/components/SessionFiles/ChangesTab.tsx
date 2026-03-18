@@ -3,6 +3,7 @@ import type { ApiClient } from '@/api/client'
 import type { GitStatusFiles, GitFileStatus } from '@/types/api'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useTranslation } from '@/lib/use-translation'
+import { notify } from '@/lib/notify'
 import { GitToolbar } from './GitToolbar'
 import { GitFileRow } from './GitFileRow'
 import { StashSheet } from './StashSheet'
@@ -20,7 +21,6 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
     const { t } = useTranslation()
     const [commitMessage, setCommitMessage] = useState('')
     const [gitActionLoading, setGitActionLoading] = useState<'fetch' | 'pull' | 'push' | null>(null)
-    const [gitActionError, setGitActionError] = useState<string | null>(null)
     const [commitLoading, setCommitLoading] = useState(false)
     const [stashOpen, setStashOpen] = useState(false)
     const [stagedExpanded, setStagedExpanded] = useState(true)
@@ -46,16 +46,17 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
 
     const runGitAction = useCallback(async (action: 'fetch' | 'pull' | 'push', fn: () => Promise<{ success: boolean; error?: string; stderr?: string }>) => {
         setGitActionLoading(action)
-        setGitActionError(null)
         const res = await fn()
         setGitActionLoading(null)
         if (!res.success) {
             const msg = res.stderr ?? res.error ?? `${action} failed`
-            setGitActionError(msg)
-            throw new Error(msg)
+            notify.error(msg)
+            return
         }
         setConfirmAction(null)
         onRefresh()
+        const labels: Record<string, string> = { fetch: t('notify.git.fetchOk'), pull: t('notify.git.pullOk'), push: t('notify.git.pushOk') }
+        notify.success(labels[action] ?? `${action} completed`)
     }, [onRefresh])
 
     // Frontend-only toggle for unstaged selection
@@ -124,10 +125,11 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
             setCommitMessage('')
             setConfirmAction(null)
             onRefresh()
+            notify.success(t('notify.git.commitOk'))
         } else {
             const msg = res.stderr ?? res.error ?? 'Commit failed'
-            setGitActionError(msg)
-            throw new Error(msg)
+            notify.error(msg)
+            return
         }
     }, [api, sessionId, commitMessage, staged.length, onRefresh])
 
@@ -152,6 +154,7 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
         if (res.success) {
             setRollbackTarget(null)
             onRefresh()
+            notify.success(t('notify.git.rollbackOk'))
         }
     }, [api, sessionId, rollbackTarget, onRefresh])
 
@@ -180,8 +183,6 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
                 onPush={() => setConfirmAction('push')}
                 onStash={() => setStashOpen(true)}
                 loading={gitActionLoading}
-                error={gitActionError}
-                onDismissError={() => setGitActionError(null)}
             />
             <div className="flex-1 overflow-y-auto">
                 {/* Staged section */}
@@ -232,7 +233,7 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
                     )}
                 </div>
                 {unstagedExpanded && unstaged.map((file, i) => (
-                    <GitFileRow key={file.fullPath} file={file} onOpen={onOpenFile} onRollback={requestRollback} showCheckbox checked={selectedUnstaged.has(file.fullPath)} onToggle={toggleUnstaged} showDivider={i < unstaged.length - 1} />
+                    <GitFileRow key={file.fullPath} file={file} onOpen={onOpenFile} actions={[{ label: t('dialog.git.rollback.confirm'), onClick: () => requestRollback(file.fullPath), destructive: true }]} showCheckbox checked={selectedUnstaged.has(file.fullPath)} onToggle={toggleUnstaged} showDivider={i < unstaged.length - 1} />
                 ))}
             </div>
             {/* Fixed bottom: actions + commit */}

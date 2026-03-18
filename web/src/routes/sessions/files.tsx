@@ -139,7 +139,7 @@ export default function FilesPage() {
                         </div>
                     </div>
                     <button type="button" onClick={() => void refetchGit()} className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]" title="Refresh">
-                        <RefreshIcon />
+                        <RefreshIcon className={gitLoading ? 'animate-spin' : ''} />
                     </button>
                 </div>
             </div>

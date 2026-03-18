@@ -326,8 +326,75 @@ html[data-theme="dark"] .shiki span {
   animation: session-list-swap 0.18s ease-out;
 }
 
+/* Slide down + fade - banners, panels */
+@keyframes slide-down-fade {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-down-fade {
+  animation: slide-down-fade 0.2s ease-out;
+}
+
+/* Fade in scale - dialogs, sheets */
+@keyframes fade-in-scale {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-fade-in-scale {
+  animation: fade-in-scale 0.15s ease-out;
+}
+
+/* Fade in up - toasts, messages */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.2s ease-out;
+}
+
+/* Slide up from bottom - sheets, drawers */
+@keyframes drawer-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-drawer-up {
+  animation: drawer-up 0.2s ease-out;
+}
+
+/* Backdrop fade */
+@keyframes backdrop-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-backdrop-fade {
+  animation: backdrop-fade 0.15s ease-out;
+}
+
+/* Notify fade-out */
+@keyframes notify-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
+}
+.animate-notify-out {
+  animation: notify-out 0.2s ease-in forwards;
+  pointer-events: none;
+}
+
+/* Notify progress bar shrink */
+@keyframes notify-shrink {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-session-list-swap {
+  .animate-session-list-swap,
+  .animate-slide-down-fade,
+  .animate-fade-in-scale,
+  .animate-fade-in-up,
+  .animate-drawer-up,
+  .animate-backdrop-fade,
+  .animate-notify-out {
     animation: none;
   }
 }

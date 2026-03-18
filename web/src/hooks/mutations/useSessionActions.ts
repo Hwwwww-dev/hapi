@@ -4,7 +4,9 @@ import type { ApiClient } from '@/api/client'
 import type { CodexCollaborationMode, PermissionMode } from '@/types/api'
 import { queryKeys } from '@/lib/query-keys'
 import { clearMessageWindow } from '@/lib/message-window-store'
+import { notify } from '@/lib/notify'
 import { isKnownFlavor } from '@/lib/agentFlavorUtils'
+import { useTranslation } from '@/lib/use-translation'
 
 export function useSessionActions(
     api: ApiClient | null,
@@ -24,6 +26,7 @@ export function useSessionActions(
     isPending: boolean
 } {
     const queryClient = useQueryClient()
+    const { t } = useTranslation()
 
     const invalidateSession = async () => {
         if (!sessionId) return
@@ -48,7 +51,10 @@ export function useSessionActions(
             }
             await api.archiveSession(sessionId)
         },
-        onSuccess: () => void invalidateSession(),
+        onSuccess: () => {
+            void invalidateSession()
+            notify.success(t('notify.session.archived'))
+        },
     })
 
     const switchMutation = useMutation({
@@ -59,6 +65,7 @@ export function useSessionActions(
             await api.switchSession(sessionId)
         },
         onSuccess: () => void invalidateSession(),
+        onError: () => notify.error(t('notify.operationFailed')),
     })
 
     const permissionMutation = useMutation({
@@ -72,6 +79,7 @@ export function useSessionActions(
             await api.setPermissionMode(sessionId, mode)
         },
         onSuccess: () => void invalidateSession(),
+        onError: () => notify.error(t('notify.operationFailed')),
     })
 
     const collaborationMutation = useMutation({
@@ -88,6 +96,7 @@ export function useSessionActions(
             await api.setCollaborationMode(sessionId, mode)
         },
         onSuccess: () => void invalidateSession(),
+        onError: () => notify.error(t('notify.operationFailed')),
     })
 
     const modelMutation = useMutation({
@@ -98,6 +107,7 @@ export function useSessionActions(
             await api.setModel(sessionId, model)
         },
         onSuccess: () => void invalidateSession(),
+        onError: () => notify.error(t('notify.operationFailed')),
     })
 
     const renameMutation = useMutation({
@@ -107,7 +117,10 @@ export function useSessionActions(
             }
             await api.renameSession(sessionId, name)
         },
-        onSuccess: () => void invalidateSession(),
+        onSuccess: () => {
+            void invalidateSession()
+            notify.success(t('notify.session.renamed'))
+        },
     })
 
     const deleteMutation = useMutation({
@@ -123,10 +136,12 @@ export function useSessionActions(
             if (!sessionId) return
             queryClient.removeQueries({ queryKey: queryKeys.session(sessionId) })
             clearMessageWindow(sessionId)
+            notify.success(t('notify.session.deleted'))
         },
         onError: async () => {
             // Optimistic removal failed — refetch to restore correct state
             await queryClient.invalidateQueries({ queryKey: queryKeys.sessions })
+            notify.error(t('notify.session.deleteFailed'))
         },
     })
 

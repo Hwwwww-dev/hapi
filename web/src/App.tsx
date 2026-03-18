@@ -25,6 +25,7 @@ import { ReconnectingBanner } from '@/components/ReconnectingBanner'
 import { VoiceErrorBanner } from '@/components/VoiceErrorBanner'
 import { LoadingState } from '@/components/LoadingState'
 import { ToastContainer } from '@/components/ToastContainer'
+import { NotifyContainer } from '@/components/NotifyContainer'
 import { ToastProvider, useToast } from '@/lib/toast-context'
 import type { SyncEvent } from '@/types/api'
 
@@ -351,6 +352,7 @@ function AppInner() {
                     <Outlet />
                 </div>
                 <ToastContainer />
+                <NotifyContainer />
                 <InstallPrompt />
             </VoiceProvider>
         </AppContextProvider>

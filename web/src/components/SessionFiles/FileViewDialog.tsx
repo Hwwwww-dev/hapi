@@ -256,10 +256,10 @@ export function FileViewDialog({ api, sessionId, filePath, commitHash, staged, o
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+            <div className="absolute inset-0 bg-black/50 animate-backdrop-fade" onClick={onClose} />
 
             {/* Panel — centered dialog */}
-            <div className="relative flex flex-col bg-[var(--app-bg)] rounded-xl w-full max-w-2xl max-h-[88dvh] shadow-xl">
+            <div className="relative flex flex-col bg-[var(--app-bg)] rounded-xl w-full max-w-2xl max-h-[88dvh] shadow-xl animate-fade-in-scale">
                 {/* Header */}
                 <div className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-[var(--app-border)]">
                     <button
