@@ -395,7 +395,7 @@ export function SessionChat(props: {
                     />
 
                     {!isSubagent && (
-                    <>
+                    <div className="relative shrink-0">
                     <ScrollToBottomButton visible={!atBottom} onClick={handleScrollToBottom} />
                     <HappyComposer
                         disabled={props.isSending}
@@ -424,7 +424,7 @@ export function SessionChat(props: {
                         onVoiceToggle={voice ? handleVoiceToggle : undefined}
                         onVoiceMicToggle={voice ? handleVoiceMicToggle : undefined}
                     />
-                    </>
+                    </div>
                     )}
                 </div>
             </AssistantRuntimeProvider>
