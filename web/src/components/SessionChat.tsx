@@ -34,6 +34,7 @@ export function SessionChat(props: {
     isLoadingMoreMessages: boolean
     isSending: boolean
     pendingCount: number
+    totalMessages: number | null
     messagesVersion: number
     onBack: () => void
     onRefresh: () => void
@@ -410,6 +411,8 @@ export function SessionChat(props: {
                         thinking={props.session.thinking}
                         agentState={props.session.agentState}
                         contextSize={reduced.latestUsage?.contextSize}
+                        messageCount={props.messages.length}
+                        totalMessages={props.totalMessages}
                         controlledByUser={controlledByUser}
                         onCollaborationModeChange={
                             codexCollaborationModeSupported && props.session.active && !controlledByUser

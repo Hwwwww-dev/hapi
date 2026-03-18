@@ -9,6 +9,7 @@ export type MessageWindowState = {
     pending: DecryptedMessage[]
     pendingCount: number
     hasMore: boolean
+    totalMessages: number | null
     oldestSeq: number | null
     newestSeq: number | null
     isLoading: boolean
@@ -99,6 +100,7 @@ function createState(sessionId: string): InternalState {
         pendingVisibleCount: 0,
         pendingOverflowVisibleCount: 0,
         hasMore: false,
+        totalMessages: null,
         oldestSeq: null,
         newestSeq: null,
         isLoading: false,
@@ -167,6 +169,7 @@ function buildState(
         pendingVisibleCount?: number
         pendingOverflowVisibleCount?: number
         hasMore?: boolean
+        totalMessages?: number | null
         isLoading?: boolean
         isLoadingMore?: boolean
         warning?: string | null
@@ -200,6 +203,7 @@ function buildState(
         oldestSeq,
         newestSeq,
         hasMore: updates.hasMore !== undefined ? updates.hasMore : prev.hasMore,
+        totalMessages: updates.totalMessages !== undefined ? updates.totalMessages : prev.totalMessages,
         isLoading: updates.isLoading !== undefined ? updates.isLoading : prev.isLoading,
         isLoadingMore: updates.isLoadingMore !== undefined ? updates.isLoadingMore : prev.isLoadingMore,
         warning: updates.warning !== undefined ? updates.warning : prev.warning,
@@ -341,6 +345,7 @@ export async function fetchLatestMessages(api: ApiClient, sessionId: string): Pr
                     pendingVisibleCount: 0,
                     pendingOverflowVisibleCount: 0,
                     hasMore: response.page.hasMore,
+                    totalMessages: response.page.total ?? null,
                     isLoading: false,
                     warning: null,
                 })
@@ -378,6 +383,7 @@ export async function fetchOlderMessages(api: ApiClient, sessionId: string): Pro
             return buildState(prev, {
                 messages: merged,
                 hasMore: response.page.hasMore,
+                totalMessages: response.page.total ?? prev.totalMessages,
                 isLoadingMore: false,
             })
         })

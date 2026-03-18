@@ -92,6 +92,7 @@ export type MessagesResponse = {
         beforeSeq: number | null
         nextBeforeSeq: number | null
         hasMore: boolean
+        total?: number
     }
 }
 

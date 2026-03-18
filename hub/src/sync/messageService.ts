@@ -20,9 +20,11 @@ export class MessageService {
             beforeSeq: number | null
             nextBeforeSeq: number | null
             hasMore: boolean
+            total: number
         }
     } {
         const stored = this.store.messages.getMessages(sessionId, options.limit, options.beforeSeq ?? undefined)
+        const total = this.store.messages.countMessages(sessionId)
         const messages: DecryptedMessage[] = stored.map((message) => ({
             id: message.id,
             seq: message.seq,
@@ -49,7 +51,8 @@ export class MessageService {
                 limit: options.limit,
                 beforeSeq: options.beforeSeq,
                 nextBeforeSeq,
-                hasMore
+                hasMore,
+                total
             }
         }
     }

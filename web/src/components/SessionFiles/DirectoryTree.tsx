@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import type { ApiClient } from '@/api/client'
 import { FileIcon } from '@/components/FileIcon'
 import { useSessionDirectory } from '@/hooks/queries/useSessionDirectory'
+import { useTranslation } from '@/lib/use-translation'
 
 function ChevronIcon(props: { className?: string; collapsed: boolean }) {
     return (
@@ -83,6 +84,7 @@ function DirectoryNode(props: {
     expanded: Set<string>
     onToggle: (path: string) => void
 }) {
+    const { t } = useTranslation()
     const isExpanded = props.expanded.has(props.path)
     const { entries, error, isLoading } = useSessionDirectory(props.api, props.sessionId, props.path, {
         enabled: isExpanded
@@ -158,7 +160,7 @@ function DirectoryNode(props: {
                                 className="px-3 py-2 text-sm text-[var(--app-hint)]"
                                 style={{ paddingLeft: childIndent }}
                             >
-                                Empty directory.
+                                {t('git.emptyDirectory')}
                             </div>
                         ) : null}
                     </div>

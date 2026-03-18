@@ -343,6 +343,9 @@ export default {
   'misc.offline': '离线',
   'misc.permissionRequired': '需要权限',
   'misc.percentLeft': '剩余 {percent}%',
+  'misc.tokenUsed': '已用 {used}',
+  'misc.contextUsage': '上下文 已用 {percent}% ({used} / {total})',
+  'misc.messageCount': '消息数：{current} / {total}',
   'misc.online': '在线',
 
   // Queue
@@ -369,5 +372,92 @@ export default {
   'notify.git.checkoutOk': '分支已切换',
   'notify.git.stashSaved': '已保存到 Stash',
   'notify.git.stashPopped': '已恢复 Stash',
+  'notify.git.uncommitOk': '已撤销提交',
   'notify.git.failed': '{action} 失败',
+  'git.uncommit': '撤销提交',
+  'dialog.git.uncommit.title': '撤销提交',
+  'dialog.git.uncommit.description': '撤销提交 "{subject}"？更改将保留在暂存区。',
+  'dialog.git.uncommit.confirm': '撤销提交',
+  'dialog.git.uncommit.confirming': '撤销中…',
+
+  // SessionFiles - tabs & header
+  'files.tab.changes': '变更',
+  'files.tab.history': '历史',
+  'files.tab.branches': '分支',
+  'files.tab.files': '文件',
+  'files.header.git': 'Git',
+  'files.header.refresh': '刷新',
+  'files.header.detached': '游离',
+
+  // SessionFiles - ChangesTab
+  'git.stagedChanges': '已暂存 ({n})',
+  'git.unstagedChanges': '未暂存 ({n})',
+  'git.selectAll': '全选',
+  'git.deselectAll': '取消全选',
+  'git.stageN': '暂存 ({n})',
+  'git.unstageN': '取消暂存 ({n})',
+  'git.stageAll': '全部暂存',
+  'git.unstageAll': '全部取消暂存',
+  'git.commitPlaceholder': '提交信息...',
+  'git.committing': '提交中...',
+  'git.commitN': '提交 ({n})',
+  'git.commit': '提交',
+  'git.projectRoot': '项目根目录',
+
+  // SessionFiles - GitToolbar
+  'git.fetch': 'Fetch',
+  'git.pull': 'Pull',
+  'git.push': 'Push',
+  'git.stash': 'Stash',
+
+  // SessionFiles - CommitRow
+  'git.local': '本地',
+  'git.remote': '远程',
+  'git.noChangedFiles': '没有变更的文件',
+  'git.noMoreCommits': '没有更多提交了',
+  'git.noCommitHistory': '暂无提交历史',
+  'git.justNow': '刚刚',
+  'git.minutesAgo': '{n}分钟前',
+  'git.hoursAgo': '{n}小时前',
+  'git.daysAgo': '{n}天前',
+
+  // SessionFiles - BranchesTab
+  'git.searchBranches': '搜索分支...',
+  'git.loading': '加载中...',
+  'git.localBranches': '本地 ({n})',
+  'git.remoteBranches': '远程 ({n})',
+  'git.branchName': '分支名称',
+  'git.branchFrom': '基于（可选，分支或提交）',
+  'git.creating': '创建中...',
+  'git.create': '创建',
+  'git.newBranch': '+ 新建分支',
+  'git.uncommittedWarning': '有未提交的更改，请先提交或暂存后再切换分支。',
+  'git.checkoutFailed': '切换分支失败',
+  'git.createBranchFailed': '创建分支失败',
+  'git.loadBranchesFailed': '加载分支失败',
+
+  // SessionFiles - StashSheet
+  'git.stashChanges': '暂存更改',
+  'git.stashWorking': '处理中...',
+  'git.stashOptionalMsg': '可选备注...',
+  'git.noStashes': '没有暂存记录',
+  'git.stashPop': '恢复',
+  'git.stashFailed': '暂存失败',
+  'git.stashPopFailed': '恢复失败',
+
+  // SessionFiles - FileViewDialog
+  'git.diff': '差异',
+  'git.file': '文件',
+  'git.copyPath': '复制路径',
+  'git.copyContent': '复制文件内容',
+  'git.noFilePath': '未提供文件路径。',
+  'git.binaryFile': '这是一个二进制文件，无法显示。',
+  'git.fileEmpty': '文件为空。',
+  'git.noChanges': '没有变更可显示。',
+  'git.diffLoadFailed': '加载差异失败',
+  'git.fileLoadFailed': '读取文件失败',
+  'git.diffUnavailable': '差异不可用：{error}',
+
+  // SessionFiles - DirectoryTree
+  'git.emptyDirectory': '空目录。',
 } as const

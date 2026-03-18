@@ -10,6 +10,7 @@ import { useAppContext } from '@/lib/app-context'
 import { useAppGoBack } from '@/hooks/useAppGoBack'
 import { useGitStatusFiles } from '@/hooks/queries/useGitStatusFiles'
 import { useSession } from '@/hooks/queries/useSession'
+import { useTranslation } from '@/lib/use-translation'
 
 function BackIcon(props: { className?: string }) {
     return (
@@ -75,6 +76,7 @@ function GitBranchIcon(props: { className?: string }) {
 type TabType = 'changes' | 'history' | 'branches' | 'directories'
 
 export default function FilesPage() {
+    const { t } = useTranslation()
     const { api } = useAppContext()
     const navigate = useNavigate()
     const goBack = useAppGoBack()
@@ -91,8 +93,8 @@ export default function FilesPage() {
 
     const rawBranch = gitStatus?.branch ?? ''
     const branchLabel = rawBranch.startsWith('HEAD:')
-        ? `detached @ ${rawBranch.slice(5)}`
-        : rawBranch || 'detached'
+        ? `${t('files.header.detached')} @ ${rawBranch.slice(5)}`
+        : rawBranch || t('files.header.detached')
     const rootLabel = useMemo(() => {
         const base = session?.metadata?.path ?? sessionId
         const parts = base.split(/[/\\]/).filter(Boolean)
@@ -116,10 +118,10 @@ export default function FilesPage() {
     }, [navigate, sessionId])
 
     const visibleTabs: { key: TabType; label: string }[] = [
-        { key: 'changes', label: 'Changes' },
-        { key: 'history', label: 'History' },
-        { key: 'branches', label: 'Branches' },
-        { key: 'directories', label: 'Files' },
+        { key: 'changes', label: t('files.tab.changes') },
+        { key: 'history', label: t('files.tab.history') },
+        { key: 'branches', label: t('files.tab.branches') },
+        { key: 'directories', label: t('files.tab.files') },
     ]
 
     return (
@@ -132,13 +134,13 @@ export default function FilesPage() {
                         <BackIcon />
                     </button>
                     <div className="min-w-0 flex-1">
-                        <div className="truncate font-semibold">Git</div>
+                        <div className="truncate font-semibold">{t('files.header.git')}</div>
                         <div className="flex items-center gap-1.5 text-xs text-[var(--app-hint)]">
                             <GitBranchIcon />
                             <span className="truncate">{branchLabel}</span>
                         </div>
                     </div>
-                    <button type="button" onClick={() => void refetchGit()} className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]" title="Refresh">
+                    <button type="button" onClick={() => void refetchGit()} className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]" title={t('files.header.refresh')}>
                         <RefreshIcon className={gitLoading ? 'animate-spin' : ''} />
                     </button>
                 </div>
@@ -170,7 +172,7 @@ export default function FilesPage() {
                         <ChangesTab api={api} sessionId={sessionId} gitStatus={gitStatus} isLoading={gitLoading} onOpenFile={handleOpenFile} onRefresh={() => void refetchGit()} />
                     )}
                     {activeTab === 'history' && (
-                        <HistoryTab api={api} sessionId={sessionId} ahead={gitStatus?.ahead ?? 0} />
+                        <HistoryTab api={api} sessionId={sessionId} ahead={gitStatus?.ahead ?? 0} onRefresh={() => void refetchGit()} />
                     )}
                     {activeTab === 'branches' && (
                         <BranchesTab api={api} sessionId={sessionId} currentBranch={gitStatus?.branch ?? null} onBranchChanged={() => void refetchGit()} />

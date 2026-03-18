@@ -1,3 +1,5 @@
+import { useTranslation } from '@/lib/use-translation'
+
 type GitToolbarProps = {
     onFetch: () => void
     onPull: () => void
@@ -28,14 +30,15 @@ function ToolbarButton({ label, onClick, isLoading, disabled }: {
 }
 
 export function GitToolbar({ onFetch, onPull, onPush, onStash, loading }: GitToolbarProps) {
+    const { t } = useTranslation()
     const anyLoading = loading !== null
 
     return (
         <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto">
-            <ToolbarButton label="Fetch" onClick={onFetch} isLoading={loading === 'fetch'} disabled={anyLoading} />
-            <ToolbarButton label="Pull" onClick={onPull} isLoading={loading === 'pull'} disabled={anyLoading} />
-            <ToolbarButton label="Push" onClick={onPush} isLoading={loading === 'push'} disabled={anyLoading} />
-            <ToolbarButton label="Stash" onClick={onStash} isLoading={false} disabled={anyLoading} />
+            <ToolbarButton label={t('git.fetch')} onClick={onFetch} isLoading={loading === 'fetch'} disabled={anyLoading} />
+            <ToolbarButton label={t('git.pull')} onClick={onPull} isLoading={loading === 'pull'} disabled={anyLoading} />
+            <ToolbarButton label={t('git.push')} onClick={onPush} isLoading={loading === 'push'} disabled={anyLoading} />
+            <ToolbarButton label={t('git.stash')} onClick={onStash} isLoading={false} disabled={anyLoading} />
         </div>
     )
 }

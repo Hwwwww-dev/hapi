@@ -8,6 +8,7 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { queryKeys } from '@/lib/query-keys'
 import { langAlias, useShikiHighlighter } from '@/lib/shiki'
 import { decodeBase64 } from '@/lib/utils'
+import { useTranslation } from '@/lib/use-translation'
 
 const MAX_COPYABLE_FILE_BYTES = 1_000_000
 
@@ -28,7 +29,7 @@ function isBinaryContent(content: string): boolean {
 function extractCommandError(result: GitCommandResponse | undefined): string | null {
     if (!result) return null
     if (result.success) return null
-    return result.error ?? result.stderr ?? 'Failed to load diff'
+    return result.error ?? result.stderr ?? null
 }
 
 function resolveLanguage(path: string): string | undefined {
@@ -95,6 +96,7 @@ type FileViewContentProps = {
 }
 
 export function FileViewContent({ api, sessionId, filePath, commitHash, staged }: FileViewContentProps) {
+    const { t } = useTranslation()
     const { copied: pathCopied, copy: copyPath } = useCopyToClipboard()
     const { copied: contentCopied, copy: copyContent } = useCopyToClipboard()
     const fileName = filePath.split('/').pop() || filePath || 'File'
@@ -157,8 +159,8 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
         ? displayMode
         : (!diffContent && !diffQuery.isLoading) ? 'file' : displayMode
     const fileError = fileContentResult && !fileContentResult.success
-        ? (fileContentResult.error ?? 'Failed to read file') : null
-    const diffErrorMessage = diffError ? `Diff unavailable: ${diffError}` : null
+        ? (fileContentResult.error ?? t('git.fileLoadFailed')) : null
+    const diffErrorMessage = diffError ? t('git.diffUnavailable', { error: diffError }) : null
 
     return (
         <div className="flex flex-col h-full min-h-0">
@@ -170,7 +172,7 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
                     type="button"
                     onClick={() => copyPath(filePath)}
                     className="shrink-0 rounded p-1 text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] hover:text-[var(--app-fg)] transition-colors"
-                    title="Copy path"
+                    title={t('git.copyPath')}
                 >
                     {pathCopied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
                 </button>
@@ -181,11 +183,11 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
                 <div className="shrink-0 px-3 py-2 flex items-center gap-2 border-b border-[var(--app-divider)]">
                     <button type="button" onClick={() => setDisplayMode('diff')}
                         className={`rounded px-3 py-1 text-xs font-semibold ${effectiveMode === 'diff' ? 'bg-[var(--app-button)] text-[var(--app-button-text)] opacity-80' : 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)]'}`}>
-                        Diff
+                        {t('git.diff')}
                     </button>
                     <button type="button" onClick={() => setDisplayMode('file')}
                         className={`rounded px-3 py-1 text-xs font-semibold ${effectiveMode === 'file' ? 'bg-[var(--app-button)] text-[var(--app-button-text)] opacity-80' : 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)]'}`}>
-                        File
+                        {t('git.file')}
                     </button>
                 </div>
             ) : null}
@@ -196,13 +198,13 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
                     <div className="mb-3 rounded-md bg-amber-500/10 p-2 text-xs text-[var(--app-hint)]">{diffErrorMessage}</div>
                 ) : null}
                 {!filePath ? (
-                    <div className="text-sm text-[var(--app-hint)]">No file path provided.</div>
+                    <div className="text-sm text-[var(--app-hint)]">{t('git.noFilePath')}</div>
                 ) : loading ? (
                     <FileContentSkeleton />
                 ) : fileError ? (
                     <div className="text-sm text-[var(--app-hint)]">{fileError}</div>
                 ) : binaryFile ? (
-                    <div className="text-sm text-[var(--app-hint)]">This looks like a binary file. It cannot be displayed.</div>
+                    <div className="text-sm text-[var(--app-hint)]">{t('git.binaryFile')}</div>
                 ) : effectiveMode === 'diff' && diffContent ? (
                     <DiffDisplay diffContent={diffContent} />
                 ) : effectiveMode === 'diff' && diffError ? (
@@ -213,7 +215,7 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
                             {canCopyContent ? (
                                 <button type="button" onClick={() => copyContent(decodedContent)}
                                     className="absolute right-2 top-2 z-10 rounded p-1 text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] hover:text-[var(--app-fg)] transition-colors"
-                                    title="Copy file content">
+                                    title={t('git.copyContent')}>
                                     {contentCopied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
                                 </button>
                             ) : null}
@@ -222,10 +224,10 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
                             </pre>
                         </div>
                     ) : (
-                        <div className="text-sm text-[var(--app-hint)]">File is empty.</div>
+                        <div className="text-sm text-[var(--app-hint)]">{t('git.fileEmpty')}</div>
                     )
                 ) : (
-                    <div className="text-sm text-[var(--app-hint)]">No changes to display.</div>
+                    <div className="text-sm text-[var(--app-hint)]">{t('git.noChanges')}</div>
                 )}
             </div>
         </div>

@@ -409,6 +409,14 @@ export class ApiClient {
         return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-remote-branches`)
     }
 
+    async gitResetSoft(sessionId: string, ref: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-reset-soft`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ref })
+        })
+    }
+
     async searchSessionFiles(sessionId: string, query: string, limit?: number): Promise<FileSearchResponse> {
         const params = new URLSearchParams()
         if (query) {

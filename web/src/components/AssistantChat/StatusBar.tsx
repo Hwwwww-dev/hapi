@@ -92,17 +92,25 @@ function getConnectionStatus(
     }
 }
 
+function formatTokenCount(tokens: number): string {
+    if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`
+    if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}K`
+    return `${tokens}`
+}
+
 function getContextWarning(contextSize: number, maxContextSize: number, t: (key: string, params?: Record<string, string | number>) => string): { text: string; color: string } | null {
     const percentageUsed = (contextSize / maxContextSize) * 100
     const percentageRemaining = Math.max(0, 100 - percentageUsed)
+    const usedLabel = formatTokenCount(contextSize)
+    const totalLabel = formatTokenCount(maxContextSize)
+    const percent = Math.min(100, Math.round(percentageUsed))
 
-    const percent = Math.round(percentageRemaining)
     if (percentageRemaining <= 5) {
-        return { text: t('misc.percentLeft', { percent }), color: 'text-red-500' }
+        return { text: t('misc.contextUsage', { percent, used: usedLabel, total: totalLabel }), color: 'text-red-500' }
     } else if (percentageRemaining <= 10) {
-        return { text: t('misc.percentLeft', { percent }), color: 'text-amber-500' }
+        return { text: t('misc.contextUsage', { percent, used: usedLabel, total: totalLabel }), color: 'text-amber-500' }
     } else {
-        return { text: t('misc.percentLeft', { percent }), color: 'text-[var(--app-hint)]' }
+        return { text: t('misc.contextUsage', { percent, used: usedLabel, total: totalLabel }), color: 'text-[var(--app-hint)]' }
     }
 }
 
@@ -111,6 +119,8 @@ export function StatusBar(props: {
     thinking: boolean
     agentState: AgentState | null | undefined
     contextSize?: number
+    messageCount?: number
+    totalMessages?: number | null
     model?: string | null
     permissionMode?: PermissionMode
     collaborationMode?: CodexCollaborationMode
@@ -162,8 +172,13 @@ export function StatusBar(props: {
                     </span>
                 </div>
                 {contextWarning ? (
-                    <span className={`text-[10px] ${contextWarning.color}`}>
+                    <span className={`text-xs ${contextWarning.color}`}>
                         {contextWarning.text}
+                    </span>
+                ) : null}
+                {props.totalMessages != null && props.messageCount != null ? (
+                    <span className="text-xs text-[var(--app-hint)] tabular-nums">
+                        {t('misc.messageCount', { current: props.messageCount, total: props.totalMessages })}
                     </span>
                 ) : null}
             </div>

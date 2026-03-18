@@ -57,7 +57,7 @@ export function NotifyContainer() {
 
     return (
         <div
-            className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+2.5rem)] z-[60] flex flex-col items-center gap-2 pointer-events-none"
+            className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+2rem)] z-[60] flex flex-col items-center gap-2 pointer-events-none"
             aria-live="polite"
         >
             {items.map((item) => (

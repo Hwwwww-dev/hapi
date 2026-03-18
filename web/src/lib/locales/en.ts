@@ -341,6 +341,9 @@ export default {
   'misc.offline': 'offline',
   'misc.permissionRequired': 'permission required',
   'misc.percentLeft': '{percent}% left',
+  'misc.tokenUsed': '{used} used',
+  'misc.contextUsage': 'Context {percent}% used ({used} / {total})',
+  'misc.messageCount': 'Messages: {current} / {total}',
   'misc.online': 'online',
 
   // Queue
@@ -367,5 +370,92 @@ export default {
   'notify.git.checkoutOk': 'Branch switched',
   'notify.git.stashSaved': 'Stash saved',
   'notify.git.stashPopped': 'Stash popped',
+  'notify.git.uncommitOk': 'Commit undone',
   'notify.git.failed': '{action} failed',
+  'git.uncommit': 'Uncommit',
+  'dialog.git.uncommit.title': 'Uncommit',
+  'dialog.git.uncommit.description': 'Undo commit "{subject}"? Changes will be kept in staging area.',
+  'dialog.git.uncommit.confirm': 'Uncommit',
+  'dialog.git.uncommit.confirming': 'Uncommitting…',
+
+  // SessionFiles - tabs & header
+  'files.tab.changes': 'Changes',
+  'files.tab.history': 'History',
+  'files.tab.branches': 'Branches',
+  'files.tab.files': 'Files',
+  'files.header.git': 'Git',
+  'files.header.refresh': 'Refresh',
+  'files.header.detached': 'detached',
+
+  // SessionFiles - ChangesTab
+  'git.stagedChanges': 'Staged Changes ({n})',
+  'git.unstagedChanges': 'Unstaged Changes ({n})',
+  'git.selectAll': 'Select All',
+  'git.deselectAll': 'Deselect All',
+  'git.stageN': 'Stage ({n})',
+  'git.unstageN': 'Unstage ({n})',
+  'git.stageAll': 'Stage All',
+  'git.unstageAll': 'Unstage All',
+  'git.commitPlaceholder': 'Commit message...',
+  'git.committing': 'Committing...',
+  'git.commitN': 'Commit ({n})',
+  'git.commit': 'Commit',
+  'git.projectRoot': 'project root',
+
+  // SessionFiles - GitToolbar
+  'git.fetch': 'Fetch',
+  'git.pull': 'Pull',
+  'git.push': 'Push',
+  'git.stash': 'Stash',
+
+  // SessionFiles - CommitRow
+  'git.local': 'local',
+  'git.remote': 'remote',
+  'git.noChangedFiles': 'No changed files',
+  'git.noMoreCommits': 'No more commits',
+  'git.noCommitHistory': 'No commit history',
+  'git.justNow': 'just now',
+  'git.minutesAgo': '{n}m ago',
+  'git.hoursAgo': '{n}h ago',
+  'git.daysAgo': '{n}d ago',
+
+  // SessionFiles - BranchesTab
+  'git.searchBranches': 'Search branches...',
+  'git.loading': 'Loading...',
+  'git.localBranches': 'Local ({n})',
+  'git.remoteBranches': 'Remote ({n})',
+  'git.branchName': 'Branch name',
+  'git.branchFrom': 'From (optional, branch or commit)',
+  'git.creating': 'Creating...',
+  'git.create': 'Create',
+  'git.newBranch': '+ New Branch',
+  'git.uncommittedWarning': 'You have uncommitted changes. Please commit or stash them before switching branches.',
+  'git.checkoutFailed': 'Checkout failed',
+  'git.createBranchFailed': 'Create branch failed',
+  'git.loadBranchesFailed': 'Failed to load branches',
+
+  // SessionFiles - StashSheet
+  'git.stashChanges': 'Stash Changes',
+  'git.stashWorking': 'Working...',
+  'git.stashOptionalMsg': 'Optional message...',
+  'git.noStashes': 'No stashes',
+  'git.stashPop': 'Pop',
+  'git.stashFailed': 'Stash failed',
+  'git.stashPopFailed': 'Pop failed',
+
+  // SessionFiles - FileViewDialog
+  'git.diff': 'Diff',
+  'git.file': 'File',
+  'git.copyPath': 'Copy path',
+  'git.copyContent': 'Copy file content',
+  'git.noFilePath': 'No file path provided.',
+  'git.binaryFile': 'This looks like a binary file. It cannot be displayed.',
+  'git.fileEmpty': 'File is empty.',
+  'git.noChanges': 'No changes to display.',
+  'git.diffLoadFailed': 'Failed to load diff',
+  'git.fileLoadFailed': 'Failed to read file',
+  'git.diffUnavailable': 'Diff unavailable: {error}',
+
+  // SessionFiles - DirectoryTree
+  'git.emptyDirectory': 'Empty directory.',
 } as const

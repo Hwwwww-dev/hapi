@@ -1,15 +1,17 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { ApiClient } from '@/api/client'
 import type { CommitEntry } from '@/types/api'
 import { FileViewDialog } from './FileViewDialog'
+import { notify } from '@/lib/notify'
+import { useTranslation } from '@/lib/use-translation'
 
-function formatRelativeTime(timestamp: number): string {
+function formatRelativeTime(timestamp: number, t: (key: string, params?: Record<string, unknown>) => string): string {
     const now = Date.now() / 1000
     const diff = now - timestamp
-    if (diff < 60) return 'just now'
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
+    if (diff < 60) return t('git.justNow')
+    if (diff < 3600) return t('git.minutesAgo', { n: Math.floor(diff / 60) })
+    if (diff < 86400) return t('git.hoursAgo', { n: Math.floor(diff / 3600) })
+    if (diff < 604800) return t('git.daysAgo', { n: Math.floor(diff / 86400) })
     return new Date(timestamp * 1000).toLocaleDateString()
 }
 
@@ -37,9 +39,50 @@ type CommitRowProps = {
     api: ApiClient
     sessionId: string
     isLocal?: boolean
+    onUncommit?: () => void
 }
 
-export function CommitRow({ commit, api, sessionId, isLocal }: CommitRowProps) {
+function CommitActionMenu({ onUncommit, disabled }: { onUncommit: () => void; disabled?: boolean }) {
+    const [open, setOpen] = useState(false)
+    const menuRef = useRef<HTMLDivElement>(null)
+    const { t } = useTranslation()
+
+    useEffect(() => {
+        if (!open) return
+        const handler = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false)
+        }
+        document.addEventListener('mousedown', handler)
+        return () => document.removeEventListener('mousedown', handler)
+    }, [open])
+
+    return (
+        <div className="relative shrink-0" ref={menuRef}>
+            <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] hover:text-[var(--app-fg)] transition-colors"
+            >
+                ⋯
+            </button>
+            {open && (
+                <div className="animate-fade-in-scale absolute right-0 top-full z-20 mt-1 min-w-[120px] rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] py-1 shadow-lg">
+                    <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={(e) => { e.stopPropagation(); setOpen(false); onUncommit() }}
+                        className={`w-full px-3 py-1.5 text-left text-xs transition-colors ${disabled ? 'text-[var(--app-hint)] opacity-40 cursor-not-allowed' : 'text-red-500 hover:bg-[var(--app-subtle-bg)]'}`}
+                    >
+                        {t('git.uncommit')}
+                    </button>
+                </div>
+            )}
+        </div>
+    )
+}
+
+export function CommitRow({ commit, api, sessionId, isLocal, onUncommit }: CommitRowProps) {
+    const { t } = useTranslation()
     const [expanded, setExpanded] = useState(false)
     const [files, setFiles] = useState<FileEntry[]>([])
     const [loading, setLoading] = useState(false)
@@ -64,7 +107,7 @@ export function CommitRow({ commit, api, sessionId, isLocal }: CommitRowProps) {
 
     return (
         <>
-            <div className="border-b border-[var(--app-divider)] last:border-0">
+            <div className="relative border-b border-[var(--app-divider)] last:border-0">
                 <button
                     type="button"
                     onClick={() => void handleToggle()}
@@ -76,8 +119,8 @@ export function CommitRow({ commit, api, sessionId, isLocal }: CommitRowProps) {
                     </div>
                     <div className="flex-1 min-w-0 pb-2">
                         <div className="text-sm text-[var(--app-fg)] truncate flex items-center gap-1.5">
-                            {isLocal && <span className="shrink-0 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-amber-500/15 text-amber-600">local</span>}
-                            {!isLocal && <span className="shrink-0 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-emerald-500/15 text-emerald-600">remote</span>}
+                            {isLocal && <span className="shrink-0 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-amber-500/15 text-amber-600">{t('git.local')}</span>}
+                            {!isLocal && <span className="shrink-0 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-emerald-500/15 text-emerald-600">{t('git.remote')}</span>}
                             <span className="truncate">{commit.subject}</span>
                         </div>
                         <div className="text-xs text-[var(--app-hint)] mt-0.5 flex items-center gap-1">
@@ -85,7 +128,7 @@ export function CommitRow({ commit, api, sessionId, isLocal }: CommitRowProps) {
                             <span>·</span>
                             <span>{commit.author}</span>
                             <span>·</span>
-                            <span>{formatRelativeTime(commit.date)}</span>
+                            <span>{formatRelativeTime(commit.date, t)}</span>
                         </div>
                     </div>
                     <div className="shrink-0 pt-1.5 text-[var(--app-hint)]">
@@ -95,10 +138,15 @@ export function CommitRow({ commit, api, sessionId, isLocal }: CommitRowProps) {
                         }
                     </div>
                 </button>
+                {onUncommit && (
+                    <div className="absolute right-2 top-2">
+                        <CommitActionMenu onUncommit={onUncommit} disabled={!isLocal} />
+                    </div>
+                )}
                 {expanded && loaded && (
                     <div className="pl-9 pr-4 pb-3">
                         {files.length === 0
-                            ? <div className="text-xs text-[var(--app-hint)]">No changed files</div>
+                            ? <div className="text-xs text-[var(--app-hint)]">{t('git.noChangedFiles')}</div>
                             : files.map(f => (
                                 <button
                                     key={f.path}

@@ -116,6 +116,11 @@ export function getMessages(
     return rows.reverse().map(toStoredMessage)
 }
 
+export function countMessages(db: Database, sessionId: string): number {
+    const row = db.prepare('SELECT COUNT(*) as count FROM messages WHERE session_id = ?').get(sessionId) as { count: number } | undefined
+    return row?.count ?? 0
+}
+
 export function importNativeMessage(
     db: Database,
     sessionId: string,

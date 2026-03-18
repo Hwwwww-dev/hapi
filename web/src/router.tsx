@@ -248,6 +248,7 @@ function SessionPage() {
         loadMore: loadMoreMessages,
         refetch: refetchMessages,
         pendingCount,
+        totalMessages,
         messagesVersion,
         flushPending,
         setAtBottom,
@@ -355,6 +356,7 @@ function SessionPage() {
             isLoadingMoreMessages={messagesLoadingMore}
             isSending={isSending}
             pendingCount={pendingCount}
+            totalMessages={totalMessages}
             messagesVersion={messagesVersion}
             onBack={goBack}
             onRefresh={refreshSelectedSession}

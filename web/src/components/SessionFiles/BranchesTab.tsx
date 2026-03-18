@@ -3,6 +3,7 @@ import type { ApiClient } from '@/api/client'
 import { useGitBranches } from '@/hooks/queries/useGitBranches'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useTranslation } from '@/lib/use-translation'
+import { notify } from '@/lib/notify'
 import type { GitBranchEntry } from '@/types/api'
 
 type BranchesTabProps = {
@@ -46,8 +47,9 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                 await refetch()
                 onBranchChanged()
             } else {
-                const msg = res.stderr ?? res.error ?? 'Checkout failed'
+                const msg = res.stderr ?? res.error ?? t('git.checkoutFailed')
                 setError(msg)
+                notify.error(msg)
                 throw new Error(msg)
             }
         } finally {
@@ -69,7 +71,9 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                 await refetch()
                 onBranchChanged()
             } else {
-                setError(res.stderr ?? res.error ?? 'Create branch failed')
+                const msg = res.stderr ?? res.error ?? t('git.createBranchFailed')
+                setError(msg)
+                notify.error(msg)
             }
         } finally {
             setActionLoading(null)
@@ -82,7 +86,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
             <div className="px-3 pt-3 pb-2">
                 <input
                     type="text"
-                    placeholder="Search branches..."
+                    placeholder={t('git.searchBranches')}
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
@@ -99,7 +103,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
             {/* Branch list */}
             <div className="flex-1 overflow-y-auto pb-16">
                 {isLoading ? (
-                    <div className="px-3 py-4 text-sm text-[var(--app-hint)]">Loading...</div>
+                    <div className="px-3 py-4 text-sm text-[var(--app-hint)]">{t('git.loading')}</div>
                 ) : (
                     <>
                         {/* Local section */}
@@ -110,7 +114,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                 className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                             >
                                 <span>{localExpanded ? '▼' : '▶'}</span>
-                                <span>Local ({filteredLocal.length})</span>
+                                <span>{t('git.localBranches', { n: filteredLocal.length })}</span>
                             </button>
                             {localExpanded && filteredLocal.map(branch => (
                                 <BranchRow
@@ -130,7 +134,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                 className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                             >
                                 <span>{remoteExpanded ? '▼' : '▶'}</span>
-                                <span>Remote ({filteredRemote.length})</span>
+                                <span>{t('git.remoteBranches', { n: filteredRemote.length })}</span>
                             </button>
                             {remoteExpanded && filteredRemote.map(branch => (
                                 <BranchRow
@@ -151,7 +155,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                     <div className="px-3 py-3 flex flex-col gap-2">
                         <input
                             type="text"
-                            placeholder="Branch name"
+                            placeholder={t('git.branchName')}
                             value={newBranchName}
                             onChange={e => setNewBranchName(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleCreateBranch()}
@@ -160,7 +164,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                         />
                         <input
                             type="text"
-                            placeholder="From (optional, branch or commit)"
+                            placeholder={t('git.branchFrom')}
                             value={newBranchFrom}
                             onChange={e => setNewBranchFrom(e.target.value)}
                             className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
@@ -172,14 +176,14 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                 disabled={!newBranchName.trim() || actionLoading === 'create'}
                                 className="flex-1 min-h-[44px] text-sm font-medium rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50 transition-opacity"
                             >
-                                {actionLoading === 'create' ? 'Creating...' : 'Create'}
+                                {actionLoading === 'create' ? t('git.creating') : t('git.create')}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => { setShowCreateInput(false); setNewBranchName(''); setNewBranchFrom(''); setError(null) }}
                                 className="px-4 min-h-[44px] text-sm rounded border border-[var(--app-border)] text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                             >
-                                Cancel
+                                {t('button.cancel')}
                             </button>
                         </div>
                     </div>
@@ -189,7 +193,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                         onClick={() => setShowCreateInput(true)}
                         className="w-full min-h-[44px] text-sm text-[var(--app-link)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                     >
-                        + New Branch
+                        {t('git.newBranch')}
                     </button>
                 )}
             </div>

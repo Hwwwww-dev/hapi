@@ -33,7 +33,7 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
             refetch()
             notify.success(t('notify.git.stashSaved'))
         } else {
-            const msg = res.stderr ?? res.error ?? 'Stash failed'
+            const msg = res.stderr ?? res.error ?? t('git.stashFailed')
             setError(msg)
             notify.error(msg)
         }
@@ -49,7 +49,7 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
             refetch()
             notify.success(t('notify.git.stashPopped'))
         } else {
-            const msg = res.stderr ?? res.error ?? 'Pop failed'
+            const msg = res.stderr ?? res.error ?? t('git.stashPopFailed')
             setError(msg)
             notify.error(msg)
         }
@@ -67,7 +67,7 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
             <div className="relative w-full bg-[var(--app-bg)] rounded-t-2xl flex flex-col max-h-[60vh] translate-y-0 transition-transform duration-200 animate-drawer-up">
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--app-divider)]">
-                    <span className="text-sm font-semibold text-[var(--app-fg)]">Stash</span>
+                    <span className="text-sm font-semibold text-[var(--app-fg)]">{t('git.stash')}</span>
                     <button
                         type="button"
                         onClick={onClose}
@@ -84,7 +84,7 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
                         type="text"
                         value={stashMessage}
                         onChange={e => setStashMessage(e.target.value)}
-                        placeholder="Optional message..."
+                        placeholder={t('git.stashOptionalMsg')}
                         className="text-xs border border-[var(--app-border)] rounded p-2 bg-[var(--app-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] focus:outline-none focus:border-[var(--app-link)]"
                     />
                     {error && <div className="text-xs text-red-500">{error}</div>}
@@ -94,14 +94,14 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
                         disabled={actionLoading}
                         className="min-h-[44px] text-sm px-3 rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-40 hover:opacity-90 transition-opacity"
                     >
-                        {actionLoading ? 'Working...' : 'Stash Changes'}
+                        {actionLoading ? t('git.stashWorking') : t('git.stashChanges')}
                     </button>
                 </div>
 
                 {/* List section */}
                 <div className="overflow-y-auto flex-1">
                     {stashes.length === 0 ? (
-                        <div className="px-4 py-6 text-xs text-[var(--app-hint)] text-center">No stashes</div>
+                        <div className="px-4 py-6 text-xs text-[var(--app-hint)] text-center">{t('git.noStashes')}</div>
                     ) : (
                         stashes.map(entry => (
                             <div
@@ -118,7 +118,7 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
                                     disabled={actionLoading}
                                     className="min-h-[44px] min-w-[44px] text-xs px-3 rounded border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40 transition-colors shrink-0"
                                 >
-                                    Pop
+                                    {t('git.stashPop')}
                                 </button>
                             </div>
                         ))

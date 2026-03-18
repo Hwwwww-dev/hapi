@@ -25,6 +25,7 @@ const EMPTY_STATE: MessageWindowState = {
     warning: null,
     atBottom: true,
     messagesVersion: 0,
+    totalMessages: null,
 }
 
 export function useMessages(api: ApiClient | null, sessionId: string | null): {
@@ -34,6 +35,7 @@ export function useMessages(api: ApiClient | null, sessionId: string | null): {
     isLoadingMore: boolean
     hasMore: boolean
     pendingCount: number
+    totalMessages: number | null
     messagesVersion: number
     loadMore: () => Promise<unknown>
     refetch: () => Promise<unknown>
@@ -103,6 +105,7 @@ export function useMessages(api: ApiClient | null, sessionId: string | null): {
         isLoadingMore: state.isLoadingMore,
         hasMore: state.hasMore,
         pendingCount: state.pendingCount,
+        totalMessages: state.totalMessages,
         messagesVersion: state.messagesVersion,
         loadMore,
         refetch,

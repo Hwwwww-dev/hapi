@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import type { GitFileStatus } from '@/types/api'
 import { StatusBadge } from './StatusBadge'
 import { FileIcon } from '@/components/FileIcon'
+import { useTranslation } from '@/lib/use-translation'
 
 function LineChanges({ added, removed }: { added: number; removed: number }) {
     if (!added && !removed) return null
@@ -70,7 +71,8 @@ function FileActionMenu({ actions }: { actions: FileAction[] }) {
 }
 
 export function GitFileRow({ file, onOpen, actions, showCheckbox, checked, onToggle, showDivider }: GitFileRowProps) {
-    const subtitle = file.filePath || 'project root'
+    const { t } = useTranslation()
+    const subtitle = file.filePath || t('git.projectRoot')
 
     return (
         <div className={`flex w-full items-center gap-3 px-3 py-2 ${showDivider ? 'border-b border-[var(--app-divider)]' : ''}`}>
