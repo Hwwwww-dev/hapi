@@ -6,6 +6,7 @@
 import { query } from './query'
 import type { SDKSystemMessage } from './types'
 import { logger } from '@/ui/logger'
+import { HAPI_METADATA_PROBE_MARKER } from '@/nativeSync/constants'
 
 export interface SDKMetadata {
     tools?: string[]
@@ -13,18 +14,20 @@ export interface SDKMetadata {
 }
 
 /**
- * Extract SDK metadata by running a minimal query and capturing the init message
+ * Extract SDK metadata by running a minimal query and capturing the init message.
+ * Sends a probe marker as prompt — the sync layer filters out sessions with this marker
+ * to prevent pollution.
  * @returns SDK metadata containing tools and slash commands
  */
 export async function extractSDKMetadata(): Promise<SDKMetadata> {
     const abortController = new AbortController()
-    
+
     try {
         logger.debug('[metadataExtractor] Starting SDK metadata extraction')
-        
-        // Run SDK with minimal tools allowed
+
+        // Run SDK with minimal tools allowed, using probe marker as prompt
         const sdkQuery = query({
-            prompt: 'hello',
+            prompt: HAPI_METADATA_PROBE_MARKER,
             options: {
                 allowedTools: ['Bash(echo)'],
                 maxTurns: 1,
@@ -36,24 +39,24 @@ export async function extractSDKMetadata(): Promise<SDKMetadata> {
         for await (const message of sdkQuery) {
             if (message.type === 'system' && message.subtype === 'init') {
                 const systemMessage = message as SDKSystemMessage
-                
+
                 const metadata: SDKMetadata = {
                     tools: systemMessage.tools,
                     slashCommands: systemMessage.slash_commands
                 }
-                
+
                 logger.debug('[metadataExtractor] Captured SDK metadata:', metadata)
-                
+
                 // Abort the query since we got what we need
                 abortController.abort()
-                
+
                 return metadata
             }
         }
-        
+
         logger.debug('[metadataExtractor] No init message received from SDK')
         return {}
-        
+
     } catch (error) {
         // Check if it's an abort error (expected)
         if (error instanceof Error && error.name === 'AbortError') {

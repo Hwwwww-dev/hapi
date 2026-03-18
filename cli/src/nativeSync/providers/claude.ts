@@ -6,6 +6,7 @@ import { homedir } from 'node:os'
 import { readClaudeNativeLog } from '@/claude/utils/nativeLogReader'
 import { getProjectPath } from '@/claude/utils/path'
 import type { NativeMessageBatch, NativeSyncProvider } from './provider'
+import { HAPI_METADATA_PROBE_MARKER } from '../constants'
 import type { NativeSessionSummary, NativeSyncState } from '../types'
 
 type ClaudeCursor = {
@@ -164,6 +165,14 @@ export function createClaudeNativeProvider(): NativeSyncProvider {
                 }
 
                 const { createdAt, discoveredAt, lastActivityAt } = resolveClaudeSummaryTimes(entries, fileStat)
+                const title = extractTitle(entries.find((entry) => entry.event.type === 'user')?.event)
+
+                // Skip internal metadata probe sessions created by hapi
+                if (title === HAPI_METADATA_PROBE_MARKER) {
+                    summaryCache.set(filePath, { mtimeMs, summary: null })
+                    continue
+                }
+
                 const summary: NativeSessionSummary = {
                     provider: 'claude',
                     nativeSessionId: basename(filePath, '.jsonl'),
@@ -173,7 +182,7 @@ export function createClaudeNativeProvider(): NativeSyncProvider {
                     createdAt,
                     discoveredAt,
                     lastActivityAt,
-                    title: extractTitle(entries.find((entry) => entry.event.type === 'user')?.event)
+                    title
                 }
                 summaryCache.set(filePath, { mtimeMs, summary })
                 sessionFileCache.set(summary.nativeSessionId, filePath)

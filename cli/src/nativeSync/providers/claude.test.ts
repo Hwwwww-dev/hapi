@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 
 import { createClaudeNativeProvider } from './claude'
 import { getProjectPath } from '@/claude/utils/path'
+import { HAPI_METADATA_PROBE_MARKER } from '../constants'
 
 describe('Claude native provider', () => {
     let tempDir: string
@@ -52,6 +53,38 @@ describe('Claude native provider', () => {
             title: 'say lol'
         }))
         expect(summaries[0].lastActivityAt).toBeGreaterThan(0)
+    })
+
+    it('skips sessions whose first user message is the hapi metadata probe marker', async () => {
+        const sessionId = 'probe-session'
+        const projectPath = '/Users/tester/src/probe-project'
+        const projectDir = getProjectPath(projectPath)
+        const sessionFile = join(projectDir, `${sessionId}.jsonl`)
+
+        await mkdir(projectDir, { recursive: true })
+        await writeFile(sessionFile, [
+            JSON.stringify({
+                type: 'user',
+                uuid: 'user-1',
+                sessionId,
+                cwd: projectPath,
+                timestamp: '2026-01-01T00:00:00.000Z',
+                message: { content: HAPI_METADATA_PROBE_MARKER }
+            }),
+            JSON.stringify({
+                type: 'assistant',
+                uuid: 'assistant-1',
+                sessionId,
+                cwd: projectPath,
+                timestamp: '2026-01-01T00:00:01.000Z',
+                message: { content: [{ text: 'response' }] }
+            })
+        ].join('\n') + '\n')
+
+        const provider = createClaudeNativeProvider()
+        const summaries = await provider.discoverSessions()
+
+        expect(summaries).toHaveLength(0)
     })
 
     it('derives summary chronology from parseable native event timestamps instead of file mtime', async () => {
