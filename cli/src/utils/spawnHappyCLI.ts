@@ -136,9 +136,12 @@ export function spawnHappyCLI(args: string[], options: SpawnOptions = {}): Child
   if (!isBunCompiled()) {
     const finalEnv = { ...process.env, ...options.env };
     const invokedCwd = finalEnv.HAPI_INVOKED_CWD?.trim();
-    const resolvedCwd = invokedCwd && isCrossPlatformAbsolutePath(invokedCwd)
-      ? invokedCwd
-      : resolveInvokedCwd(options.cwd);
+    const hasExplicitCwd = 'cwd' in options && options.cwd !== undefined;
+    const resolvedCwd = hasExplicitCwd
+      ? resolveInvokedCwd(options.cwd)
+      : invokedCwd && isCrossPlatformAbsolutePath(invokedCwd)
+        ? invokedCwd
+        : resolveInvokedCwd(options.cwd);
     finalEnv.HAPI_INVOKED_CWD = resolvedCwd;
     finalEnv.HAPI_CLI_WORKDIR = resolvedCwd;
     finalOptions.env = finalEnv;
