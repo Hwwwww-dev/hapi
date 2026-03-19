@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { ToolCallMessagePartProps } from '@assistant-ui/react'
 import type { ChatBlock } from '@/chat/types'
 import type { ToolCallBlock } from '@/chat/types'
@@ -43,6 +44,63 @@ function splitTaskChildren(block: ToolCallBlock): { pending: ChatBlock[]; rest: 
     }
 
     return { pending, rest }
+}
+
+function TaskChildrenOutside(props: {
+    taskChildren: { pending: ChatBlock[]; rest: ChatBlock[] } | null
+    allChildren: ChatBlock[]
+    isRunning: boolean
+}) {
+    const [expanded, setExpanded] = useState(false)
+    const { taskChildren, allChildren, isRunning } = props
+
+    // pending permissions always show
+    const pendingBlocks = taskChildren?.pending ?? []
+    const restBlocks = taskChildren?.rest ?? []
+
+    // When running, show the latest child as a live preview
+    const latestChild = allChildren.length > 0 ? allChildren[allChildren.length - 1] : null
+
+    if (pendingBlocks.length === 0 && restBlocks.length === 0) return null
+
+    return (
+        <div className="mt-2 pl-3 border-l-2 border-[var(--app-divider)]">
+            {pendingBlocks.length > 0 ? (
+                <div className="mb-1">
+                    <HappyNestedBlockList blocks={pendingBlocks} />
+                </div>
+            ) : null}
+            {restBlocks.length > 0 ? (
+                expanded ? (
+                    <>
+                        <HappyNestedBlockList blocks={restBlocks} />
+                        <button
+                            type="button"
+                            className="mt-1 text-xs text-[var(--app-hint)] hover:text-[var(--app-link)] cursor-pointer"
+                            onClick={() => setExpanded(false)}
+                        >
+                            ▲ 收起 {restBlocks.length} 个步骤
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        {isRunning && latestChild ? (
+                            <div className="mb-1">
+                                <HappyNestedBlockList blocks={[latestChild]} />
+                            </div>
+                        ) : null}
+                        <button
+                            type="button"
+                            className="text-xs text-[var(--app-hint)] hover:text-[var(--app-link)] cursor-pointer"
+                            onClick={() => setExpanded(true)}
+                        >
+                            ▶ 展开 {restBlocks.length} 个步骤
+                        </button>
+                    </>
+                )
+            ) : null}
+        </div>
+    )
 }
 
 function HappyNestedBlockList(props: {
@@ -147,7 +205,7 @@ function HappyNestedBlockList(props: {
                 }
 
                 if (block.kind === 'tool-call') {
-                    const isTask = block.tool.name === 'Task'
+                    const isTask = block.tool.name === 'Task' || block.tool.name === 'Agent'
                     const taskChildren = isTask ? splitTaskChildren(block) : null
 
                     return (
@@ -162,18 +220,7 @@ function HappyNestedBlockList(props: {
                             />
                             {block.children.length > 0 ? (
                                 isTask ? (
-                                    <>
-                                        {taskChildren && taskChildren.pending.length > 0 ? (
-                                            <div className="mt-2 pl-3">
-                                                <HappyNestedBlockList blocks={taskChildren.pending} />
-                                            </div>
-                                        ) : null}
-                                        {taskChildren && taskChildren.rest.length > 0 ? (
-                                            <div className="mt-2 pl-3 border-l-2 border-[var(--app-divider)]">
-                                                <HappyNestedBlockList blocks={taskChildren.rest} />
-                                            </div>
-                                        ) : null}
-                                    </>
+                                    <TaskChildrenOutside taskChildren={taskChildren} allChildren={block.children} isRunning={block.tool.state === 'running'} />
                                 ) : (
                                     <div className="mt-2 pl-3">
                                         <HappyNestedBlockList blocks={block.children} />
@@ -232,7 +279,7 @@ export function HappyToolMessage(props: ToolCallMessagePartProps) {
     }
 
     const block = artifact
-    const isTask = block.tool.name === 'Task'
+    const isTask = block.tool.name === 'Task' || block.tool.name === 'Agent'
     const taskChildren = isTask ? splitTaskChildren(block) : null
 
     return (
@@ -247,18 +294,7 @@ export function HappyToolMessage(props: ToolCallMessagePartProps) {
             />
             {block.children.length > 0 ? (
                 isTask ? (
-                    <>
-                        {taskChildren && taskChildren.pending.length > 0 ? (
-                            <div className="mt-2 pl-3">
-                                <HappyNestedBlockList blocks={taskChildren.pending} />
-                            </div>
-                        ) : null}
-                        {taskChildren && taskChildren.rest.length > 0 ? (
-                            <div className="mt-2 pl-3 border-l-2 border-[var(--app-divider)]">
-                                <HappyNestedBlockList blocks={taskChildren.rest} />
-                            </div>
-                        ) : null}
-                    </>
+                    <TaskChildrenOutside taskChildren={taskChildren} allChildren={block.children} isRunning={block.tool.state === 'running'} />
                 ) : (
                     <div className="mt-2 pl-3">
                         <HappyNestedBlockList blocks={block.children} />

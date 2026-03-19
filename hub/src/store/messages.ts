@@ -33,13 +33,19 @@ function toStoredMessage(row: DbMessageRow): StoredMessage {
 
 /**
  * Extract isSidechain flag from message content at write time.
- * Checks two JSON paths:
- *   - content.data.isSidechain  (role-wrapped)
- *   - data.isSidechain          (direct)
+ * Checks three JSON paths:
+ *   - content.isSidechain       (native event top-level)
+ *   - content.data.isSidechain  (direct / role-wrapped inner)
+ *   - content.content.data.isSidechain  (role-wrapped outer)
  */
 function extractIsSidechain(content: unknown): boolean {
     if (!content || typeof content !== 'object') return false
     const c = content as Record<string, unknown>
+
+    // Native event: { type: "assistant", isSidechain: true, uuid, message, ... }
+    if (c.isSidechain === true) {
+        return true
+    }
 
     // Direct: { type: "output", data: { isSidechain: true } }
     if (c.data && typeof c.data === 'object' && (c.data as Record<string, unknown>).isSidechain === true) {

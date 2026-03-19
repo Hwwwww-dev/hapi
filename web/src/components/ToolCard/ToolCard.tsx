@@ -432,8 +432,9 @@ function ToolCardInner(props: ToolCardProps) {
     const subtitle = presentation.subtitle ?? props.block.tool.description
     const taskSummary = renderTaskSummary(props.block, props.metadata)
     const runningFrom = props.block.tool.startedAt ?? props.block.tool.createdAt
-    const showInline = !presentation.minimal && canonicalToolName !== 'Task'
-    const showTaskResult = canonicalToolName === 'Task'
+    const isTaskOrAgent = canonicalToolName === 'Task' || canonicalToolName === 'Agent'
+    const showInline = !presentation.minimal && !isTaskOrAgent
+    const showTaskResult = isTaskOrAgent
         && props.block.tool.state === 'completed'
         && props.block.tool.result !== undefined
         && props.block.tool.result !== null
@@ -525,6 +526,17 @@ function ToolCardInner(props: ToolCardProps) {
                                             : renderToolInput(props.block)
                                         }
                                     </div>
+                                    {isTaskOrAgent && props.block.children.length > 0 ? (
+                                        <details className="group">
+                                            <summary className="flex cursor-pointer list-none items-center gap-2 rounded border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-2.5 py-1.5 text-xs text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] select-none">
+                                                <span className="transition-transform group-open:rotate-90">▶</span>
+                                                <span className="flex-1">{t('tool.taskSteps')} ({props.block.children.length})</span>
+                                            </summary>
+                                            <div className="mt-1.5">
+                                                <TaskChildrenList children={props.block.children} metadata={props.metadata} />
+                                            </div>
+                                        </details>
+                                    ) : null}
                                     {!isQuestionToolWithAnswers && (
                                         <div>
                                             <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">{t('tool.result')}</div>
@@ -543,12 +555,6 @@ function ToolCardInner(props: ToolCardProps) {
                                             )}
                                         </div>
                                     )}
-                                    {canonicalToolName === 'Task' && props.block.children.length > 0 ? (
-                                        <div>
-                                            <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">{t('tool.taskSteps')}</div>
-                                            <TaskChildrenList children={props.block.children} metadata={props.metadata} />
-                                        </div>
-                                    ) : null}
                                 </div>
                             )
                         })()}

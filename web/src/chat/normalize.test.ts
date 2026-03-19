@@ -191,4 +191,60 @@ describe('normalizeDecryptedMessage', () => {
             ]
         }))
     })
+
+    it('normalizes sidechain user message (role-wrapped output format) with isSidechain=true', () => {
+        // Real root cause fix: sidechain messages have role='user' but content.type='output',
+        // which normalizeUserRecord cannot handle. normalize.ts must fall back to normalizeAgentRecord.
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'user',
+            content: {
+                type: 'output',
+                data: {
+                    type: 'user',
+                    isSidechain: true,
+                    uuid: 'sc-uuid-1',
+                    parentUuid: 'parent-uuid-task',
+                    message: {
+                        role: 'user',
+                        content: 'implement the feature'
+                    }
+                }
+            }
+        }))
+
+        expect(normalized).not.toBeNull()
+        expect(normalized?.isSidechain).toBe(true)
+        expect(normalized?.role).toBe('agent')
+        expect(normalized?.content).toEqual([
+            expect.objectContaining({
+                type: 'sidechain',
+                uuid: 'sc-uuid-1',
+                parentUUID: 'parent-uuid-task',
+                prompt: 'implement the feature'
+            })
+        ])
+    })
+
+    it('normalizes sidechain assistant message with isSidechain=true', () => {
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'assistant',
+            content: {
+                type: 'output',
+                data: {
+                    type: 'assistant',
+                    isSidechain: true,
+                    uuid: 'sc-uuid-2',
+                    parentUuid: 'sc-uuid-1',
+                    message: {
+                        role: 'assistant',
+                        content: [{ type: 'text', text: 'working on it' }]
+                    }
+                }
+            }
+        }))
+
+        expect(normalized).not.toBeNull()
+        expect(normalized?.isSidechain).toBe(true)
+        expect(normalized?.role).toBe('agent')
+    })
 })

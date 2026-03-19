@@ -259,14 +259,29 @@ function normalizeUserOutput(
 
     const messageContent = message.content
 
-    if (isSidechain && typeof messageContent === 'string') {
-        return {
-            id: messageId,
-            localId,
-            createdAt,
-            role: 'agent',
-            isSidechain: true,
-            content: [{ type: 'sidechain', uuid, prompt: messageContent }]
+    // Sidechain root message: extract prompt text from string or array content
+    if (isSidechain) {
+        let prompt: string | null = null
+        if (typeof messageContent === 'string') {
+            prompt = messageContent
+        } else if (
+            Array.isArray(messageContent) &&
+            messageContent.length >= 1 &&
+            isObject(messageContent[0]) &&
+            messageContent[0].type === 'text' &&
+            typeof messageContent[0].text === 'string'
+        ) {
+            prompt = messageContent[0].text
+        }
+        if (prompt !== null) {
+            return {
+                id: messageId,
+                localId,
+                createdAt,
+                role: 'agent',
+                isSidechain: true,
+                content: [{ type: 'sidechain', uuid, parentUUID, prompt }]
+            }
         }
     }
 

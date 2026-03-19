@@ -55,19 +55,29 @@ export function normalizeDecryptedMessage(message: DecryptedMessage): Normalized
 
     if (record.role === 'user') {
         const normalized = normalizeUserRecord(message.id, message.localId, message.createdAt, record.content, record.meta)
-        return normalized
-            ? { ...normalized, status: message.status, originalText: message.originalText }
-            : {
-                id: message.id,
-                localId: message.localId,
-                createdAt: message.createdAt,
-                role: 'user',
-                isSidechain: false,
-                content: { type: 'text', text: safeStringify(record.content) },
-                meta: record.meta,
-                status: message.status,
-                originalText: message.originalText
+        if (normalized) {
+            return { ...normalized, status: message.status, originalText: message.originalText }
+        }
+        // Fallback: sidechain user messages have role='user' but content.type='output'
+        // (e.g. { type: 'output', data: { type: 'user', isSidechain: true, ... } })
+        // normalizeUserRecord can't handle these, so route to normalizeAgentRecord.
+        if (isObject(record.content) && record.content.type === 'output') {
+            const normalizedAgent = normalizeAgentRecord(message.id, message.localId, message.createdAt, record.content, record.meta)
+            if (normalizedAgent) {
+                return { ...normalizedAgent, status: message.status, originalText: message.originalText }
             }
+        }
+        return {
+            id: message.id,
+            localId: message.localId,
+            createdAt: message.createdAt,
+            role: 'user',
+            isSidechain: false,
+            content: { type: 'text', text: safeStringify(record.content) },
+            meta: record.meta,
+            status: message.status,
+            originalText: message.originalText
+        }
     }
     if (record.role === 'agent' || record.role === 'assistant') {
         if (isSkippableAgentContent(record.content)) {

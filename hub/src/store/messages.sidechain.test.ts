@@ -31,6 +31,15 @@ const NO_SIDECHAIN_AGENT = {
     content: { type: 'output', data: { type: 'assistant', content: [] } }
 }
 
+// Native event format: isSidechain at top level (as written by Claude Desktop JSONL)
+const SIDECHAIN_NATIVE_EVENT = {
+    type: 'assistant',
+    isSidechain: true,
+    uuid: 'native-uuid-1',
+    parentUuid: 'parent-uuid-1',
+    message: { role: 'assistant', content: [{ type: 'text', text: 'sidechain step' }] }
+}
+
 describe('extractIsSidechain (via addMessage)', () => {
     it('plain root message -> not sidechain', () => {
         const { store, sessionId } = createStore()
@@ -74,6 +83,17 @@ describe('extractIsSidechain (via addMessage)', () => {
 
         const sidechains = store.messages.getSidechainMessagesInRange(sessionId, 1, 1)
         expect(sidechains.length).toBe(0)
+    })
+
+    it('native event format with top-level isSidechain -> is_sidechain = 1', () => {
+        const { store, sessionId } = createStore()
+        store.messages.addMessage(sessionId, SIDECHAIN_NATIVE_EVENT)
+
+        const roots = store.messages.getRootMessages(sessionId, 10)
+        expect(roots.length).toBe(0)
+
+        const sidechains = store.messages.getSidechainMessagesInRange(sessionId, 1, 1)
+        expect(sidechains.length).toBe(1)
     })
 })
 
@@ -176,6 +196,24 @@ describe('importNativeMessage sidechain extraction', () => {
             sourceProvider: 'claude',
             sourceSessionId: 'native-sc',
             sourceKey: 'line:1'
+        })
+
+        const roots = store.messages.getRootMessages(sessionId, 10)
+        expect(roots.length).toBe(0)
+
+        const sc = store.messages.getSidechainMessagesInRange(sessionId, 1, 1)
+        expect(sc.length).toBe(1)
+    })
+
+    it('imported native event with top-level isSidechain is correctly flagged', () => {
+        const { store, sessionId } = createStore()
+
+        store.messages.importNativeMessage(sessionId, {
+            content: SIDECHAIN_NATIVE_EVENT,
+            createdAt: 100,
+            sourceProvider: 'claude',
+            sourceSessionId: 'native-event-sc',
+            sourceKey: 'line:10'
         })
 
         const roots = store.messages.getRootMessages(sessionId, 10)
