@@ -549,20 +549,21 @@ const ReadResultView: ToolViewComponent = (props: ToolViewProps) => {
 const MutationResultView: ToolViewComponent = (props: ToolViewProps) => {
     const { state, result, input } = props.block.tool
 
+    const filePath = isObject(input)
+        ? (typeof input.file_path === 'string' ? input.file_path
+            : typeof input.path === 'string' ? input.path
+            : typeof input.notebook_path === 'string' ? input.notebook_path
+            : null)
+        : null
+    const displayPath = filePath ? resolveDisplayPath(filePath, props.metadata) : null
+    const label = displayPath ? basename(displayPath) : 'Done'
+
     if (result === undefined || result === null) {
         if (state === 'completed') {
-            // Show file path from input if available
-            const filePath = isObject(input)
-                ? (typeof input.file_path === 'string' ? input.file_path
-                    : typeof input.path === 'string' ? input.path
-                    : typeof input.notebook_path === 'string' ? input.notebook_path
-                    : null)
-                : null
-            const displayPath = filePath ? resolveDisplayPath(filePath, props.metadata) : null
             return (
                 <div className="flex items-center gap-1.5 text-xs text-[var(--app-badge-success-text)]">
                     <span>✓</span>
-                    <span>{displayPath ? basename(displayPath) : 'Done'}</span>
+                    <span>{label}</span>
                 </div>
             )
         }
@@ -570,23 +571,25 @@ const MutationResultView: ToolViewComponent = (props: ToolViewProps) => {
     }
 
     const text = extractTextFromResult(result)
-    if (typeof text === 'string' && text.trim().length > 0) {
-        const className = state === 'error' ? 'text-red-600' : 'text-[var(--app-fg)]'
+
+    // Error state: show full error text
+    if (state === 'error' && typeof text === 'string' && text.trim().length > 0) {
         return (
             <>
-                <div className={`text-sm ${className}`}>
-                    {renderText(text, { mode: state === 'error' ? 'code' : 'auto' })}
+                <div className="text-sm text-red-600">
+                    {renderText(text, { mode: 'code' })}
                 </div>
                 <RawJsonDevOnly value={result} />
             </>
         )
     }
 
+    // Success: show compact "✓ filename" indicator
     return (
         <>
             <div className="flex items-center gap-1.5 text-xs text-[var(--app-badge-success-text)]">
                 <span>✓</span>
-                <span>{state === 'completed' ? 'Done' : '(no output)'}</span>
+                <span>{label}</span>
             </div>
             <RawJsonDevOnly value={result} />
         </>
@@ -800,7 +803,6 @@ const TaskResultView: ToolViewComponent = (props: ToolViewProps) => {
         const { usage, cleanText } = parseAgentMeta(text)
         return (
             <div className="flex flex-col gap-2">
-                <AgentUsageBadges agentId={null} usage={usage} />
                 {cleanText && (
                     <div className="rounded-lg border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] p-3">
                         <MarkdownRenderer content={cleanText} />

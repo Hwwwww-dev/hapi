@@ -209,7 +209,7 @@ function HappyNestedBlockList(props: {
                     const taskChildren = isTask ? splitTaskChildren(block) : null
 
                     return (
-                        <div key={`tool:${block.id}`} className="py-1">
+                        <div key={`tool:${block.id}`} className="py-1 opacity-75">
                             <ToolCard
                                 api={ctx.api}
                                 sessionId={ctx.sessionId}
@@ -248,8 +248,8 @@ export function HappyToolMessage(props: ToolCallMessagePartProps) {
         const resultText = hasResult ? safeStringify(props.result) : ''
 
         return (
-            <div className="py-1 min-w-0 max-w-full overflow-x-hidden">
-                <div className="rounded-xl bg-[var(--app-secondary-bg)] p-3 shadow-sm">
+            <div className="py-1 min-w-0 max-w-full overflow-x-hidden opacity-75">
+                <div className="rounded-xl bg-[var(--app-secondary-bg)] p-2 shadow-sm">
                     <div className="flex items-center gap-2 text-xs">
                         <div className="font-mono text-[var(--app-hint)]">
                             Tool: {props.toolName}
@@ -283,7 +283,7 @@ export function HappyToolMessage(props: ToolCallMessagePartProps) {
     const taskChildren = isTask ? splitTaskChildren(block) : null
 
     return (
-        <div className="py-1 min-w-0 max-w-full overflow-x-hidden">
+        <div className="py-1 min-w-0 max-w-full overflow-x-hidden opacity-75">
             <ToolCard
                 api={ctx.api}
                 sessionId={ctx.sessionId}

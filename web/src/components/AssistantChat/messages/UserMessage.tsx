@@ -9,6 +9,8 @@ import { MessageTimestamp } from '@/components/AssistantChat/messages/MessageTim
 import { CliOutputBlock } from '@/components/CliOutputBlock'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { BulbIcon, ClipboardIcon } from '@/components/ToolCard/icons'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
+import { CopyIcon, CheckIcon } from '@/components/icons'
 
 const SKILL_CONTENT_PREFIX = 'Base directory for this skill:'
 const COMPACT_CONTENT_PREFIX = 'This session is being continued from a previous conversation'
@@ -71,6 +73,7 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
     const [skillExpanded, setSkillExpanded] = useState(false)
     const [compactExpanded, setCompactExpanded] = useState(false)
     const [expanded, setExpanded] = useState(false)
+    const { copied, copy } = useCopyToClipboard()
 
     if (role !== 'user') return null
     const canRetry = status === 'failed' && typeof localId === 'string' && Boolean(ctx.onRetryMessage)
@@ -156,7 +159,7 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
     const isLong = text.length > 200
 
     return (
-        <MessagePrimitive.Root className={userBubbleClass}>
+        <MessagePrimitive.Root className={`${userBubbleClass} group/user relative`}>
             <div className="flex items-end gap-2">
                 <div className="flex-1 min-w-0">
                     {hasText && (
@@ -186,6 +189,16 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
                     </div>
                 ) : null}
             </div>
+            {hasText && (
+                <button
+                    type="button"
+                    onClick={() => copy(text)}
+                    className="absolute right-1 top-1 rounded p-1 text-[var(--app-hint)] opacity-0 transition-opacity hover:bg-[var(--app-bg)] hover:text-[var(--app-fg)] group-hover/user:opacity-100"
+                    title="Copy"
+                >
+                    {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
+                </button>
+            )}
             <div className="mt-1 flex justify-end">
                 <MessageTimestamp value={createdAt} />
             </div>

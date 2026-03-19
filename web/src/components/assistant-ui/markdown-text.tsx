@@ -5,6 +5,7 @@ import {
     useIsMarkdownCodeBlock,
     type CodeHeaderProps,
 } from '@assistant-ui/react-markdown'
+import { useMessagePart } from '@assistant-ui/react'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/lib/utils'
 import { SyntaxHighlighter } from '@/components/assistant-ui/shiki-highlighter'
@@ -38,7 +39,7 @@ function Pre(props: ComponentPropsWithoutRef<'pre'>) {
     const { className, ...rest } = props
 
     return (
-        <div className="aui-md-pre-wrapper min-w-0 w-full max-w-full overflow-x-auto overflow-y-hidden">
+        <div className="aui-md-pre-wrapper my-2 min-w-0 w-full max-w-full overflow-x-auto overflow-y-hidden">
             <pre
                 {...rest}
                 className={cn(
@@ -86,7 +87,7 @@ function A(props: ComponentPropsWithoutRef<'a'>) {
 }
 
 function Paragraph(props: ComponentPropsWithoutRef<'p'>) {
-    return <p {...props} className={cn('aui-md-p leading-relaxed', props.className)} />
+    return <p {...props} className={cn('aui-md-p my-2 leading-relaxed', props.className)} />
 }
 
 function Blockquote(props: ComponentPropsWithoutRef<'blockquote'>) {
@@ -94,7 +95,7 @@ function Blockquote(props: ComponentPropsWithoutRef<'blockquote'>) {
         <blockquote
             {...props}
             className={cn(
-                'aui-md-blockquote border-l-4 border-[var(--app-hint)] pl-3 opacity-85',
+                'aui-md-blockquote my-2 border-l-4 border-[var(--app-hint)] pl-3 text-[var(--app-hint)]',
                 props.className
             )}
         />
@@ -102,26 +103,26 @@ function Blockquote(props: ComponentPropsWithoutRef<'blockquote'>) {
 }
 
 function UnorderedList(props: ComponentPropsWithoutRef<'ul'>) {
-    return <ul {...props} className={cn('aui-md-ul list-disc pl-6', props.className)} />
+    return <ul {...props} className={cn('aui-md-ul my-2 list-disc pl-6', props.className)} />
 }
 
 function OrderedList(props: ComponentPropsWithoutRef<'ol'>) {
-    return <ol {...props} className={cn('aui-md-ol list-decimal pl-6', props.className)} />
+    return <ol {...props} className={cn('aui-md-ol my-2 list-decimal pl-6', props.className)} />
 }
 
 function ListItem(props: ComponentPropsWithoutRef<'li'>) {
-    return <li {...props} className={cn('aui-md-li', props.className)} />
+    return <li {...props} className={cn('aui-md-li my-0.5', props.className)} />
 }
 
 function Hr(props: ComponentPropsWithoutRef<'hr'>) {
-    return <hr {...props} className={cn('aui-md-hr border-[var(--app-divider)]', props.className)} />
+    return <hr {...props} className={cn('aui-md-hr my-4 border-[var(--app-divider)]', props.className)} />
 }
 
 function Table(props: ComponentPropsWithoutRef<'table'>) {
     const { className, ...rest } = props
 
     return (
-        <div className="aui-md-table-wrapper max-w-full overflow-x-auto">
+        <div className="aui-md-table-wrapper my-2 max-w-full overflow-x-auto">
             <table {...rest} className={cn('aui-md-table w-full border-collapse', className)} />
         </div>
     )
@@ -156,27 +157,27 @@ function Td(props: ComponentPropsWithoutRef<'td'>) {
 }
 
 function H1(props: ComponentPropsWithoutRef<'h1'>) {
-    return <h1 {...props} className={cn('aui-md-h1 mt-3 text-base font-semibold', props.className)} />
+    return <h1 {...props} className={cn('aui-md-h1 mt-4 mb-2 text-lg font-semibold border-b border-[var(--app-divider)] pb-1', props.className)} />
 }
 
 function H2(props: ComponentPropsWithoutRef<'h2'>) {
-    return <h2 {...props} className={cn('aui-md-h2 mt-3 text-base font-semibold', props.className)} />
+    return <h2 {...props} className={cn('aui-md-h2 mt-4 mb-2 text-base font-semibold border-b border-[var(--app-divider)] pb-1', props.className)} />
 }
 
 function H3(props: ComponentPropsWithoutRef<'h3'>) {
-    return <h3 {...props} className={cn('aui-md-h3 mt-2 text-base font-semibold', props.className)} />
+    return <h3 {...props} className={cn('aui-md-h3 mt-3 mb-1 text-base font-semibold', props.className)} />
 }
 
 function H4(props: ComponentPropsWithoutRef<'h4'>) {
-    return <h4 {...props} className={cn('aui-md-h4 mt-2 text-base font-semibold', props.className)} />
+    return <h4 {...props} className={cn('aui-md-h4 mt-3 mb-1 text-sm font-semibold', props.className)} />
 }
 
 function H5(props: ComponentPropsWithoutRef<'h5'>) {
-    return <h5 {...props} className={cn('aui-md-h5 mt-2 text-base font-semibold', props.className)} />
+    return <h5 {...props} className={cn('aui-md-h5 mt-2 mb-1 text-sm font-semibold', props.className)} />
 }
 
 function H6(props: ComponentPropsWithoutRef<'h6'>) {
-    return <h6 {...props} className={cn('aui-md-h6 mt-2 text-base font-semibold', props.className)} />
+    return <h6 {...props} className={cn('aui-md-h6 mt-2 mb-1 text-sm font-semibold text-[var(--app-hint)]', props.className)} />
 }
 
 function Strong(props: ComponentPropsWithoutRef<'strong'>) {
@@ -221,11 +222,31 @@ export const defaultComponents = memoizeMarkdownComponents({
 } as const)
 
 export function MarkdownText() {
+    const { copied, copy } = useCopyToClipboard()
+    const part = useMessagePart()
+    const rawText = part.type === 'text' ? part.text : ''
+
     return (
-        <MarkdownTextPrimitive
-            remarkPlugins={MARKDOWN_PLUGINS}
-            components={defaultComponents}
-            className={cn('aui-md min-w-0 max-w-full break-words text-base')}
-        />
+        <div className="aui-md-block group/text relative">
+            <div className="rounded-lg px-2 py-1 transition-colors hover:bg-[var(--app-subtle-bg)]">
+                <MarkdownTextPrimitive
+                    remarkPlugins={MARKDOWN_PLUGINS}
+                    components={defaultComponents}
+                    className={cn('aui-md min-w-0 max-w-full break-words text-base')}
+                />
+            </div>
+            {rawText && (
+                <div className="flex justify-end opacity-0 transition-opacity group-hover/text:opacity-100">
+                    <button
+                        type="button"
+                        onClick={() => copy(rawText)}
+                        className="rounded p-1 text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
+                        title="Copy"
+                    >
+                        {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
+                    </button>
+                </div>
+            )}
+        </div>
     )
 }

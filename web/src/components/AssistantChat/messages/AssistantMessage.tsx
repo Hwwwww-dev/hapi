@@ -37,7 +37,7 @@ export const HappyAssistantMessage = memo(function HappyAssistantMessage() {
     const createdAt = useAssistantState(({ message }) => message.createdAt)
     const rootClass = toolOnly
         ? 'py-1 min-w-0 max-w-full overflow-x-hidden'
-        : 'px-1 min-w-0 max-w-full overflow-x-hidden'
+        : 'px-1 min-w-0 max-w-full'
 
     if (isCliOutput) {
         return (
@@ -54,7 +54,7 @@ export const HappyAssistantMessage = memo(function HappyAssistantMessage() {
 
     return (
         <MessagePrimitive.Root className={rootClass}>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-3">
                 <MessagePrimitive.Content components={MESSAGE_PART_COMPONENTS} />
                 <MessageTimestamp value={createdAt} />
             </div>

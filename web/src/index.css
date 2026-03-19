@@ -186,6 +186,18 @@ body {
 .markdown-content table { border-collapse: collapse; width: 100%; }
 .markdown-content th, .markdown-content td { border: 1px solid var(--app-border); padding: 0.25rem 0.5rem; }
 
+/* AI text block indicator dot (pseudo-element, no layout impact) */
+.aui-md-block::before {
+    content: '';
+    position: absolute;
+    left: -12px;
+    top: 21px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--app-hint);
+}
+
 .aui-md-codeblock pre.shiki {
     margin: 0;
     padding: 0.5rem;

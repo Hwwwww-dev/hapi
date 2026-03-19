@@ -350,11 +350,12 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
                                             Message normalization returned 0 items for {props.rawMessagesCount} messages (see `web/src/chat/normalize.ts`).
                                         </div>
                                     ) : null}
+
+                                    <div className="flex flex-col gap-3">
+                                        <ThreadPrimitive.Messages components={THREAD_MESSAGE_COMPONENTS} />
+                                    </div>
                                 </>
                             )}
-                            <div className="flex flex-col gap-3">
-                                <ThreadPrimitive.Messages components={THREAD_MESSAGE_COMPONENTS} />
-                            </div>
                         </div>
                     </div>
                 </ThreadPrimitive.Viewport>
