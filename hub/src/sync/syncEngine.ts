@@ -989,6 +989,10 @@ export class SyncEngine {
         return await this.rpcGateway.gitDeleteBranch(sessionId, options)
     }
 
+    async gitRenameBranch(sessionId: string, options: { cwd?: string; oldName: string; newName: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitRenameBranch(sessionId, options)
+    }
+
     async gitStash(sessionId: string, options: { cwd?: string; message?: string }): Promise<RpcCommandResponse> {
         return await this.rpcGateway.gitStash(sessionId, options)
     }

@@ -337,4 +337,12 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         return { success: true, stdout: '', stderr: '', exitCode: 0 }
     })
 
+    rpcHandlerManager.registerHandler<{ cwd?: string; oldName: string; newName: string; timeout?: number }, GitCommandResponse>('git-rename-branch', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.oldName || typeof data.oldName !== 'string') return rpcError('old branch name is required')
+        if (!data.newName || typeof data.newName !== 'string') return rpcError('new branch name is required')
+        return await queuedGitCommand(['branch', '-m', data.oldName, data.newName], resolved.cwd, data.timeout)
+    })
+
 }

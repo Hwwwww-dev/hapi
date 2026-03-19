@@ -369,6 +369,14 @@ export class ApiClient {
         })
     }
 
+    async gitRenameBranch(sessionId: string, oldName: string, newName: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-rename-branch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oldName, newName })
+        })
+    }
+
     async gitStash(sessionId: string, message?: string): Promise<GitCommandResponse> {
         return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-stash`, {
             method: 'POST',

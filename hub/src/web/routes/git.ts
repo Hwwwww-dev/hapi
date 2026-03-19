@@ -26,6 +26,7 @@ const gitPushSchema = z.object({ remote: z.string().optional(), branch: z.string
 const gitLogSchema = z.object({ limit: z.coerce.number().int().min(1).max(500).optional(), skip: z.coerce.number().int().min(0).optional() })
 const gitCreateBranchSchema = z.object({ name: z.string().min(1), from: z.string().optional() })
 const gitDeleteBranchSchema = z.object({ name: z.string().min(1), force: z.boolean().optional() })
+const gitRenameBranchSchema = z.object({ oldName: z.string().min(1).regex(/^[^-]/), newName: z.string().min(1).regex(/^[^-]/) })
 const gitStashSchema = z.object({ message: z.string().optional() })
 const gitStashPopSchema = z.object({ index: z.number().int().min(0).optional() })
 const gitMergeSchema = z.object({ branch: z.string().min(1) })
@@ -411,6 +412,19 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         const body = gitDeleteBranchSchema.safeParse(await c.req.json())
         if (!body.success) return c.json({ error: 'Invalid request' }, 400)
         const result = await runRpc(() => engine.gitDeleteBranch(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-rename-branch', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitRenameBranchSchema.safeParse(await c.req.json())
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitRenameBranch(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
         return c.json(result)
     })
 
