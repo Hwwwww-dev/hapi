@@ -39,6 +39,8 @@ const gitRemoteRemoveSchema = z.object({ name: z.string().min(1) })
 const gitRemoteSetUrlSchema = z.object({ name: z.string().min(1), url: z.string().min(1) })
 const gitCherryPickSchema = z.object({ hash: z.string().min(4).regex(/^[a-f0-9]+$/) })
 const gitResetSchema = z.object({ ref: z.string().min(4).regex(/^[a-f0-9]+$|^[a-zA-Z0-9_./-]+$/), mode: z.enum(['soft', 'mixed', 'hard']) })
+const gitTagCreateSchema = z.object({ name: z.string().min(1).regex(/^[^-]/), message: z.string().optional(), ref: z.string().optional() })
+const gitTagDeleteSchema = z.object({ name: z.string().min(1) })
 
 function parseBooleanParam(value: string | undefined): boolean | undefined {
     if (value === 'true') return true
@@ -631,6 +633,43 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         const body = gitResetSchema.safeParse(await c.req.json())
         if (!body.success) return c.json({ error: 'Invalid request' }, 400)
         const result = await runRpc(() => engine.gitReset(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.get('/sessions/:id/git-tag-list', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const result = await runRpc(() => engine.gitTagList(sessionResult.sessionId, { cwd: sessionPath }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-tag-create', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitTagCreateSchema.safeParse(await c.req.json())
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitTagCreate(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-tag-delete', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitTagDeleteSchema.safeParse(await c.req.json())
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitTagDelete(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
         return c.json(result)
     })
 

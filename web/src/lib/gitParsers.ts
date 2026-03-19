@@ -1,4 +1,4 @@
-import type { CommitEntry, GitBranchEntry, GitFileStatus, GitRemoteEntry, GitStatusFiles, StashEntry } from '@/types/api'
+import type { CommitEntry, GitBranchEntry, GitFileStatus, GitRemoteEntry, GitStatusFiles, GitTagEntry, StashEntry } from '@/types/api'
 
 export type GitFileEntryV2 = {
     path: string
@@ -348,6 +348,19 @@ function normalizeNumstatPath(rawPath: string): { newPath: string; oldPath?: str
     }
 
     return { newPath: trimmed }
+}
+
+export function parseTagList(stdout: string): GitTagEntry[] {
+    return stdout.split('\n').filter(l => l.trim()).map(line => {
+        const [name, hash, short, dateStr, ...subjectParts] = line.split('\x00')
+        return {
+            name: name ?? '',
+            hash: hash ?? '',
+            short: short ?? '',
+            date: parseInt(dateStr ?? '0', 10),
+            subject: subjectParts.join('\x00')
+        }
+    })
 }
 
 export function parseRemoteList(stdout: string): GitRemoteEntry[] {

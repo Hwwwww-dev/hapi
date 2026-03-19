@@ -325,6 +325,18 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-reset', options) as RpcCommandResponse
     }
 
+    async gitTagList(sessionId: string, options: { cwd?: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-tag-list', options) as RpcCommandResponse
+    }
+
+    async gitTagCreate(sessionId: string, options: { cwd?: string; name: string; message?: string; ref?: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-tag-create', options) as RpcCommandResponse
+    }
+
+    async gitTagDelete(sessionId: string, options: { cwd?: string; name: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-tag-delete', options) as RpcCommandResponse
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.sessionRpc(sessionId, 'readFile', { path }) as RpcReadFileResponse
     }

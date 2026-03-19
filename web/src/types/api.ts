@@ -206,6 +206,14 @@ export type GitRemoteEntry = {
     pushUrl: string
 }
 
+export type GitTagEntry = {
+    name: string
+    hash: string
+    short: string
+    date: number
+    subject: string
+}
+
 export type SlashCommand = {
     name: string
     description?: string

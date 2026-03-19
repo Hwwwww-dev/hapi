@@ -404,4 +404,28 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         return await queuedGitCommand(['reset', `--${data.mode}`, data.ref], resolved.cwd, data.timeout)
     })
 
+    rpcHandlerManager.registerHandler<{ cwd?: string; timeout?: number }, GitCommandResponse>('git-tag-list', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        return await queuedGitCommand(['tag', '-l', '--sort=-creatordate', '--format=%(refname:strip=2)%x00%(objectname)%x00%(objectname:short)%x00%(creatordate:unix)%x00%(subject)'], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; name: string; message?: string; ref?: string; timeout?: number }, GitCommandResponse>('git-tag-create', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.name || typeof data.name !== 'string') return rpcError('tag name is required')
+        const args = data.message
+            ? ['tag', '-a', data.name, '-m', data.message]
+            : ['tag', data.name]
+        if (data.ref) args.push(data.ref)
+        return await queuedGitCommand(args, resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; name: string; timeout?: number }, GitCommandResponse>('git-tag-delete', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.name || typeof data.name !== 'string') return rpcError('tag name is required')
+        return await queuedGitCommand(['tag', '-d', data.name], resolved.cwd, data.timeout)
+    })
+
 }

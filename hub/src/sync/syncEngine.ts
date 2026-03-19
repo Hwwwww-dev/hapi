@@ -1049,6 +1049,18 @@ export class SyncEngine {
         return await this.rpcGateway.gitReset(sessionId, options)
     }
 
+    async gitTagList(sessionId: string, options: { cwd?: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitTagList(sessionId, options)
+    }
+
+    async gitTagCreate(sessionId: string, options: { cwd?: string; name: string; message?: string; ref?: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitTagCreate(sessionId, options)
+    }
+
+    async gitTagDelete(sessionId: string, options: { cwd?: string; name: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitTagDelete(sessionId, options)
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.rpcGateway.readSessionFile(sessionId, path)
     }
