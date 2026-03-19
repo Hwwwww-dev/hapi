@@ -993,6 +993,10 @@ export class SyncEngine {
         return await this.rpcGateway.gitRenameBranch(sessionId, options)
     }
 
+    async gitSetUpstream(sessionId: string, options: { cwd?: string; branch: string; upstream: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitSetUpstream(sessionId, options)
+    }
+
     async gitStash(sessionId: string, options: { cwd?: string; message?: string }): Promise<RpcCommandResponse> {
         return await this.rpcGateway.gitStash(sessionId, options)
     }

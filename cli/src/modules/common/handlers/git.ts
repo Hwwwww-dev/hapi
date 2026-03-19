@@ -345,4 +345,12 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         return await queuedGitCommand(['branch', '-m', data.oldName, data.newName], resolved.cwd, data.timeout)
     })
 
+    rpcHandlerManager.registerHandler<{ cwd?: string; branch: string; upstream: string; timeout?: number }, GitCommandResponse>('git-set-upstream', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.branch || typeof data.branch !== 'string') return rpcError('branch name is required')
+        if (!data.upstream || typeof data.upstream !== 'string') return rpcError('upstream is required')
+        return await queuedGitCommand(['branch', `--set-upstream-to=${data.upstream}`, data.branch], resolved.cwd, data.timeout)
+    })
+
 }

@@ -33,6 +33,7 @@ const gitMergeSchema = z.object({ branch: z.string().min(1) })
 const gitDiscardChangesSchema = z.object({ filePath: z.string().min(1) })
 const gitCleanFileSchema = z.object({ filePath: z.string().min(1) })
 const gitBatchStageSchema = z.object({ files: z.array(z.object({ filePath: z.string().min(1), stage: z.boolean() })).min(1) })
+const gitSetUpstreamSchema = z.object({ branch: z.string().min(1).regex(/^[^-]/), upstream: z.string().min(1) })
 
 function parseBooleanParam(value: string | undefined): boolean | undefined {
     if (value === 'true') return true
@@ -525,6 +526,19 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         const body = gitBatchStageSchema.safeParse(await c.req.json())
         if (!body.success) return c.json({ error: 'Invalid request' }, 400)
         const result = await runRpc(() => engine.gitBatchStage(sessionResult.sessionId, { cwd: sessionPath, files: body.data.files }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-set-upstream', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitSetUpstreamSchema.safeParse(await c.req.json())
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitSetUpstream(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
         return c.json(result)
     })
 

@@ -269,6 +269,10 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-rename-branch', options) as RpcCommandResponse
     }
 
+    async gitSetUpstream(sessionId: string, options: { cwd?: string; branch: string; upstream: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-set-upstream', options) as RpcCommandResponse
+    }
+
     async gitStash(sessionId: string, options: { cwd?: string; message?: string }): Promise<RpcCommandResponse> {
         return await this.sessionRpc(sessionId, 'git-stash', options) as RpcCommandResponse
     }

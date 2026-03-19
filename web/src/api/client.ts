@@ -377,6 +377,14 @@ export class ApiClient {
         })
     }
 
+    async gitSetUpstream(sessionId: string, branch: string, upstream: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-set-upstream`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ branch, upstream })
+        })
+    }
+
     async gitStash(sessionId: string, message?: string): Promise<GitCommandResponse> {
         return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-stash`, {
             method: 'POST',
