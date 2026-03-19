@@ -405,6 +405,9 @@ export default {
 
   // SessionFiles - GitToolbar
   'git.fetch': 'Fetch',
+  'git.fetchAll': 'Fetch All',
+  'git.fetchRemote': 'Fetch {name}',
+  'git.fetching': 'Fetching…',
   'git.pull': 'Pull',
   'git.push': 'Push',
   'git.stash': 'Stash',

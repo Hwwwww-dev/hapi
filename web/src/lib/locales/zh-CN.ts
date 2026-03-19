@@ -407,6 +407,9 @@ export default {
 
   // SessionFiles - GitToolbar
   'git.fetch': 'Fetch',
+  'git.fetchAll': '拉取全部',
+  'git.fetchRemote': '拉取 {name}',
+  'git.fetching': '拉取中…',
   'git.pull': 'Pull',
   'git.push': 'Push',
   'git.stash': 'Stash',

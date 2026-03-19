@@ -38,12 +38,23 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
     const [editingRemote, setEditingRemote] = useState<string | null>(null)
     const [editRemoteUrl, setEditRemoteUrl] = useState('')
     const [removeRemoteTarget, setRemoveRemoteTarget] = useState<string | null>(null)
+    const [fetchingRemote, setFetchingRemote] = useState<string | null>(null)
 
     const { local, remote, isLoading, error: fetchError, refetch } = useGitBranches(api, sessionId, currentBranch)
 
     const q = searchQuery.trim().toLowerCase()
     const filteredLocal = q ? local.filter(b => b.name.toLowerCase().includes(q)) : local
     const filteredRemote = q ? remote.filter(b => b.name.toLowerCase().includes(q)) : remote
+
+    // Group remote branches by remote name
+    const groupedRemote = filteredRemote.reduce<Record<string, GitBranchEntry[]>>((acc, branch) => {
+        const slashIdx = branch.name.indexOf('/')
+        const remoteName = slashIdx > 0 ? branch.name.slice(0, slashIdx) : 'other'
+        if (!acc[remoteName]) acc[remoteName] = []
+        acc[remoteName].push(branch)
+        return acc
+    }, {})
+    const remoteGroups = Object.entries(groupedRemote)
 
     const handleCheckout = async (branch: GitBranchEntry) => {
         if (branch.isCurrent) return
@@ -138,6 +149,22 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
             }
         } finally { setActionLoading(null) }
     }
+
+    const handleFetch = async (remoteName?: string) => {
+        const key = remoteName ?? '__all__'
+        setFetchingRemote(key)
+        try {
+            const res = await api.gitFetch(sessionId, remoteName)
+            if (res.success) {
+                notify.success(t('notify.git.fetchOk'))
+                await refetch()
+                refetchRemotes()
+            } else {
+                notify.error(res.stderr ?? res.error ?? 'Fetch failed')
+            }
+        } finally { setFetchingRemote(null) }
+    }
+
     const handleCreateBranch = async () => {
         const name = newBranchName.trim()
         if (!name) return
@@ -220,37 +247,59 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                 />
                             ))}
                         </div>
-                        {/* Remote section */}
+                        {/* Remote section - grouped by remote */}
                         <div>
-                            <button
-                                type="button"
-                                onClick={() => setRemoteExpanded(v => !v)}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
-                            >
-                                <span>{remoteExpanded ? '▼' : '▶'}</span>
-                                <span>{t('git.remoteBranches', { n: filteredRemote.length })}</span>
-                            </button>
-                            {remoteExpanded && filteredRemote.map(branch => (
-                                <BranchRow
-                                    key={branch.name}
-                                    branch={branch}
-                                    currentBranch={currentBranch}
-                                    loading={actionLoading === branch.name}
-                                    isRenaming={false}
-                                    renameValue=""
-                                    remoteBranches={remote}
-                                    upstreamBranch={upstreamBranch}
-                                    onClick={() => handleCheckout(branch)}
-                                    onRenameChange={() => {}}
-                                    onRenameSubmit={() => {}}
-                                    onRenameCancel={() => {}}
-                                    onStartRename={() => {}}
-                                    onStartUpstream={() => {}}
-                                    onSelectUpstream={() => {}}
-                                    onCancelUpstream={() => {}}
-                                    onMerge={() => setMergeBranch(branch)}
-                                    onDelete={() => handleDelete(branch)}
-                                />
+                            <div className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[var(--app-hint)]">
+                                <button type="button" onClick={() => setRemoteExpanded(v => !v)} className="flex items-center gap-2 hover:text-[var(--app-fg)] transition-colors">
+                                    <span>{remoteExpanded ? '▼' : '▶'}</span>
+                                    <span>{t('git.remoteBranches', { n: filteredRemote.length })}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleFetch()}
+                                    disabled={fetchingRemote !== null}
+                                    className="ml-auto text-[10px] px-2 py-0.5 rounded border border-[var(--app-border)] text-[var(--app-link)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-50 transition-colors"
+                                >
+                                    {fetchingRemote === '__all__' ? t('git.fetching') : t('git.fetchAll')}
+                                </button>
+                            </div>
+                            {remoteExpanded && remoteGroups.map(([remoteName, branches]) => (
+                                <div key={remoteName}>
+                                    <div className="flex items-center gap-2 px-5 py-1.5 text-[10px] font-semibold text-[var(--app-hint)] uppercase tracking-wider bg-[var(--app-subtle-bg)]/50">
+                                        <span>{remoteName}</span>
+                                        <span className="text-[var(--app-hint)]/60">({branches.length})</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleFetch(remoteName)}
+                                            disabled={fetchingRemote !== null}
+                                            className="ml-auto text-[10px] px-1.5 py-0.5 rounded text-[var(--app-link)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-50 transition-colors"
+                                        >
+                                            {fetchingRemote === remoteName ? t('git.fetching') : t('git.fetch')}
+                                        </button>
+                                    </div>
+                                    {branches.map(branch => (
+                                        <BranchRow
+                                            key={branch.name}
+                                            branch={branch}
+                                            currentBranch={currentBranch}
+                                            loading={actionLoading === branch.name}
+                                            isRenaming={false}
+                                            renameValue=""
+                                            remoteBranches={remote}
+                                            upstreamBranch={upstreamBranch}
+                                            onClick={() => handleCheckout(branch)}
+                                            onRenameChange={() => {}}
+                                            onRenameSubmit={() => {}}
+                                            onRenameCancel={() => {}}
+                                            onStartRename={() => {}}
+                                            onStartUpstream={() => {}}
+                                            onSelectUpstream={() => {}}
+                                            onCancelUpstream={() => {}}
+                                            onMerge={() => setMergeBranch(branch)}
+                                            onDelete={() => handleDelete(branch)}
+                                        />
+                                    ))}
+                                </div>
                             ))}
                         </div>
                         {/* Remotes management section */}

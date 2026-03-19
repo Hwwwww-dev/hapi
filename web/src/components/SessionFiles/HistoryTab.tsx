@@ -133,6 +133,7 @@ export function HistoryTab({ api, sessionId, ahead, onRefresh }: HistoryTabProps
         if (res.success) {
             setCreateTagTarget(null); setTagName(''); setTagMessage('')
             notify.success(t('notify.git.tagCreateOk'))
+            refetchTags()
         } else {
             notify.error(res.stderr ?? res.error ?? 'Tag creation failed')
         }
