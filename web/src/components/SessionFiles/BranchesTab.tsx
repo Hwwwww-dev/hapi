@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { ApiClient } from '@/api/client'
 import { useGitBranches } from '@/hooks/queries/useGitBranches'
+import { useGitRemotes } from '@/hooks/queries/useGitRemotes'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useTranslation } from '@/lib/use-translation'
 import { notify } from '@/lib/notify'
@@ -28,6 +29,15 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
     const [renameValue, setRenameValue] = useState('')
     const [upstreamBranch, setUpstreamBranch] = useState<string | null>(null)
     const [mergeBranch, setMergeBranch] = useState<GitBranchEntry | null>(null)
+
+    const { remotes, refetch: refetchRemotes } = useGitRemotes(api, sessionId)
+    const [remotesExpanded, setRemotesExpanded] = useState(false)
+    const [addRemoteOpen, setAddRemoteOpen] = useState(false)
+    const [newRemoteName, setNewRemoteName] = useState('')
+    const [newRemoteUrl, setNewRemoteUrl] = useState('')
+    const [editingRemote, setEditingRemote] = useState<string | null>(null)
+    const [editRemoteUrl, setEditRemoteUrl] = useState('')
+    const [removeRemoteTarget, setRemoveRemoteTarget] = useState<string | null>(null)
 
     const { local, remote, isLoading, error: fetchError, refetch } = useGitBranches(api, sessionId, currentBranch)
 
@@ -243,6 +253,77 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                 />
                             ))}
                         </div>
+                        {/* Remotes management section */}
+                        <div>
+                            <button
+                                type="button"
+                                onClick={() => setRemotesExpanded(v => !v)}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
+                            >
+                                <span>{remotesExpanded ? '▼' : '▶'}</span>
+                                <span>{t('git.remotes', { n: remotes.length })}</span>
+                            </button>
+                            {remotesExpanded && (
+                                <div>
+                                    {remotes.map(remote => (
+                                        <div key={remote.name} className="flex items-center gap-2 px-3 py-2 text-sm min-h-[44px]">
+                                            {editingRemote === remote.name ? (
+                                                <div className="flex-1 flex items-center gap-2">
+                                                    <span className="font-semibold text-[var(--app-fg)] shrink-0">{remote.name}</span>
+                                                    <input
+                                                        type="text"
+                                                        value={editRemoteUrl}
+                                                        onChange={e => setEditRemoteUrl(e.target.value)}
+                                                        onKeyDown={async e => {
+                                                            if (e.key === 'Enter') {
+                                                                const res = await api.gitRemoteSetUrl(sessionId, remote.name, editRemoteUrl)
+                                                                if (res.success) { notify.success(t('notify.git.remoteSetUrlOk')); setEditingRemote(null); refetchRemotes() }
+                                                                else notify.error(res.stderr ?? res.error ?? 'Failed')
+                                                            }
+                                                            if (e.key === 'Escape') setEditingRemote(null)
+                                                        }}
+                                                        autoFocus
+                                                        className="flex-1 text-xs px-2 py-1 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)]"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <span className="font-semibold text-[var(--app-fg)] shrink-0">{remote.name}</span>
+                                                    <span className="text-xs text-[var(--app-hint)] truncate flex-1 font-mono">{remote.fetchUrl}</span>
+                                                    <RemoteActionMenu
+                                                        onEditUrl={() => { setEditingRemote(remote.name); setEditRemoteUrl(remote.fetchUrl) }}
+                                                        onRemove={() => setRemoveRemoteTarget(remote.name)}
+                                                    />
+                                                </>
+                                            )}
+                                        </div>
+                                    ))}
+                                    {addRemoteOpen ? (
+                                        <div className="px-3 py-2 flex flex-col gap-2">
+                                            <input type="text" placeholder={t('git.remoteName')} value={newRemoteName} onChange={e => setNewRemoteName(e.target.value)} autoFocus className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]" />
+                                            <input type="text" placeholder={t('git.remoteUrl')} value={newRemoteUrl} onChange={e => setNewRemoteUrl(e.target.value)} onKeyDown={async e => {
+                                                if (e.key === 'Enter' && newRemoteName.trim() && newRemoteUrl.trim()) {
+                                                    const res = await api.gitRemoteAdd(sessionId, newRemoteName.trim(), newRemoteUrl.trim())
+                                                    if (res.success) { notify.success(t('notify.git.remoteAddOk')); setAddRemoteOpen(false); setNewRemoteName(''); setNewRemoteUrl(''); refetchRemotes() }
+                                                    else notify.error(res.stderr ?? res.error ?? 'Failed')
+                                                }
+                                            }} className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]" />
+                                            <div className="flex gap-2">
+                                                <button type="button" onClick={async () => {
+                                                    if (!newRemoteName.trim() || !newRemoteUrl.trim()) return
+                                                    const res = await api.gitRemoteAdd(sessionId, newRemoteName.trim(), newRemoteUrl.trim())
+                                                    if (res.success) { notify.success(t('notify.git.remoteAddOk')); setAddRemoteOpen(false); setNewRemoteName(''); setNewRemoteUrl(''); refetchRemotes() }
+                                                    else notify.error(res.stderr ?? res.error ?? 'Failed')
+                                                }} disabled={!newRemoteName.trim() || !newRemoteUrl.trim()} className="flex-1 min-h-[36px] text-xs font-medium rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50">{t('git.addRemote')}</button>
+                                                <button type="button" onClick={() => { setAddRemoteOpen(false); setNewRemoteName(''); setNewRemoteUrl('') }} className="px-3 min-h-[36px] text-xs rounded border border-[var(--app-border)] text-[var(--app-hint)]">{t('button.cancel')}</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button type="button" onClick={() => setAddRemoteOpen(true)} className="w-full py-2 text-xs text-[var(--app-link)] hover:bg-[var(--app-subtle-bg)] transition-colors">{t('git.addRemote')}</button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </>
                 )}
             </div>
@@ -315,9 +396,53 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                 onConfirm={executeMerge}
                 isPending={actionLoading !== null}
             />
+            <ConfirmDialog
+                isOpen={removeRemoteTarget !== null}
+                onClose={() => setRemoveRemoteTarget(null)}
+                title={t('dialog.git.removeRemote.title')}
+                description={t('dialog.git.removeRemote.description', { name: removeRemoteTarget ?? '' })}
+                confirmLabel={t('dialog.git.removeRemote.confirm')}
+                confirmingLabel={t('dialog.git.removeRemote.confirming')}
+                onConfirm={async () => {
+                    if (!removeRemoteTarget) return
+                    const res = await api.gitRemoteRemove(sessionId, removeRemoteTarget)
+                    if (res.success) { notify.success(t('notify.git.remoteRemoveOk')); setRemoveRemoteTarget(null); refetchRemotes() }
+                    else notify.error(res.stderr ?? res.error ?? 'Failed')
+                }}
+                destructive
+                isPending={false}
+            />
         </div>
     )
 }
+function RemoteActionMenu({ onEditUrl, onRemove }: { onEditUrl: () => void; onRemove: () => void }) {
+    const [open, setOpen] = useState(false)
+    const menuRef = useRef<HTMLDivElement>(null)
+    const { t } = useTranslation()
+
+    useEffect(() => {
+        if (!open) return
+        const handler = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false)
+        }
+        document.addEventListener('mousedown', handler)
+        return () => document.removeEventListener('mousedown', handler)
+    }, [open])
+
+    return (
+        <div className="relative shrink-0" ref={menuRef}>
+            <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open) }} className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] hover:text-[var(--app-fg)] transition-colors">⋯</button>
+            {open && (
+                <div className="animate-fade-in-scale absolute right-0 top-full z-20 mt-1 min-w-[120px] rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] py-1 shadow-lg">
+                    <button type="button" onClick={() => { setOpen(false); onEditUrl() }} className="w-full px-3 py-1.5 text-left text-xs text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors">{t('git.editUrl')}</button>
+                    <div className="my-1 border-t border-[var(--app-divider)]" />
+                    <button type="button" onClick={() => { setOpen(false); onRemove() }} className="w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-[var(--app-subtle-bg)] transition-colors">{t('git.removeRemote')}</button>
+                </div>
+            )}
+        </div>
+    )
+}
+
 function BranchActionMenu({ branch, currentBranch, onRename, onSetUpstream, onMerge, onDelete }: {
     branch: GitBranchEntry
     currentBranch: string | null
