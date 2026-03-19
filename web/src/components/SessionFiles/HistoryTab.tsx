@@ -24,6 +24,25 @@ export function HistoryTab({ api, sessionId, ahead, onRefresh }: HistoryTabProps
     const [uncommitTarget, setUncommitTarget] = useState<CommitEntry | null>(null)
     const [uncommitLoading, setUncommitLoading] = useState(false)
 
+    // Cherry-pick
+    const [cherryPickTarget, setCherryPickTarget] = useState<CommitEntry | null>(null)
+    const [cherryPickLoading, setCherryPickLoading] = useState(false)
+
+    // Reset mixed
+    const [resetMixedTarget, setResetMixedTarget] = useState<CommitEntry | null>(null)
+    const [resetMixedLoading, setResetMixedLoading] = useState(false)
+
+    // Reset hard
+    const [resetHardTarget, setResetHardTarget] = useState<CommitEntry | null>(null)
+    const [resetHardLoading, setResetHardLoading] = useState(false)
+    const [resetHardInput, setResetHardInput] = useState('')
+
+    // Create tag
+    const [createTagTarget, setCreateTagTarget] = useState<CommitEntry | null>(null)
+    const [tagName, setTagName] = useState('')
+    const [tagMessage, setTagMessage] = useState('')
+    const [createTagLoading, setCreateTagLoading] = useState(false)
+
     useEffect(() => {
         if (commits.length > 0) {
             setAllCommits(prev => skip === 0 ? commits : [...prev, ...commits])
@@ -57,6 +76,61 @@ export function HistoryTab({ api, sessionId, ahead, onRefresh }: HistoryTabProps
         }
     }, [api, sessionId, uncommitTarget, t, onRefresh])
 
+    const handleCherryPick = useCallback(async () => {
+        if (!cherryPickTarget) return
+        setCherryPickLoading(true)
+        const res = await api.gitCherryPick(sessionId, cherryPickTarget.hash)
+        setCherryPickLoading(false)
+        if (res.success) {
+            setCherryPickTarget(null)
+            notify.success(t('notify.git.cherryPickOk'))
+            setSkip(0); setAllCommits([]); onRefresh()
+        } else {
+            notify.error(res.stderr ?? res.error ?? 'Cherry-pick failed')
+        }
+    }, [api, sessionId, cherryPickTarget, t, onRefresh])
+
+    const handleResetMixed = useCallback(async () => {
+        if (!resetMixedTarget) return
+        setResetMixedLoading(true)
+        const res = await api.gitReset(sessionId, resetMixedTarget.hash, 'mixed')
+        setResetMixedLoading(false)
+        if (res.success) {
+            setResetMixedTarget(null)
+            notify.success(t('notify.git.resetOk'))
+            setSkip(0); setAllCommits([]); onRefresh()
+        } else {
+            notify.error(res.stderr ?? res.error ?? 'Reset failed')
+        }
+    }, [api, sessionId, resetMixedTarget, t, onRefresh])
+
+    const handleResetHard = useCallback(async () => {
+        if (!resetHardTarget || resetHardInput !== 'RESET') return
+        setResetHardLoading(true)
+        const res = await api.gitReset(sessionId, resetHardTarget.hash, 'hard')
+        setResetHardLoading(false)
+        if (res.success) {
+            setResetHardTarget(null); setResetHardInput('')
+            notify.success(t('notify.git.resetOk'))
+            setSkip(0); setAllCommits([]); onRefresh()
+        } else {
+            notify.error(res.stderr ?? res.error ?? 'Reset failed')
+        }
+    }, [api, sessionId, resetHardTarget, resetHardInput, t, onRefresh])
+
+    const handleCreateTag = useCallback(async () => {
+        if (!createTagTarget || !tagName.trim()) return
+        setCreateTagLoading(true)
+        const res = await api.gitTagCreate(sessionId, tagName.trim(), tagMessage.trim() || undefined, createTagTarget.hash)
+        setCreateTagLoading(false)
+        if (res.success) {
+            setCreateTagTarget(null); setTagName(''); setTagMessage('')
+            notify.success(t('notify.git.tagCreateOk'))
+        } else {
+            notify.error(res.stderr ?? res.error ?? 'Tag creation failed')
+        }
+    }, [api, sessionId, createTagTarget, tagName, tagMessage, t])
+
     return (
         <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
             {allCommits.map((commit, index) => (
@@ -67,6 +141,10 @@ export function HistoryTab({ api, sessionId, ahead, onRefresh }: HistoryTabProps
                     sessionId={sessionId}
                     isLocal={index < ahead}
                     onUncommit={() => setUncommitTarget(commit)}
+                    onCherryPick={() => setCherryPickTarget(commit)}
+                    onResetMixed={() => setResetMixedTarget(commit)}
+                    onResetHard={() => setResetHardTarget(commit)}
+                    onCreateTag={() => setCreateTagTarget(commit)}
                 />
             ))}
             {isLoading && (
@@ -91,6 +169,65 @@ export function HistoryTab({ api, sessionId, ahead, onRefresh }: HistoryTabProps
                 isPending={uncommitLoading}
                 destructive
             />
+            {/* Cherry-pick confirm */}
+            <ConfirmDialog
+                isOpen={cherryPickTarget !== null}
+                onClose={() => setCherryPickTarget(null)}
+                title={t('dialog.git.cherryPick.title')}
+                description={t('dialog.git.cherryPick.description', { short: cherryPickTarget?.short ?? '', subject: cherryPickTarget?.subject ?? '' })}
+                confirmLabel={t('dialog.git.cherryPick.confirm')}
+                confirmingLabel={t('dialog.git.cherryPick.confirming')}
+                onConfirm={handleCherryPick}
+                isPending={cherryPickLoading}
+            />
+            {/* Reset mixed confirm */}
+            <ConfirmDialog
+                isOpen={resetMixedTarget !== null}
+                onClose={() => setResetMixedTarget(null)}
+                title={t('dialog.git.resetMixed.title')}
+                description={t('dialog.git.resetMixed.description', { short: resetMixedTarget?.short ?? '' })}
+                confirmLabel={t('dialog.git.resetMixed.confirm')}
+                confirmingLabel={t('dialog.git.resetMixed.confirming')}
+                onConfirm={handleResetMixed}
+                isPending={resetMixedLoading}
+                destructive
+            />
+            {/* Hard reset - 需要输入 RESET 确认 */}
+            {resetHardTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setResetHardTarget(null); setResetHardInput('') }}>
+                    <div className="bg-[var(--app-bg)] rounded-xl border border-[var(--app-border)] p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-base font-semibold text-[var(--app-fg)] mb-2">{t('dialog.git.resetHard.title')}</h3>
+                        <p className="text-sm text-[var(--app-hint)] mb-4">{t('dialog.git.resetHard.description', { short: resetHardTarget.short })}</p>
+                        <input
+                            type="text"
+                            value={resetHardInput}
+                            onChange={e => setResetHardInput(e.target.value)}
+                            placeholder={t('dialog.git.resetHard.inputPlaceholder')}
+                            autoFocus
+                            className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-red-500 mb-4"
+                        />
+                        <div className="flex gap-2 justify-end">
+                            <button type="button" onClick={() => { setResetHardTarget(null); setResetHardInput('') }} className="px-4 py-2 text-sm rounded border border-[var(--app-border)] text-[var(--app-hint)]">{t('button.cancel')}</button>
+                            <button type="button" onClick={handleResetHard} disabled={resetHardInput !== 'RESET' || resetHardLoading} className="px-4 py-2 text-sm rounded bg-red-500 text-white disabled:opacity-50">{resetHardLoading ? t('dialog.git.resetHard.confirming') : t('dialog.git.resetHard.confirm')}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Create tag dialog */}
+            {createTagTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setCreateTagTarget(null); setTagName(''); setTagMessage('') }}>
+                    <div className="bg-[var(--app-bg)] rounded-xl border border-[var(--app-border)] p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-base font-semibold text-[var(--app-fg)] mb-2">{t('dialog.git.createTag.title')}</h3>
+                        <p className="text-xs text-[var(--app-hint)] mb-3 font-mono">{createTagTarget.short}: {createTagTarget.subject}</p>
+                        <input type="text" value={tagName} onChange={e => setTagName(e.target.value)} placeholder={t('git.tagName')} autoFocus className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)] mb-2" />
+                        <input type="text" value={tagMessage} onChange={e => setTagMessage(e.target.value)} placeholder={t('git.tagMessage')} className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)] mb-4" />
+                        <div className="flex gap-2 justify-end">
+                            <button type="button" onClick={() => { setCreateTagTarget(null); setTagName(''); setTagMessage('') }} className="px-4 py-2 text-sm rounded border border-[var(--app-border)] text-[var(--app-hint)]">{t('button.cancel')}</button>
+                            <button type="button" onClick={handleCreateTag} disabled={!tagName.trim() || createTagLoading} className="px-4 py-2 text-sm rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50">{createTagLoading ? t('dialog.git.deleteTag.confirming') : t('git.createTag')}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

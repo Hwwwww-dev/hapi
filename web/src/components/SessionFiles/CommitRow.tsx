@@ -40,9 +40,27 @@ type CommitRowProps = {
     sessionId: string
     isLocal?: boolean
     onUncommit?: () => void
+    onCherryPick?: () => void
+    onResetMixed?: () => void
+    onResetHard?: () => void
+    onCreateTag?: () => void
 }
 
-function CommitActionMenu({ onUncommit, disabled }: { onUncommit: () => void; disabled?: boolean }) {
+function CommitActionMenu({
+    isLocal,
+    onUncommit,
+    onCherryPick,
+    onResetMixed,
+    onResetHard,
+    onCreateTag,
+}: {
+    isLocal?: boolean
+    onUncommit?: () => void
+    onCherryPick?: () => void
+    onResetMixed?: () => void
+    onResetHard?: () => void
+    onCreateTag?: () => void
+}) {
     const [open, setOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
     const { t } = useTranslation()
@@ -66,22 +84,45 @@ function CommitActionMenu({ onUncommit, disabled }: { onUncommit: () => void; di
                 ⋯
             </button>
             {open && (
-                <div className="animate-fade-in-scale absolute right-0 top-full z-20 mt-1 min-w-[120px] rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] py-1 shadow-lg">
-                    <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={(e) => { e.stopPropagation(); setOpen(false); onUncommit() }}
-                        className={`w-full px-3 py-1.5 text-left text-xs transition-colors ${disabled ? 'text-[var(--app-hint)] opacity-40 cursor-not-allowed' : 'text-red-500 hover:bg-[var(--app-subtle-bg)]'}`}
-                    >
-                        {t('git.uncommit')}
-                    </button>
+                <div className="animate-fade-in-scale absolute right-0 top-full z-20 mt-1 min-w-[160px] rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] py-1 shadow-lg">
+                    {onCherryPick && (
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); onCherryPick() }}
+                            className="w-full px-3 py-1.5 text-left text-xs text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors">
+                            {t('git.cherryPick')}
+                        </button>
+                    )}
+                    {onCreateTag && (
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); onCreateTag() }}
+                            className="w-full px-3 py-1.5 text-left text-xs text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors">
+                            {t('git.createTag')}
+                        </button>
+                    )}
+                    <div className="my-1 border-t border-[var(--app-divider)]" />
+                    {onUncommit && (
+                        <button type="button" disabled={!isLocal} onClick={(e) => { e.stopPropagation(); setOpen(false); onUncommit() }}
+                            className={`w-full px-3 py-1.5 text-left text-xs transition-colors ${!isLocal ? 'text-[var(--app-hint)] opacity-40 cursor-not-allowed' : 'text-red-500 hover:bg-[var(--app-subtle-bg)]'}`}>
+                            {t('git.uncommit')}
+                        </button>
+                    )}
+                    {onResetMixed && (
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); onResetMixed() }}
+                            className="w-full px-3 py-1.5 text-left text-xs text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors">
+                            {t('git.resetMixed')}
+                        </button>
+                    )}
+                    {onResetHard && (
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); onResetHard() }}
+                            className="w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-[var(--app-subtle-bg)] transition-colors">
+                            {t('git.resetHard')}
+                        </button>
+                    )}
                 </div>
             )}
         </div>
     )
 }
 
-export function CommitRow({ commit, api, sessionId, isLocal, onUncommit }: CommitRowProps) {
+export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherryPick, onResetMixed, onResetHard, onCreateTag }: CommitRowProps) {
     const { t } = useTranslation()
     const [expanded, setExpanded] = useState(false)
     const [files, setFiles] = useState<FileEntry[]>([])
@@ -133,9 +174,16 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit }: Commi
                         </div>
                     </div>
                 </button>
-                {onUncommit && (
+                {(onUncommit || onCherryPick || onResetMixed || onResetHard || onCreateTag) && (
                     <div className="absolute right-2 top-2">
-                        <CommitActionMenu onUncommit={onUncommit} disabled={!isLocal} />
+                        <CommitActionMenu
+                            isLocal={isLocal}
+                            onUncommit={onUncommit}
+                            onCherryPick={onCherryPick}
+                            onResetMixed={onResetMixed}
+                            onResetHard={onResetHard}
+                            onCreateTag={onCreateTag}
+                        />
                     </div>
                 )}
                 {expanded && loaded && (
