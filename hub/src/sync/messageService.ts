@@ -28,12 +28,16 @@ export class MessageService {
         const totalRoot = this.store.messages.countRootMessages(sessionId)
 
         // 2. Determine seq range of root messages, then fetch sidechain messages in that range
+        //    When loading the newest page (beforeSeq=null), don't cap the upper bound
+        //    so that sidechain messages from a still-running Agent are included.
         let allStored = rootStored
         if (rootStored.length > 0) {
             const minSeq = rootStored[0].seq
             const maxSeq = rootStored[rootStored.length - 1].seq
-            const sidechainStored = this.store.messages.getSidechainMessagesInRange(sessionId, minSeq, maxSeq)
-            // Merge and sort by seq
+            const isNewestPage = options.beforeSeq === null
+            const sidechainStored = isNewestPage
+                ? this.store.messages.getSidechainMessagesFrom(sessionId, minSeq)
+                : this.store.messages.getSidechainMessagesInRange(sessionId, minSeq, maxSeq)
             allStored = [...rootStored, ...sidechainStored].sort((a, b) => a.seq - b.seq)
         }
 

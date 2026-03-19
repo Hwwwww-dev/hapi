@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { AssistantRuntimeProvider } from '@assistant-ui/react'
 import type { ApiClient } from '@/api/client'
 import type { AttachmentMetadata, CodexCollaborationMode, DecryptedMessage, PermissionMode, Session } from '@/types/api'
+import { isSidechainMessage } from '@/lib/messages'
 import type { ChatBlock, NormalizedMessage } from '@/chat/types'
 import type { Suggestion } from '@/hooks/useActiveSuggestions'
 import { normalizeDecryptedMessage } from '@/chat/normalize'
@@ -199,6 +200,11 @@ export function SessionChat(props: {
         }
         return normalized
     }, [props.messages])
+
+    const rootMessageCount = useMemo(
+        () => props.messages.filter(m => !isSidechainMessage(m)).length,
+        [props.messages]
+    )
 
     const reduced = useMemo(
         () => reduceChatBlocks(normalizedMessages, props.session.agentState),
@@ -410,7 +416,7 @@ export function SessionChat(props: {
                         thinking={props.session.thinking}
                         agentState={props.session.agentState}
                         contextSize={reduced.latestUsage?.contextSize}
-                        messageCount={props.messages.length}
+                        messageCount={rootMessageCount}
                         totalMessages={props.totalMessages}
                         controlledByUser={controlledByUser}
                         onCollaborationModeChange={

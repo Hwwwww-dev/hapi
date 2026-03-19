@@ -189,6 +189,22 @@ export function getSidechainMessagesInRange(
     return rows.map(toStoredMessage)
 }
 
+/**
+ * Get sidechain messages from a given seq (inclusive, no upper bound).
+ * Used for the newest page where a running Agent may have sidechain messages beyond the last root seq.
+ */
+export function getSidechainMessagesFrom(
+    db: Database,
+    sessionId: string,
+    minSeq: number
+): StoredMessage[] {
+    const rows = db.prepare(
+        `SELECT * FROM messages WHERE session_id = ? AND seq >= ? AND is_sidechain = 1 ORDER BY seq ASC`
+    ).all(sessionId, minSeq) as DbMessageRow[]
+
+    return rows.map(toStoredMessage)
+}
+
 export function countMessages(db: Database, sessionId: string): number {
     const row = db.prepare('SELECT COUNT(*) as count FROM messages WHERE session_id = ?').get(sessionId) as { count: number } | undefined
     return row?.count ?? 0
