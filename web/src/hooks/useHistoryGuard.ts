@@ -52,9 +52,12 @@ export function useHistoryGuard() {
                 : 0
 
             // Forward or same-level navigation — just update tracking
+            // Only update prevPathRef when pathname actually changes (not tab/search replace)
             if (navIndex >= indexRef.current) {
                 indexRef.current = navIndex
-                prevPathRef.current = event.toLocation.pathname
+                if (event.toLocation.pathname !== prevPathRef.current) {
+                    prevPathRef.current = event.toLocation.pathname
+                }
                 return
             }
 
