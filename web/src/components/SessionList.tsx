@@ -70,15 +70,6 @@ function groupNativeChildren(sessions: SessionSummary[]): SessionWithChildren[] 
 }
 
 
-function getSessionListContentAnimationKey(agentTab: SessionAgentTab, groups: SessionGroup[]): string {
-    const snapshot = groups
-        .map((group) => `${group.directory}:${group.sessions.map((item) =>
-            `${item.session.id}[${item.nativeChildren.map(c => c.id).join('+')}]`
-        ).join(',')}`)
-        .join('|')
-
-    return `${agentTab}:${snapshot}`
-}
 
 function PlusIcon(props: { className?: string }) {
     return (
@@ -550,10 +541,8 @@ export function SessionList(props: {
         () => isOnlineTab ? onlineSessions.length : groups.reduce((sum, group) => sum + group.sessions.length, 0),
         [isOnlineTab, onlineSessions, groups]
     )
-    const contentAnimationKey = useMemo(
-        () => getSessionListContentAnimationKey(agentTab, groups),
-        [agentTab, groups]
-    )
+    // Only animate on tab switch, not on data refresh
+    const contentAnimationKey = agentTab
     const [collapseOverrides, setCollapseOverrides] = useState<Map<string, boolean>>(
         () => new Map()
     )
@@ -697,7 +686,7 @@ export function SessionList(props: {
                             </button>
                             {!isCollapsed ? (
                                 <div className="bg-[var(--app-secondary-bg)] p-2">
-                                    <div className="flex flex-col gap-2 border-l border-dashed border-[var(--app-divider)] pl-3">
+                                    <div className="flex flex-col gap-2">
                                     {group.sessions.map((item) => (
                                         <SessionItem
                                             key={item.session.id}

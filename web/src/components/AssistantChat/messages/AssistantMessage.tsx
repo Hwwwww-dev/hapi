@@ -28,6 +28,7 @@ export const HappyAssistantMessage = memo(function HappyAssistantMessage() {
         if (custom?.kind !== 'cli-output') return ''
         return message.content.find((part) => part.type === 'text')?.text ?? ''
     })
+    const hasContent = useAssistantState(({ message }) => message.content.length > 0)
     const toolOnly = useAssistantState(({ message }) => {
         if (message.role !== 'assistant') return false
         const parts = message.content
@@ -48,6 +49,8 @@ export const HappyAssistantMessage = memo(function HappyAssistantMessage() {
             </MessagePrimitive.Root>
         )
     }
+
+    if (!isCliOutput && !hasContent) return null
 
     return (
         <MessagePrimitive.Root className={rootClass}>
