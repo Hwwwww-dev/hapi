@@ -321,6 +321,10 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-cherry-pick-abort', options) as RpcCommandResponse
     }
 
+    async gitReset(sessionId: string, options: { cwd?: string; ref: string; mode: 'soft' | 'mixed' | 'hard' }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-reset', options) as RpcCommandResponse
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.sessionRpc(sessionId, 'readFile', { path }) as RpcReadFileResponse
     }

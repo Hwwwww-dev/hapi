@@ -395,4 +395,13 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         return await queuedGitCommand(['cherry-pick', '--abort'], resolved.cwd, data.timeout)
     })
 
+    rpcHandlerManager.registerHandler<{ cwd?: string; ref: string; mode: 'soft' | 'mixed' | 'hard'; timeout?: number }, GitCommandResponse>('git-reset', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.ref || typeof data.ref !== 'string') return rpcError('ref is required')
+        const validModes = ['soft', 'mixed', 'hard']
+        if (!validModes.includes(data.mode)) return rpcError('mode must be soft, mixed, or hard')
+        return await queuedGitCommand(['reset', `--${data.mode}`, data.ref], resolved.cwd, data.timeout)
+    })
+
 }

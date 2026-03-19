@@ -466,11 +466,11 @@ export class ApiClient {
         })
     }
 
-    async gitResetSoft(sessionId: string, ref: string): Promise<GitCommandResponse> {
-        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-reset-soft`, {
+    async gitReset(sessionId: string, ref: string, mode: 'soft' | 'mixed' | 'hard'): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-reset`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ref })
+            body: JSON.stringify({ ref, mode })
         })
     }
 

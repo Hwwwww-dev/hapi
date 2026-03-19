@@ -44,7 +44,7 @@ export function HistoryTab({ api, sessionId, ahead, onRefresh }: HistoryTabProps
     const handleUncommit = useCallback(async () => {
         if (!uncommitTarget) return
         setUncommitLoading(true)
-        const res = await api.gitResetSoft(sessionId, `${uncommitTarget.hash}~1`)
+        const res = await api.gitReset(sessionId, `${uncommitTarget.hash}~1`, 'soft')
         setUncommitLoading(false)
         if (res.success) {
             setUncommitTarget(null)

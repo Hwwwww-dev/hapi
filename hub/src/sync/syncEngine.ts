@@ -1045,6 +1045,10 @@ export class SyncEngine {
         return await this.rpcGateway.gitCherryPickAbort(sessionId, options)
     }
 
+    async gitReset(sessionId: string, options: { cwd?: string; ref: string; mode: 'soft' | 'mixed' | 'hard' }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitReset(sessionId, options)
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.rpcGateway.readSessionFile(sessionId, path)
     }
