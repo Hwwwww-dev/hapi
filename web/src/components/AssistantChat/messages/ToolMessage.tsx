@@ -134,20 +134,17 @@ function HappyNestedBlockList(props: {
                 }
 
                 if (block.kind === 'agent-text') {
-                    const isLong = block.text.length > 200
                     return (
-                        <div key={`agent:${block.id}`} className="px-1 animate-fade-in-up">
-                            {isLong ? (
-                                <details className="group">
-                                    <summary className="cursor-pointer select-none text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)] list-none flex items-center gap-1 mb-1">
-                                        <span className="transition-transform group-open:rotate-90">▶</span>
-                                        <span>{block.text.slice(0, 60).trim()}…</span>
-                                    </summary>
+                        <div key={`agent:${block.id}`} className="px-1 min-w-0 max-w-full animate-fade-in-up">
+                            <details className="group">
+                                <summary className="cursor-pointer select-none text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)] list-none flex items-center gap-1 mb-1">
+                                    <span className="transition-transform group-open:rotate-90">▶</span>
+                                    <span className="truncate">{block.text.split('\n')[0].slice(0, 80).trim() || 'Agent 输出'}…</span>
+                                </summary>
+                                <div className="overflow-x-auto">
                                     <MarkdownRenderer content={block.text} />
-                                </details>
-                            ) : (
-                                <MarkdownRenderer content={block.text} />
-                            )}
+                                </div>
+                            </details>
                         </div>
                     )
                 }

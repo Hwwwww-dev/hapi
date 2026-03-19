@@ -369,9 +369,24 @@ function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metad
                 }
 
                 if (block.kind === 'agent-text') {
+                    const isLong = block.text.length > 120 || block.text.includes('\n')
                     return (
-                        <div key={block.id} className="px-2 py-1">
-                            <MarkdownRenderer content={block.text} />
+                        <div key={block.id} className="px-2 py-1 min-w-0 max-w-full">
+                            {isLong ? (
+                                <details className="group">
+                                    <summary className="cursor-pointer select-none text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)] list-none flex items-center gap-1">
+                                        <span className="transition-transform group-open:rotate-90">▶</span>
+                                        <span className="truncate">{block.text.split('\n')[0].slice(0, 80).trim()}…</span>
+                                    </summary>
+                                    <div className="mt-1 overflow-x-auto">
+                                        <MarkdownRenderer content={block.text} />
+                                    </div>
+                                </details>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <MarkdownRenderer content={block.text} />
+                                </div>
+                            )}
                         </div>
                     )
                 }

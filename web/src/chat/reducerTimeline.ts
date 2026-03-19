@@ -233,7 +233,7 @@ export function reduceTimeline(
 
                 if (c.type === 'sidechain') {
                     blocks.push({
-                        kind: 'user-text',
+                        kind: 'agent-text',
                         id: `${msg.id}:${idx}`,
                         localId: null,
                         createdAt: msg.createdAt,
