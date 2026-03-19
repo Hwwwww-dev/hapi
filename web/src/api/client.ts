@@ -385,6 +385,31 @@ export class ApiClient {
         })
     }
 
+    async gitRemoteList(sessionId: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-remote-list`)
+    }
+
+    async gitRemoteAdd(sessionId: string, name: string, url: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-remote-add`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, url })
+        })
+    }
+
+    async gitRemoteRemove(sessionId: string, name: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-remote-remove`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        })
+    }
+
+    async gitRemoteSetUrl(sessionId: string, name: string, url: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-remote-set-url`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, url })
+        })
+    }
+
     async gitStash(sessionId: string, message?: string): Promise<GitCommandResponse> {
         return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-stash`, {
             method: 'POST',

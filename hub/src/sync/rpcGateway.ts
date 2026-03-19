@@ -273,6 +273,22 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-set-upstream', options) as RpcCommandResponse
     }
 
+    async gitRemoteList(sessionId: string, options: { cwd?: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-remote-list', options) as RpcCommandResponse
+    }
+
+    async gitRemoteAdd(sessionId: string, options: { cwd?: string; name: string; url: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-remote-add', options) as RpcCommandResponse
+    }
+
+    async gitRemoteRemove(sessionId: string, options: { cwd?: string; name: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-remote-remove', options) as RpcCommandResponse
+    }
+
+    async gitRemoteSetUrl(sessionId: string, options: { cwd?: string; name: string; url: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-remote-set-url', options) as RpcCommandResponse
+    }
+
     async gitStash(sessionId: string, options: { cwd?: string; message?: string }): Promise<RpcCommandResponse> {
         return await this.sessionRpc(sessionId, 'git-stash', options) as RpcCommandResponse
     }

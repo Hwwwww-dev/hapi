@@ -997,6 +997,22 @@ export class SyncEngine {
         return await this.rpcGateway.gitSetUpstream(sessionId, options)
     }
 
+    async gitRemoteList(sessionId: string, options: { cwd?: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitRemoteList(sessionId, options)
+    }
+
+    async gitRemoteAdd(sessionId: string, options: { cwd?: string; name: string; url: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitRemoteAdd(sessionId, options)
+    }
+
+    async gitRemoteRemove(sessionId: string, options: { cwd?: string; name: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitRemoteRemove(sessionId, options)
+    }
+
+    async gitRemoteSetUrl(sessionId: string, options: { cwd?: string; name: string; url: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitRemoteSetUrl(sessionId, options)
+    }
+
     async gitStash(sessionId: string, options: { cwd?: string; message?: string }): Promise<RpcCommandResponse> {
         return await this.rpcGateway.gitStash(sessionId, options)
     }

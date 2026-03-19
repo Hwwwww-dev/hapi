@@ -353,4 +353,33 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         return await queuedGitCommand(['branch', `--set-upstream-to=${data.upstream}`, data.branch], resolved.cwd, data.timeout)
     })
 
+    rpcHandlerManager.registerHandler<{ cwd?: string; timeout?: number }, GitCommandResponse>('git-remote-list', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        return await queuedGitCommand(['remote', '-v'], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; name: string; url: string; timeout?: number }, GitCommandResponse>('git-remote-add', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.name || typeof data.name !== 'string') return rpcError('remote name is required')
+        if (!data.url || typeof data.url !== 'string') return rpcError('remote url is required')
+        return await queuedGitCommand(['remote', 'add', data.name, data.url], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; name: string; timeout?: number }, GitCommandResponse>('git-remote-remove', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.name || typeof data.name !== 'string') return rpcError('remote name is required')
+        return await queuedGitCommand(['remote', 'remove', data.name], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; name: string; url: string; timeout?: number }, GitCommandResponse>('git-remote-set-url', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.name || typeof data.name !== 'string') return rpcError('remote name is required')
+        if (!data.url || typeof data.url !== 'string') return rpcError('remote url is required')
+        return await queuedGitCommand(['remote', 'set-url', data.name, data.url], resolved.cwd, data.timeout)
+    })
+
 }

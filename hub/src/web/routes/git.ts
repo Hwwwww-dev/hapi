@@ -34,6 +34,9 @@ const gitDiscardChangesSchema = z.object({ filePath: z.string().min(1) })
 const gitCleanFileSchema = z.object({ filePath: z.string().min(1) })
 const gitBatchStageSchema = z.object({ files: z.array(z.object({ filePath: z.string().min(1), stage: z.boolean() })).min(1) })
 const gitSetUpstreamSchema = z.object({ branch: z.string().min(1).regex(/^[^-]/), upstream: z.string().min(1) })
+const gitRemoteAddSchema = z.object({ name: z.string().min(1).regex(/^[^-]/), url: z.string().min(1) })
+const gitRemoteRemoveSchema = z.object({ name: z.string().min(1) })
+const gitRemoteSetUrlSchema = z.object({ name: z.string().min(1), url: z.string().min(1) })
 
 function parseBooleanParam(value: string | undefined): boolean | undefined {
     if (value === 'true') return true
@@ -539,6 +542,56 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         const body = gitSetUpstreamSchema.safeParse(await c.req.json())
         if (!body.success) return c.json({ error: 'Invalid request' }, 400)
         const result = await runRpc(() => engine.gitSetUpstream(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.get('/sessions/:id/git-remote-list', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const result = await runRpc(() => engine.gitRemoteList(sessionResult.sessionId, { cwd: sessionPath }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-remote-add', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitRemoteAddSchema.safeParse(await c.req.json())
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitRemoteAdd(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-remote-remove', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitRemoteRemoveSchema.safeParse(await c.req.json())
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitRemoteRemove(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-remote-set-url', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitRemoteSetUrlSchema.safeParse(await c.req.json())
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitRemoteSetUrl(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
         return c.json(result)
     })
 

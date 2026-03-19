@@ -1,4 +1,4 @@
-import type { CommitEntry, GitBranchEntry, GitFileStatus, GitStatusFiles, StashEntry } from '@/types/api'
+import type { CommitEntry, GitBranchEntry, GitFileStatus, GitRemoteEntry, GitStatusFiles, StashEntry } from '@/types/api'
 
 export type GitFileEntryV2 = {
     path: string
@@ -348,6 +348,21 @@ function normalizeNumstatPath(rawPath: string): { newPath: string; oldPath?: str
     }
 
     return { newPath: trimmed }
+}
+
+export function parseRemoteList(stdout: string): GitRemoteEntry[] {
+    const lines = stdout.split('\n').filter(l => l.trim())
+    const map = new Map<string, { fetchUrl: string; pushUrl: string }>()
+    for (const line of lines) {
+        const match = line.match(/^(\S+)\t(\S+)\s+\((fetch|push)\)$/)
+        if (!match) continue
+        const [, name, url, type] = match
+        const entry = map.get(name) ?? { fetchUrl: '', pushUrl: '' }
+        if (type === 'fetch') entry.fetchUrl = url
+        else entry.pushUrl = url
+        map.set(name, entry)
+    }
+    return Array.from(map.entries()).map(([name, urls]) => ({ name, ...urls }))
 }
 
 export function parseGitLog(stdout: string): CommitEntry[] {

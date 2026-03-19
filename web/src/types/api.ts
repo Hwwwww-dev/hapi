@@ -200,6 +200,12 @@ export type StashEntry = {
     message: string
 }
 
+export type GitRemoteEntry = {
+    name: string
+    fetchUrl: string
+    pushUrl: string
+}
+
 export type SlashCommand = {
     name: string
     description?: string
