@@ -1,5 +1,7 @@
 import { lazy, Suspense, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import type { ApiClient } from '@/api/client'
+import type { Session } from '@/types/api'
 import {
     Navigate,
     Outlet,
@@ -231,16 +233,42 @@ function SessionsIndexPage() {
 
 function SessionPage() {
     const { api } = useAppContext()
-    const { t } = useTranslation()
-    const goBack = useAppGoBack()
-    const navigate = useNavigate()
-    const queryClient = useQueryClient()
-    const { addToast } = useToast()
     const { sessionId } = useParams({ from: '/sessions/$sessionId' })
     const {
         session,
         refetch: refetchSession,
     } = useSession(api, sessionId)
+
+    if (!session || !api) {
+        return (
+            <div className="flex-1 flex items-center justify-center p-4">
+                <LoadingState label="Loading session…" className="text-sm" />
+            </div>
+        )
+    }
+
+    return (
+        <SessionPageContent
+            api={api}
+            session={session}
+            sessionId={sessionId}
+            refetchSession={refetchSession}
+        />
+    )
+}
+
+function SessionPageContent(props: {
+    api: ApiClient
+    session: Session
+    sessionId: string
+    refetchSession: () => Promise<unknown>
+}) {
+    const { api, session, sessionId, refetchSession } = props
+    const { t } = useTranslation()
+    const goBack = useAppGoBack()
+    const navigate = useNavigate()
+    const queryClient = useQueryClient()
+    const { addToast } = useToast()
     const {
         messages,
         warning: messagesWarning,
@@ -338,14 +366,6 @@ function SessionPage() {
         void refetchSession()
         void refetchMessages()
     }, [refetchMessages, refetchSession])
-
-    if (!session) {
-        return (
-            <div className="flex-1 flex items-center justify-center p-4">
-                <LoadingState label="Loading session…" className="text-sm" />
-            </div>
-        )
-    }
 
     return (
         <SessionChat

@@ -200,7 +200,7 @@ export function DirectoryTree(props: {
     }, [expanded, props.onExpandedChange])
 
     return (
-        <div className="border-t border-[var(--app-divider)]">
+        <div className="flex-1 overflow-y-auto border-t border-[var(--app-divider)]">
             <DirectoryNode
                 api={props.api}
                 sessionId={props.sessionId}
