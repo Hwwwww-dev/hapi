@@ -39,12 +39,18 @@ web/src/components/SessionFiles/                  # UI 组件
 // 命令: git branch -m <oldName> <newName>
 ```
 
+**RpcGateway:** `async gitRenameBranch(sessionId, options: { cwd?: string; oldName: string; newName: string }): Promise<RpcCommandResponse>`
+
 **Hub Route:** `POST /sessions/:id/git-rename-branch`
-**Schema:** `{ oldName: z.string().min(1), newName: z.string().min(1) }`
+**Schema:** `{ oldName: z.string().min(1).regex(/^[^-]/), newName: z.string().min(1).regex(/^[^-]/) }`
+> 注：分支名禁止以 `-` 开头，防止被 git 解释为 flag。CLI 层使用 `execFile` 已缓解 shell 注入，但 flag 注入仍需防范。
+
+**ApiClient:** `async gitRenameBranch(sessionId: string, oldName: string, newName: string): Promise<GitCommandResponse>`
 
 **UI 位置:** BranchesTab → 本地分支行 → `⋯` 菜单 → "改名"
 - 点击后弹出 inline input 替换分支名文字
 - 回车确认，Escape 取消
+- 当前分支也允许改名（`git branch -m` 支持）
 - 成功后刷新分支列表
 
 ### 2. 分支设置 upstream (git-set-upstream)
@@ -56,8 +62,12 @@ web/src/components/SessionFiles/                  # UI 组件
 // 命令: git branch --set-upstream-to=<upstream> <branch>
 ```
 
+**RpcGateway:** `async gitSetUpstream(sessionId, options: { cwd?: string; branch: string; upstream: string }): Promise<RpcCommandResponse>`
+
 **Hub Route:** `POST /sessions/:id/git-set-upstream`
-**Schema:** `{ branch: z.string().min(1), upstream: z.string().min(1) }`
+**Schema:** `{ branch: z.string().min(1).regex(/^[^-]/), upstream: z.string().min(1) }`
+
+**ApiClient:** `async gitSetUpstream(sessionId: string, branch: string, upstream: string): Promise<GitCommandResponse>`
 
 **UI 位置:** BranchesTab → 本地分支行 → `⋯` 菜单 → "设置上游"
 - 弹出选择器，列出远程分支（复用 `gitRemoteBranches` 数据）
@@ -87,11 +97,23 @@ type GitRemoteEntry = {
 **新增解析器:** `parseRemoteList(stdout: string): GitRemoteEntry[]`
 - 解析 `git remote -v` 输出格式: `origin\thttps://... (fetch)\norigin\thttps://... (push)`
 
+**RpcGateway 方法:**
+- `async gitRemoteList(sessionId, options: { cwd?: string }): Promise<RpcCommandResponse>`
+- `async gitRemoteAdd(sessionId, options: { cwd?: string; name: string; url: string }): Promise<RpcCommandResponse>`
+- `async gitRemoteRemove(sessionId, options: { cwd?: string; name: string }): Promise<RpcCommandResponse>`
+- `async gitRemoteSetUrl(sessionId, options: { cwd?: string; name: string; url: string }): Promise<RpcCommandResponse>`
+
 **Hub Routes:**
 - `GET /sessions/:id/git-remote-list`
-- `POST /sessions/:id/git-remote-add` → `{ name, url }`
-- `POST /sessions/:id/git-remote-remove` → `{ name }`
-- `POST /sessions/:id/git-remote-set-url` → `{ name, url }`
+- `POST /sessions/:id/git-remote-add` → `{ name: z.string().min(1).regex(/^[^-]/), url: z.string().min(1) }`
+- `POST /sessions/:id/git-remote-remove` → `{ name: z.string().min(1) }`
+- `POST /sessions/:id/git-remote-set-url` → `{ name: z.string().min(1), url: z.string().min(1) }`
+
+**ApiClient 方法:**
+- `async gitRemoteList(sessionId: string): Promise<GitCommandResponse>`
+- `async gitRemoteAdd(sessionId: string, name: string, url: string): Promise<GitCommandResponse>`
+- `async gitRemoteRemove(sessionId: string, name: string): Promise<GitCommandResponse>`
+- `async gitRemoteSetUrl(sessionId: string, name: string, url: string): Promise<GitCommandResponse>`
 
 **UI 位置:** BranchesTab → 底部新增 "Remotes" 折叠区域
 - 展示 remote 列表（name + fetch URL）
@@ -101,6 +123,7 @@ type GitRemoteEntry = {
 ### 4. 分支合并 UI 补全
 
 **后端已存在:** `git-merge` RPC + Hub Route + ApiClient 方法均已实现。
+**合并策略:** 默认使用 `git merge`（fast-forward when possible），暂不支持 `--no-ff` / `--squash` 选项。
 
 **UI 位置:** BranchesTab → 本地分支行 → `⋯` 菜单 → "合并到当前分支"
 - 仅对非当前分支显示
@@ -117,13 +140,24 @@ type GitRemoteEntry = {
 // 命令: git cherry-pick <hash>
 ```
 
+**RpcGateway:** `async gitCherryPick(sessionId, options: { cwd?: string; hash: string }): Promise<RpcCommandResponse>`
+
 **Hub Route:** `POST /sessions/:id/git-cherry-pick`
-**Schema:** `{ hash: z.string().min(1) }`
+**Schema:** `{ hash: z.string().min(4).regex(/^[a-f0-9]+$/) }`
+
+**ApiClient:** `async gitCherryPick(sessionId: string, hash: string): Promise<GitCommandResponse>`
 
 **UI 位置:** HistoryTab → CommitRow → `⋯` 菜单 → "Cherry-pick"
 - 点击后 ConfirmDialog 确认："Cherry-pick 提交 `abc1234: fix bug`？"
 - 成功后刷新 status + log
 - 冲突时显示 stderr 错误信息
+
+**冲突恢复:** 新增 `git-cherry-pick-abort` RPC 命令
+- CLI: `git cherry-pick --abort`
+- 当 git status 检测到冲突状态（conflicted files）时，UI 显示 "Abort Cherry-pick" 按钮
+- RpcGateway: `async gitCherryPickAbort(sessionId, options: { cwd?: string }): Promise<RpcCommandResponse>`
+- Hub Route: `POST /sessions/:id/git-cherry-pick-abort`
+- ApiClient: `async gitCherryPickAbort(sessionId: string): Promise<GitCommandResponse>`
 
 ### 6. Reset 变体 (git-reset)
 
@@ -134,10 +168,14 @@ type GitRemoteEntry = {
 // 命令: git reset --<mode> <ref>
 ```
 
-现有 `gitResetSoft` 将被此通用 reset 替代（保持向后兼容，旧端点继续工作）。
+现有 ApiClient 中的 `gitResetSoft` 方法为未完成实现（CLI handler / RpcGateway / Hub Route 三层均不存在对应实现），将被新的通用 `git-reset` 替代并删除。
+
+**RpcGateway:** `async gitReset(sessionId, options: { cwd?: string; ref: string; mode: 'soft' | 'mixed' | 'hard' }): Promise<RpcCommandResponse>`
 
 **Hub Route:** `POST /sessions/:id/git-reset`
-**Schema:** `{ ref: z.string().min(1), mode: z.enum(['soft', 'mixed', 'hard']) }`
+**Schema:** `{ ref: z.string().min(4).regex(/^[a-f0-9]+$|^[a-zA-Z0-9_./-]+$/), mode: z.enum(['soft', 'mixed', 'hard']) }`
+
+**ApiClient:** `async gitReset(sessionId: string, ref: string, mode: 'soft' | 'mixed' | 'hard'): Promise<GitCommandResponse>`
 
 **安全策略（渐进式）:**
 - **soft reset:** 普通 ConfirmDialog（现有 uncommit 行为）
@@ -159,13 +197,14 @@ type GitRemoteEntry = {
 | `git-tag-create` | `git tag [-a] <name> [-m <msg>] [ref]` | `{ cwd?, name, message?, ref? }` |
 | `git-tag-delete` | `git tag -d <name>` | `{ cwd?, name }` |
 
-**Tag list 格式:** `%(refname:strip=2)%x00%(objectname:short)%x00%(creatordate:unix)%x00%(subject)`
+**Tag list 格式:** `%(refname:strip=2)%x00%(objectname)%x00%(objectname:short)%x00%(creatordate:unix)%x00%(subject)`
 
 **新增类型:**
 ```typescript
 type GitTagEntry = {
     name: string
-    short: string
+    hash: string   // 完整 objectname
+    short: string  // objectname:short
     date: number
     subject: string
 }
@@ -173,10 +212,22 @@ type GitTagEntry = {
 
 **新增解析器:** `parseTagList(stdout: string): GitTagEntry[]`
 
+**RpcGateway 方法:**
+- `async gitTagList(sessionId, options: { cwd?: string }): Promise<RpcCommandResponse>`
+- `async gitTagCreate(sessionId, options: { cwd?: string; name: string; message?: string; ref?: string }): Promise<RpcCommandResponse>`
+- `async gitTagDelete(sessionId, options: { cwd?: string; name: string }): Promise<RpcCommandResponse>`
+
 **Hub Routes:**
 - `GET /sessions/:id/git-tag-list`
-- `POST /sessions/:id/git-tag-create` → `{ name, message?, ref? }`
-- `POST /sessions/:id/git-tag-delete` → `{ name }`
+- `POST /sessions/:id/git-tag-create` → `{ name: z.string().min(1).regex(/^[^-]/), message?: z.string(), ref?: z.string() }`
+- `POST /sessions/:id/git-tag-delete` → `{ name: z.string().min(1) }`
+
+**ApiClient 方法:**
+- `async gitTagList(sessionId: string): Promise<GitCommandResponse>`
+- `async gitTagCreate(sessionId: string, name: string, message?: string, ref?: string): Promise<GitCommandResponse>`
+- `async gitTagDelete(sessionId: string, name: string): Promise<GitCommandResponse>`
+
+> 注：Tag 推送远程（`git push origin <tag>`）和远程删除（`git push origin --delete <tag>`）作为 Phase 2 待实现。
 
 **UI 位置:** HistoryTab 顶部增加 "Tags" 切换视图
 - Tag 列表：名称、短 hash、创建时间
@@ -191,7 +242,7 @@ type GitTagEntry = {
 
 ```
 ⋯ 菜单项:
-├── 改名 (仅本地非当前分支)
+├── 改名 (仅本地分支)
 ├── 设置上游 (仅本地分支)
 ├── 合并到当前分支 (仅非当前分支)
 ├── ─────────────
@@ -225,11 +276,15 @@ type GitTagEntry = {
 | `web/src/components/SessionFiles/CommitRow.tsx` | 修改 | 扩展 CommitActionMenu |
 | `web/src/hooks/queries/useGitRemotes.ts` | 新增 | Remote 列表查询 hook |
 | `web/src/hooks/queries/useGitTags.ts` | 新增 | Tag 列表查询 hook |
+| 国际化文件 (i18n) | 修改 | 新增菜单项翻译 key |
 
 ## 安全考虑
 
 - 所有文件路径操作继续使用 `validatePath` 验证
+- 分支名、tag 名禁止以 `-` 开头（防止 flag 注入），使用 `regex(/^[^-]/)` 校验
+- commit hash 参数使用 `regex(/^[a-f0-9]+$/)` 校验格式
 - hard reset 需要用户输入 "RESET" 文字二次确认
 - remote remove 需要 ConfirmDialog 确认
 - tag delete 需要 ConfirmDialog 确认
 - 所有新命令复用现有 `queuedGitCommand` 队列机制，保证串行执行
+- CLI 层使用 `execFile`（非 `exec`），已缓解 shell 注入风险
