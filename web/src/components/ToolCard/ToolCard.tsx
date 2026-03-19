@@ -15,7 +15,7 @@ import { isAskUserQuestionToolName } from '@/components/ToolCard/askUserQuestion
 import { isRequestUserInputToolName } from '@/components/ToolCard/requestUserInput'
 import { getToolPresentation } from '@/components/ToolCard/knownTools'
 import { getToolFullViewComponent, getToolViewComponent } from '@/components/ToolCard/views/_all'
-import { getToolResultViewComponent } from '@/components/ToolCard/views/_results'
+import { getToolResultViewComponent, extractTextFromResult, parseAgentMeta, AgentUsageBadges } from '@/components/ToolCard/views/_results'
 import { extractApplyPatchText } from '@/lib/applyPatch'
 import { usePointerFocusRing } from '@/hooks/usePointerFocusRing'
 import { canonicalizeToolName } from '@/lib/toolNames'
@@ -438,6 +438,14 @@ function ToolCardInner(props: ToolCardProps) {
         && props.block.tool.state === 'completed'
         && props.block.tool.result !== undefined
         && props.block.tool.result !== null
+
+    const agentMeta = useMemo(() => {
+        if (!isTaskOrAgent || props.block.tool.state !== 'completed') return null
+        const text = extractTextFromResult(props.block.tool.result)
+        if (!text) return null
+        const { usage } = parseAgentMeta(text)
+        return usage
+    }, [isTaskOrAgent, props.block.tool.state, props.block.tool.result])
     const CompactToolView = showInline ? getToolViewComponent(canonicalToolName) : null
     const FullToolView = getToolFullViewComponent(canonicalToolName)
     const ResultToolView = getToolResultViewComponent(canonicalToolName)
@@ -485,6 +493,7 @@ function ToolCardInner(props: ToolCardProps) {
                     {truncate(subtitle, 160)}
                 </CardDescription>
             ) : null}
+            {agentMeta ? <AgentUsageBadges agentId={null} usage={agentMeta} /> : null}
         </div>
     )
 
@@ -571,9 +580,15 @@ function ToolCardInner(props: ToolCardProps) {
                     ) : null}
 
                     {showTaskResult ? (
-                        <div className="mt-3">
-                            <ResultToolView block={props.block} metadata={props.metadata} />
-                        </div>
+                        <details className="group mt-3">
+                            <summary className="flex cursor-pointer list-none items-center gap-2 rounded border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-2.5 py-1.5 text-xs text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] select-none">
+                                <span className="transition-transform group-open:rotate-90">▶</span>
+                                <span className="flex-1">{t('tool.result')}</span>
+                            </summary>
+                            <div className="mt-1.5">
+                                <ResultToolView block={props.block} metadata={props.metadata} />
+                            </div>
+                        </details>
                     ) : null}
 
                     {showInline ? (

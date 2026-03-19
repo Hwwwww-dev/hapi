@@ -56,7 +56,7 @@ function extractTextFromContentBlock(block: unknown): string | null {
     return null
 }
 
-function extractTextFromResult(result: unknown, depth: number = 0): string | null {
+export function extractTextFromResult(result: unknown, depth: number = 0): string | null {
     if (depth > 2) return null
     if (result === null || result === undefined) return null
     if (typeof result === 'string') {
@@ -723,7 +723,7 @@ const GenericResultView: ToolViewComponent = (props: ToolViewProps) => {
 const AGENT_ID_RE = /agentId:\s*([a-f0-9]+)\s*\(use SendMessage[^\n)]*\)\s*/
 const USAGE_RE = /<usage>(.*?)<\/usage>/s
 
-function parseAgentMeta(text: string): { agentId: string | null; usage: Record<string, string> | null; cleanText: string } {
+export function parseAgentMeta(text: string): { agentId: string | null; usage: Record<string, string> | null; cleanText: string } {
     let clean = text
     let agentId: string | null = null
     let usage: Record<string, string> | null = null
@@ -748,6 +748,38 @@ function parseAgentMeta(text: string): { agentId: string | null; usage: Record<s
     return { agentId, usage, cleanText: clean }
 }
 
+const USAGE_LABELS: Record<string, string> = {
+    total_tokens: 'tokens',
+    tool_uses: 'tools',
+    duration_ms: 'time',
+}
+
+function formatUsageValue(key: string, value: string): string {
+    if (key === 'duration_ms') {
+        const ms = parseInt(value, 10)
+        if (!isNaN(ms)) return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`
+    }
+    if (key === 'total_tokens') {
+        const n = parseInt(value, 10)
+        if (!isNaN(n) && n >= 1000) return `${(n / 1000).toFixed(1)}k`
+    }
+    return value
+}
+
+export function AgentUsageBadges({ agentId, usage }: { agentId: string | null; usage: Record<string, string> | null }) {
+    if (!agentId && !usage) return null
+    return (
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+            {usage && Object.entries(usage).map(([k, v]) => (
+                <span key={k} className="inline-flex items-center gap-1 rounded-full bg-[var(--app-secondary-bg)] px-2 py-0.5 text-[var(--app-hint)]">
+                    <span>{USAGE_LABELS[k] ?? k}</span>
+                    <span className="font-mono text-[var(--app-fg)]">{formatUsageValue(k, v)}</span>
+                </span>
+            ))}
+        </div>
+    )
+}
+
 const TaskResultView: ToolViewComponent = (props: ToolViewProps) => {
     const { state, result } = props.block.tool
 
@@ -765,25 +797,10 @@ const TaskResultView: ToolViewComponent = (props: ToolViewProps) => {
 
     const text = extractTextFromResult(result)
     if (text) {
-        const { agentId, usage, cleanText } = parseAgentMeta(text)
+        const { usage, cleanText } = parseAgentMeta(text)
         return (
             <div className="flex flex-col gap-2">
-                {(agentId || usage) && (
-                    <div className="flex flex-wrap items-center gap-2">
-                        {agentId && (
-                            <div className="flex items-center gap-1.5">
-                                <span className="text-xs text-[var(--app-hint)]">agentId</span>
-                                <span className="rounded bg-[var(--app-secondary-bg)] px-1.5 py-0.5 font-mono text-xs text-[var(--app-fg)]">{agentId}</span>
-                            </div>
-                        )}
-                        {usage && Object.entries(usage).map(([k, v]) => (
-                            <div key={k} className="flex items-center gap-1">
-                                <span className="text-xs text-[var(--app-hint)]">{k}</span>
-                                <span className="rounded bg-[var(--app-secondary-bg)] px-1.5 py-0.5 font-mono text-xs text-[var(--app-fg)]">{v}</span>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                <AgentUsageBadges agentId={null} usage={usage} />
                 {cleanText && (
                     <div className="rounded-lg border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] p-3">
                         <MarkdownRenderer content={cleanText} />
@@ -831,6 +848,7 @@ const SkillResultView: ToolViewComponent = (props: ToolViewProps) => {
 
 export const toolResultViewRegistry: Record<string, ToolViewComponent> = {
     Task: TaskResultView,
+    Agent: TaskResultView,
     Skill: SkillResultView,
     Bash: BashResultView,
     exec_command: BashResultView,
