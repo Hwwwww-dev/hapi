@@ -489,11 +489,11 @@ function ToolCardInner(props: ToolCardProps) {
             </div>
 
             {subtitle ? (
-                <CardDescription className="font-mono text-xs break-all opacity-80">
+                <CardDescription className="pl-[22px] font-mono text-xs break-all opacity-80">
                     {truncate(subtitle, 160)}
                 </CardDescription>
             ) : null}
-            {agentMeta ? <AgentUsageBadges agentId={null} usage={agentMeta} /> : null}
+            {agentMeta ? <div className="pl-[14px]"><AgentUsageBadges agentId={null} usage={agentMeta} /></div> : null}
         </div>
     )
 
@@ -572,7 +572,7 @@ function ToolCardInner(props: ToolCardProps) {
             </CardHeader>
 
             {hasBody ? (
-                <CardContent className="px-3 pb-3 pt-0">
+                <CardContent className="px-3 pb-3 pt-0 pl-[34px]">
                     {taskSummary ? (
                         <div className="mt-2">
                             {taskSummary}

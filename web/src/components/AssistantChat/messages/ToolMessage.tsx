@@ -118,7 +118,7 @@ function HappyNestedBlockList(props: {
                     const onRetry = canRetry ? () => ctx.onRetryMessage!(block.localId!) : undefined
 
                     return (
-                        <div key={`user:${block.id}`} className={userBubbleClass}>
+                        <div key={`user:${block.id}`} className={`${userBubbleClass} animate-fade-in-up`}>
                             <div className="flex items-end gap-2">
                                 <div className="flex-1">
                                     <LazyRainbowText text={block.text} />
@@ -134,9 +134,20 @@ function HappyNestedBlockList(props: {
                 }
 
                 if (block.kind === 'agent-text') {
+                    const isLong = block.text.length > 200
                     return (
-                        <div key={`agent:${block.id}`} className="px-1">
-                            <MarkdownRenderer content={block.text} />
+                        <div key={`agent:${block.id}`} className="px-1 animate-fade-in-up">
+                            {isLong ? (
+                                <details className="group">
+                                    <summary className="cursor-pointer select-none text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)] list-none flex items-center gap-1 mb-1">
+                                        <span className="transition-transform group-open:rotate-90">▶</span>
+                                        <span>{block.text.slice(0, 60).trim()}…</span>
+                                    </summary>
+                                    <MarkdownRenderer content={block.text} />
+                                </details>
+                            ) : (
+                                <MarkdownRenderer content={block.text} />
+                            )}
                         </div>
                     )
                 }
@@ -144,7 +155,7 @@ function HappyNestedBlockList(props: {
                 if (block.kind === 'cli-output') {
                     const alignClass = block.source === 'user' ? 'ml-auto w-full max-w-[92%]' : ''
                     return (
-                        <div key={`cli:${block.id}`} className="px-1 min-w-0 max-w-full overflow-x-hidden">
+                        <div key={`cli:${block.id}`} className="px-1 min-w-0 max-w-full overflow-x-hidden animate-fade-in-up">
                             <div className={alignClass}>
                                 <CliOutputBlock text={block.text} />
                             </div>
@@ -163,7 +174,7 @@ function HappyNestedBlockList(props: {
 
                     if (isCompact) {
                         return (
-                            <div key={`event:${block.id}`} className="py-1">
+                            <div key={`event:${block.id}`} className="py-1 animate-fade-in-up">
                                 <div className="mx-auto w-fit max-w-[92%]">
                                     <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-3 py-1 text-xs text-[var(--app-hint)]">
                                         <span aria-hidden="true">{presentation.icon}</span>
@@ -176,7 +187,7 @@ function HappyNestedBlockList(props: {
 
                     if (isMessage && messageText && messageText.length > 120) {
                         return (
-                            <div key={`event:${block.id}`} className="py-1">
+                            <div key={`event:${block.id}`} className="py-1 animate-fade-in-up">
                                 <details className="rounded-lg border border-[var(--app-divider)] bg-[var(--app-secondary-bg)]">
                                     <summary className="cursor-pointer select-none px-3 py-2 text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)]">
                                         <span className="inline-flex items-center gap-1.5">
@@ -193,7 +204,7 @@ function HappyNestedBlockList(props: {
                     }
 
                     return (
-                        <div key={`event:${block.id}`} className="py-1">
+                        <div key={`event:${block.id}`} className="py-1 animate-fade-in-up">
                             <div className="mx-auto w-fit max-w-[92%] px-2 text-center text-xs text-[var(--app-hint)] opacity-80">
                                 <span className="inline-flex items-center gap-1">
                                     {presentation.icon ? <span aria-hidden="true">{presentation.icon}</span> : null}
@@ -209,7 +220,7 @@ function HappyNestedBlockList(props: {
                     const taskChildren = isTask ? splitTaskChildren(block) : null
 
                     return (
-                        <div key={`tool:${block.id}`} className="py-1 opacity-75">
+                        <div key={`tool:${block.id}`} className="py-1 opacity-75 animate-fade-in-up">
                             <ToolCard
                                 api={ctx.api}
                                 sessionId={ctx.sessionId}

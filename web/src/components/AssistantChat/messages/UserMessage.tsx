@@ -79,8 +79,6 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
     const canRetry = status === 'failed' && typeof localId === 'string' && Boolean(ctx.onRetryMessage)
     const onRetry = canRetry ? () => ctx.onRetryMessage!(localId) : undefined
 
-    const userBubbleClass = 'w-fit min-w-0 max-w-[92%] ml-auto rounded-xl bg-[var(--app-secondary-bg)] px-3 py-2 text-[var(--app-fg)] shadow-sm'
-
     if (isCliOutput) {
         return (
             <MessagePrimitive.Root className="px-1 min-w-0 max-w-full overflow-x-hidden">
@@ -159,49 +157,51 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
     const isLong = text.length > 200
 
     return (
-        <MessagePrimitive.Root className={`${userBubbleClass} group/user relative`}>
-            <div className="flex items-end gap-2">
-                <div className="flex-1 min-w-0">
-                    {hasText && (
-                        isLong ? (
-                            <div>
-                                {expanded
-                                    ? <LazyRainbowText text={text} />
-                                    : <div className="line-clamp-5 whitespace-pre-wrap break-words">{text}</div>
-                                }
-                                <button
-                                    type="button"
-                                    onClick={() => setExpanded(v => !v)}
-                                    className="mt-1 text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)]"
-                                >
-                                    {expanded ? '收起' : `展开全文 (${text.length} 字)`}
-                                </button>
-                            </div>
-                        ) : (
-                            <LazyRainbowText text={text} />
-                        )
-                    )}
-                    {hasAttachments && <MessageAttachments attachments={attachments} />}
-                </div>
-                {status ? (
-                    <div className="shrink-0 self-end pb-0.5">
-                        <MessageStatusIndicator status={status} onRetry={onRetry} />
+        <div className="group/user ml-auto w-fit min-w-0 max-w-[92%]">
+            <MessagePrimitive.Root className="rounded-xl bg-[var(--app-secondary-bg)] px-3 py-2 text-[var(--app-fg)] shadow-sm">
+                <div className="flex items-end gap-2">
+                    <div className="flex-1 min-w-0">
+                        {hasText && (
+                            isLong ? (
+                                <div>
+                                    {expanded
+                                        ? <LazyRainbowText text={text} />
+                                        : <div className="line-clamp-5 whitespace-pre-wrap break-words">{text}</div>
+                                    }
+                                    <button
+                                        type="button"
+                                        onClick={() => setExpanded(v => !v)}
+                                        className="mt-1 text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)]"
+                                    >
+                                        {expanded ? '收起' : `展开全文 (${text.length} 字)`}
+                                    </button>
+                                </div>
+                            ) : (
+                                <LazyRainbowText text={text} />
+                            )
+                        )}
+                        {hasAttachments && <MessageAttachments attachments={attachments} />}
                     </div>
-                ) : null}
-            </div>
-            {hasText && (
-                <button
-                    type="button"
-                    onClick={() => copy(text)}
-                    className="absolute right-1 top-1 rounded p-1 text-[var(--app-hint)] opacity-0 transition-opacity hover:bg-[var(--app-bg)] hover:text-[var(--app-fg)] group-hover/user:opacity-100"
-                    title="Copy"
-                >
-                    {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
-                </button>
-            )}
-            <div className="mt-1 flex justify-end">
+                    {status ? (
+                        <div className="shrink-0 self-end pb-0.5">
+                            <MessageStatusIndicator status={status} onRetry={onRetry} />
+                        </div>
+                    ) : null}
+                </div>
+            </MessagePrimitive.Root>
+            <div className="mt-1 flex items-center justify-end gap-2">
+                {hasText && (
+                    <button
+                        type="button"
+                        onClick={() => copy(text)}
+                        className="rounded p-0.5 text-[var(--app-hint)] opacity-0 transition-opacity hover:text-[var(--app-fg)] group-hover/user:opacity-100"
+                        title="Copy"
+                    >
+                        {copied ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
+                    </button>
+                )}
                 <MessageTimestamp value={createdAt} />
             </div>
-        </MessagePrimitive.Root>
+        </div>
     )
 })

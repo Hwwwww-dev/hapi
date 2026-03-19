@@ -319,7 +319,7 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
                                     ) : null}
 
                                     {props.hasMoreMessages && !props.isLoadingMessages ? (
-                                        <div className="py-1 mb-2">
+                                        <div className={`py-1 mb-2${props.disabled ? ' mt-8' : ''}`}>
                                             <div className="mx-auto w-fit">
                                                 <Button
                                                     variant="outline"
