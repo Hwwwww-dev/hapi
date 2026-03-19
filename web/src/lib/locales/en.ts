@@ -469,6 +469,7 @@ export default {
   'git.setUpstream': 'Set Upstream',
   'git.settingUpstream': 'Setting…',
   'git.mergeTo': 'Merge into current',
+  'git.delete': 'Delete',
   'git.merging': 'Merging…',
   'dialog.git.rename.title': 'Rename Branch',
   'dialog.git.rename.placeholder': 'New branch name',

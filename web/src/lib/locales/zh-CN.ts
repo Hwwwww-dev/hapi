@@ -466,11 +466,12 @@ export default {
   'git.emptyDirectory': '空目录。',
 
   // 分支操作
-  'git.rename': '改名',
-  'git.renaming': '改名中…',
+  'git.rename': '重命名',
+  'git.renaming': '重命名中…',
   'git.setUpstream': '设置上游',
   'git.settingUpstream': '设置中…',
   'git.mergeTo': '合并到当前分支',
+  'git.delete': '删除',
   'git.merging': '合并中…',
   'dialog.git.rename.title': '重命名分支',
   'dialog.git.rename.placeholder': '新分支名',
