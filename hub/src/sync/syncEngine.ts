@@ -1037,6 +1037,14 @@ export class SyncEngine {
         return await this.rpcGateway.gitRemoteBranches(sessionId, options)
     }
 
+    async gitCherryPick(sessionId: string, options: { cwd?: string; hash: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitCherryPick(sessionId, options)
+    }
+
+    async gitCherryPickAbort(sessionId: string, options: { cwd?: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitCherryPickAbort(sessionId, options)
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.rpcGateway.readSessionFile(sessionId, path)
     }

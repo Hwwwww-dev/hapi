@@ -37,6 +37,7 @@ const gitSetUpstreamSchema = z.object({ branch: z.string().min(1).regex(/^[^-]/)
 const gitRemoteAddSchema = z.object({ name: z.string().min(1).regex(/^[^-]/), url: z.string().min(1) })
 const gitRemoteRemoveSchema = z.object({ name: z.string().min(1) })
 const gitRemoteSetUrlSchema = z.object({ name: z.string().min(1), url: z.string().min(1) })
+const gitCherryPickSchema = z.object({ hash: z.string().min(4).regex(/^[a-f0-9]+$/) })
 
 function parseBooleanParam(value: string | undefined): boolean | undefined {
     if (value === 'true') return true
@@ -592,6 +593,30 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         const body = gitRemoteSetUrlSchema.safeParse(await c.req.json())
         if (!body.success) return c.json({ error: 'Invalid request' }, 400)
         const result = await runRpc(() => engine.gitRemoteSetUrl(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-cherry-pick', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const body = gitCherryPickSchema.safeParse(await c.req.json())
+        if (!body.success) return c.json({ error: 'Invalid request' }, 400)
+        const result = await runRpc(() => engine.gitCherryPick(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
+        return c.json(result)
+    })
+
+    app.post('/sessions/:id/git-cherry-pick-abort', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const result = await runRpc(() => engine.gitCherryPickAbort(sessionResult.sessionId, { cwd: sessionPath }))
         return c.json(result)
     })
 

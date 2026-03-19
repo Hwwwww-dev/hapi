@@ -382,4 +382,17 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         return await queuedGitCommand(['remote', 'set-url', data.name, data.url], resolved.cwd, data.timeout)
     })
 
+    rpcHandlerManager.registerHandler<{ cwd?: string; hash: string; timeout?: number }, GitCommandResponse>('git-cherry-pick', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.hash || typeof data.hash !== 'string') return rpcError('commit hash is required')
+        return await queuedGitCommand(['cherry-pick', data.hash], resolved.cwd, data.timeout ?? 30_000)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; timeout?: number }, GitCommandResponse>('git-cherry-pick-abort', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        return await queuedGitCommand(['cherry-pick', '--abort'], resolved.cwd, data.timeout)
+    })
+
 }

@@ -313,6 +313,14 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-remote-branches', options) as RpcCommandResponse
     }
 
+    async gitCherryPick(sessionId: string, options: { cwd?: string; hash: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-cherry-pick', options) as RpcCommandResponse
+    }
+
+    async gitCherryPickAbort(sessionId: string, options: { cwd?: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-cherry-pick-abort', options) as RpcCommandResponse
+    }
+
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {
         return await this.sessionRpc(sessionId, 'readFile', { path }) as RpcReadFileResponse
     }
