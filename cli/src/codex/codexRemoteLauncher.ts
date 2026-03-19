@@ -613,6 +613,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
             try {
                 if (!hasThread) {
                     const threadParams = buildThreadStartParams({
+                        cwd: session.path,
                         mode: message.mode,
                         mcpServers,
                         cliOverrides: session.codexCliOverrides
@@ -671,6 +672,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                 const turnParams = buildTurnStartParams({
                     threadId: this.currentThreadId,
                     message: message.message,
+                    cwd: session.path,
                     mode: {
                         ...message.mode,
                         model: session.getModel() ?? message.mode.model
