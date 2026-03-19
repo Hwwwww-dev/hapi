@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import type { ApiClient } from '@/api/client'
 import type { CommitEntry } from '@/types/api'
 import { useGitLog } from '@/hooks/queries/useGitLog'
+import { useGitTags } from '@/hooks/queries/useGitTags'
 import { useTranslation } from '@/lib/use-translation'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { notify } from '@/lib/notify'
@@ -42,6 +43,12 @@ export function HistoryTab({ api, sessionId, ahead, onRefresh }: HistoryTabProps
     const [tagName, setTagName] = useState('')
     const [tagMessage, setTagMessage] = useState('')
     const [createTagLoading, setCreateTagLoading] = useState(false)
+
+    // Tags view
+    const [viewMode, setViewMode] = useState<'commits' | 'tags'>('commits')
+    const { tags, isLoading: tagsLoading, refetch: refetchTags } = useGitTags(api, sessionId)
+    const [deleteTagTarget, setDeleteTagTarget] = useState<string | null>(null)
+    const [deleteTagLoading, setDeleteTagLoading] = useState(false)
 
     useEffect(() => {
         if (commits.length > 0) {
@@ -131,32 +138,97 @@ export function HistoryTab({ api, sessionId, ahead, onRefresh }: HistoryTabProps
         }
     }, [api, sessionId, createTagTarget, tagName, tagMessage, t])
 
+    const handleDeleteTag = useCallback(async () => {
+        if (!deleteTagTarget) return
+        setDeleteTagLoading(true)
+        const res = await api.gitTagDelete(sessionId, deleteTagTarget)
+        setDeleteTagLoading(false)
+        if (res.success) {
+            setDeleteTagTarget(null)
+            notify.success(t('notify.git.tagDeleteOk'))
+            refetchTags()
+        } else {
+            notify.error(res.stderr ?? res.error ?? 'Delete tag failed')
+        }
+    }, [api, sessionId, deleteTagTarget, t, refetchTags])
+
     return (
-        <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
-            {allCommits.map((commit, index) => (
-                <CommitRow
-                    key={commit.hash}
-                    commit={commit}
-                    api={api}
-                    sessionId={sessionId}
-                    isLocal={index < ahead}
-                    onUncommit={() => setUncommitTarget(commit)}
-                    onCherryPick={() => setCherryPickTarget(commit)}
-                    onResetMixed={() => setResetMixedTarget(commit)}
-                    onResetHard={() => setResetHardTarget(commit)}
-                    onCreateTag={() => setCreateTagTarget(commit)}
-                />
-            ))}
-            {isLoading && (
-                <div className="flex justify-center py-4">
-                    <span className="w-5 h-5 border-2 border-[var(--app-link)] border-t-transparent rounded-full animate-spin" />
+        <div className="flex flex-col h-full">
+            {/* Tab switcher */}
+            <div className="flex border-b border-[var(--app-divider)] shrink-0">
+                <button
+                    type="button"
+                    onClick={() => setViewMode('commits')}
+                    className={`flex-1 py-2 text-xs font-medium transition-colors ${viewMode === 'commits' ? 'text-[var(--app-link)] border-b-2 border-[var(--app-link)]' : 'text-[var(--app-hint)] hover:text-[var(--app-fg)]'}`}
+                >
+                    Commits
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setViewMode('tags')}
+                    className={`flex-1 py-2 text-xs font-medium transition-colors ${viewMode === 'tags' ? 'text-[var(--app-link)] border-b-2 border-[var(--app-link)]' : 'text-[var(--app-hint)] hover:text-[var(--app-fg)]'}`}
+                >
+                    {t('git.tags', { n: tags.length })}
+                </button>
+            </div>
+            {viewMode === 'commits' && (
+                <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
+                    {allCommits.map((commit, index) => (
+                        <CommitRow
+                            key={commit.hash}
+                            commit={commit}
+                            api={api}
+                            sessionId={sessionId}
+                            isLocal={index < ahead}
+                            onUncommit={() => setUncommitTarget(commit)}
+                            onCherryPick={() => setCherryPickTarget(commit)}
+                            onResetMixed={() => setResetMixedTarget(commit)}
+                            onResetHard={() => setResetHardTarget(commit)}
+                            onCreateTag={() => setCreateTagTarget(commit)}
+                        />
+                    ))}
+                    {isLoading && (
+                        <div className="flex justify-center py-4">
+                            <span className="w-5 h-5 border-2 border-[var(--app-link)] border-t-transparent rounded-full animate-spin" />
+                        </div>
+                    )}
+                    {!hasMore && allCommits.length > 0 && (
+                        <div className="text-center text-xs text-[var(--app-hint)] py-4">{t('git.noMoreCommits')}</div>
+                    )}
+                    {!isLoading && allCommits.length === 0 && (
+                        <div className="text-center text-sm text-[var(--app-hint)] py-8">{t('git.noCommitHistory')}</div>
+                    )}
                 </div>
             )}
-            {!hasMore && allCommits.length > 0 && (
-                <div className="text-center text-xs text-[var(--app-hint)] py-4">{t('git.noMoreCommits')}</div>
-            )}
-            {!isLoading && allCommits.length === 0 && (
-                <div className="text-center text-sm text-[var(--app-hint)] py-8">{t('git.noCommitHistory')}</div>
+            {viewMode === 'tags' && (
+                <div className="flex-1 overflow-y-auto">
+                    {tagsLoading ? (
+                        <div className="flex justify-center py-4">
+                            <span className="w-5 h-5 border-2 border-[var(--app-link)] border-t-transparent rounded-full animate-spin" />
+                        </div>
+                    ) : tags.length === 0 ? (
+                        <div className="text-center text-sm text-[var(--app-hint)] py-8">{t('git.noTags')}</div>
+                    ) : (
+                        tags.map(tag => (
+                            <div key={tag.name} className="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--app-divider)] last:border-0">
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm text-[var(--app-fg)] font-medium truncate">{tag.name}</div>
+                                    <div className="text-xs text-[var(--app-hint)] mt-0.5 flex items-center gap-1">
+                                        <span className="font-mono">{tag.short}</span>
+                                        {tag.subject && <><span>·</span><span className="truncate">{tag.subject}</span></>}
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setDeleteTagTarget(tag.name)}
+                                    className="shrink-0 text-xs text-red-500 hover:bg-[var(--app-subtle-bg)] px-2 py-1 rounded transition-colors"
+                                >
+                                    {t('git.deleteTag')}
+                                </button>
+                            </div>
+                        ))
+                    )}
+                </div>
             )}
             <ConfirmDialog
                 isOpen={uncommitTarget !== null}
@@ -228,6 +300,18 @@ export function HistoryTab({ api, sessionId, ahead, onRefresh }: HistoryTabProps
                     </div>
                 </div>
             )}
+            {/* Delete tag confirm */}
+            <ConfirmDialog
+                isOpen={deleteTagTarget !== null}
+                onClose={() => setDeleteTagTarget(null)}
+                title={t('dialog.git.deleteTag.title')}
+                description={t('dialog.git.deleteTag.description', { name: deleteTagTarget ?? '' })}
+                confirmLabel={t('dialog.git.deleteTag.confirm')}
+                confirmingLabel={t('dialog.git.deleteTag.confirming')}
+                onConfirm={handleDeleteTag}
+                isPending={deleteTagLoading}
+                destructive
+            />
         </div>
     )
 }
