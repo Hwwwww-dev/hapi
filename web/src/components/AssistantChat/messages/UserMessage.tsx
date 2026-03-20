@@ -34,10 +34,21 @@ function isCompactContent(text: string): boolean {
     return text.startsWith(COMPACT_CONTENT_PREFIX)
 }
 
-const COMMAND_NAME_REGEX = /<command-name>\s*(\/[^\s<]+)\s*<\/command-name>/i
-const COMMAND_MESSAGE_REGEX = /<command-message>\s*([^<]*?)\s*<\/command-message>/i
+/** Unified XML tag parser for native Claude Code messages */
+const NATIVE_TAG_PATTERN = '(?:command-(?:name|message|args)|bash-(?:input|stdout|stderr)|local-command-[a-z-]+)'
+const NATIVE_TAG_CHECK_REGEX = new RegExp(`<${NATIVE_TAG_PATTERN}>`, 'i')
+const NATIVE_TAG_REGEX = new RegExp(`<(${NATIVE_TAG_PATTERN})>([\\s\\S]*?)<\\/\\1>`, 'gi')
 
-/** Detect special native system-like messages (interruptions, continuations, slash commands) */
+function extractNativeTags(text: string): Record<string, string> | null {
+    if (!NATIVE_TAG_CHECK_REGEX.test(text)) return null
+    const tags: Record<string, string> = {}
+    for (const match of text.matchAll(NATIVE_TAG_REGEX)) {
+        tags[match[1].toLowerCase()] = match[2].trim()
+    }
+    return Object.keys(tags).length > 0 ? tags : null
+}
+
+/** Detect special native system-like messages (interruptions, continuations, slash commands, bash) */
 function parseSystemLikeMessage(text: string): { icon: string; label: string } | null {
     const trimmed = text.trim()
     if (trimmed === '[Request interrupted by user]') {
@@ -46,17 +57,29 @@ function parseSystemLikeMessage(text: string): { icon: string; label: string } |
     if (trimmed === 'Continue from where you left off.') {
         return { icon: '▶', label: 'Continued conversation' }
     }
-    // Detect <command-name>/foo</command-name> style slash commands
-    const cmdMatch = trimmed.match(COMMAND_NAME_REGEX)
-    if (cmdMatch) {
-        const cmdName = cmdMatch[1]
-        const msgMatch = trimmed.match(COMMAND_MESSAGE_REGEX)
-        const label = msgMatch && msgMatch[1] && msgMatch[1] !== cmdName.slice(1)
-            ? `${cmdName} ${msgMatch[1]}`
+    const tags = extractNativeTags(trimmed)
+    if (!tags) return null
+    // Slash commands: <command-name>/cost</command-name>
+    if (tags['command-name']) {
+        const cmdName = tags['command-name']
+        const cmdMsg = tags['command-message']
+        const label = cmdMsg && cmdMsg !== cmdName.replace(/^\//, '')
+            ? `${cmdName} ${cmdMsg}`
             : cmdName
         return { icon: '⚡', label }
     }
-    return null
+    // Shell commands: <bash-input>git push</bash-input>
+    if (tags['bash-input']) {
+        const cmd = tags['bash-input'].split('\n')[0]
+        const stdout = tags['bash-stdout']
+        const stderr = tags['bash-stderr']
+        const output = stdout || stderr || null
+        const shortOutput = output ? output.split('\n')[0].slice(0, 60) : null
+        const label = shortOutput ? `$ ${cmd} → ${shortOutput}` : `$ ${cmd}`
+        return { icon: '💻', label }
+    }
+    // Bare caveat/system tags without recognized content
+    return { icon: '📋', label: 'System event' }
 }
 
 export const HappyUserMessage = memo(function HappyUserMessage() {

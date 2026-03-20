@@ -3,7 +3,7 @@ import type { ToolCallMessagePartProps } from '@assistant-ui/react'
 import type { ChatBlock } from '@/chat/types'
 import type { ToolCallBlock } from '@/chat/types'
 import { isObject, safeStringify } from '@hapi/protocol'
-import { getEventPresentation } from '@/chat/presentation'
+import { getEventPresentation, isPillEvent } from '@/chat/presentation'
 import { CodeBlock } from '@/components/CodeBlock'
 import { MarkdownRenderer } from '@/components/MarkdownRenderer'
 import { LazyRainbowText } from '@/components/LazyRainbowText'
@@ -163,9 +163,7 @@ function HappyNestedBlockList(props: {
                 if (block.kind === 'agent-event') {
                     const presentation = getEventPresentation(block.event)
                     const eventType = (block.event as { type: string }).type
-                    const eventMessage = eventType === 'message' ? (block.event as { message?: string }).message : undefined
-                    const isCompactMessage = eventType === 'message' && (eventMessage === 'Compaction completed' || eventMessage === 'Compaction started')
-                    const isCompact = eventType === 'compact' || eventType === 'microcompact' || isCompactMessage
+                    const isCompact = isPillEvent(block.event)
                     const isMessage = eventType === 'message'
                     const messageText = isMessage && typeof (block.event as Record<string, unknown>).message === 'string'
                         ? (block.event as Record<string, unknown>).message as string

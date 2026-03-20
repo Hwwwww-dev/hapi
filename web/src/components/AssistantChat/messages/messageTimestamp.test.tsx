@@ -34,7 +34,15 @@ vi.mock('@/components/CliOutputBlock', () => ({
 }))
 
 vi.mock('@/chat/presentation', () => ({
-    getEventPresentation: () => ({ icon: '⚙️' })
+    isPillEvent: () => false,
+    getEventPresentation: () => ({ icon: '⚙️', text: 'event' })
+}))
+
+vi.mock('@/hooks/useCopyToClipboard', () => ({
+    useCopyToClipboard: () => ({
+        copied: false,
+        copy: vi.fn()
+    })
 }))
 
 vi.mock('@/components/assistant-ui/markdown-text', () => ({
@@ -58,6 +66,19 @@ describe('message timestamps', () => {
     beforeEach(() => {
         cleanup()
         mockMessage = null
+        Object.defineProperty(window, 'matchMedia', {
+            writable: true,
+            value: vi.fn().mockImplementation((query: string) => ({
+                matches: false,
+                media: query,
+                onchange: null,
+                addListener: vi.fn(),
+                removeListener: vi.fn(),
+                addEventListener: vi.fn(),
+                removeEventListener: vi.fn(),
+                dispatchEvent: vi.fn()
+            }))
+        })
     })
 
     it('shows seconds timestamp for user messages', () => {
@@ -148,3 +169,4 @@ describe('message timestamps', () => {
         expect(screen.getByText(/\d{2}:\d{2}:\d{2}/)).toBeInTheDocument()
     })
 })
+

@@ -20,6 +20,17 @@ export type EventPresentation = {
     text: string
 }
 
+export function isPillEvent(event: AgentEvent): boolean {
+    if (event.type === 'compact' || event.type === 'microcompact') {
+        return true
+    }
+    if (event.type !== 'message') {
+        return false
+    }
+    const msg = typeof event.message === 'string' ? event.message : ''
+    return msg === 'Compaction completed' || msg === 'Compaction started' || msg === 'Aborted by user'
+}
+
 export function getEventPresentation(event: AgentEvent): EventPresentation {
     if (event.type === 'api-error') {
         const { retryAttempt, maxRetries } = event as { retryAttempt: number; maxRetries: number }
@@ -53,9 +64,11 @@ export function getEventPresentation(event: AgentEvent): EventPresentation {
     }
     if (event.type === 'message') {
         const msg = typeof event.message === 'string' ? event.message : ''
-        // Detect compact-related messages sent by the CLI via onCompletionEvent
         if (msg === 'Compaction completed' || msg === 'Compaction started') {
             return { icon: '📦', text: msg === 'Compaction completed' ? 'Conversation compacted' : 'Compacting conversation...' }
+        }
+        if (msg === 'Aborted by user') {
+            return { icon: '⏹', text: 'Aborted by user' }
         }
         return { icon: null, text: msg || 'Message' }
     }

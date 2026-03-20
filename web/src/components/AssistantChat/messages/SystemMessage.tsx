@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { useAssistantState } from '@assistant-ui/react'
-import { getEventPresentation } from '@/chat/presentation'
+import { getEventPresentation, isPillEvent } from '@/chat/presentation'
 import { MessageTimestamp } from '@/components/AssistantChat/messages/MessageTimestamp'
 import type { HappyChatMessageMetadata } from '@/lib/assistant-runtime'
 
@@ -16,28 +16,17 @@ export const HappySystemMessage = memo(function HappySystemMessage() {
         const event = custom?.kind === 'event' ? custom.event : undefined
         return event ? getEventPresentation(event).icon : null
     })
-    const eventType = useAssistantState(({ message }) => {
-        if (message.role !== 'system') return null
+    const isPill = useAssistantState(({ message }) => {
+        if (message.role !== 'system') return false
         const custom = message.metadata.custom as Partial<HappyChatMessageMetadata> | undefined
         const event = custom?.kind === 'event' ? custom.event : undefined
-        if (!event) return null
-        const type = (event as { type: string }).type
-        // Detect compact-related messages sent via onCompletionEvent
-        if (type === 'message') {
-            const msg = (event as { message?: string }).message
-            if (msg === 'Compaction completed' || msg === 'Compaction started') {
-                return 'compact'
-            }
-        }
-        return type
+        return event ? isPillEvent(event) : false
     })
     const createdAt = useAssistantState(({ message }) => message.createdAt)
 
     if (role !== 'system') return null
 
-    const isCompact = eventType === 'compact' || eventType === 'microcompact'
-
-    if (isCompact) {
+    if (isPill) {
         return (
             <div className="py-1">
                 <div className="mx-auto w-fit max-w-[92%]">
