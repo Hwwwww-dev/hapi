@@ -66,6 +66,96 @@ describe('normalizeDecryptedMessage', () => {
         }))
     })
 
+    it('drops unsupported Claude system output records', () => {
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'agent',
+            content: {
+                type: 'output',
+                data: {
+                    type: 'system',
+                    subtype: 'stop_hook_summary',
+                    uuid: 'sys-1'
+                }
+            }
+        }))
+
+        expect(normalized).toBeNull()
+    })
+
+    it('drops Claude init system output records', () => {
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'agent',
+            content: {
+                type: 'output',
+                data: {
+                    type: 'system',
+                    subtype: 'init',
+                    uuid: 'sys-init',
+                    session_id: 'session-1'
+                }
+            }
+        }))
+
+        expect(normalized).toBeNull()
+    })
+
+    it('keeps known Claude system subtypes as normalized events', () => {
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'agent',
+            content: {
+                type: 'output',
+                data: {
+                    type: 'system',
+                    subtype: 'turn_duration',
+                    uuid: 'sys-2',
+                    durationMs: 1200
+                }
+            }
+        }))
+
+        expect(normalized).toMatchObject({
+            id: 'msg-1',
+            role: 'event',
+            isSidechain: false,
+            content: {
+                type: 'turn-duration',
+                durationMs: 1200
+            }
+        })
+    })
+
+    it('keeps the stringify fallback for unknown non-system agent payloads', () => {
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'agent',
+            content: {
+                type: 'output',
+                data: {
+                    type: 'assistant',
+                    foo: 'bar'
+                }
+            }
+        }))
+
+        expect(normalized).toMatchObject({
+            id: 'msg-1',
+            role: 'agent',
+            isSidechain: false
+        })
+
+        expect(normalized?.role).toBe('agent')
+        if (!normalized || normalized.role !== 'agent') {
+            throw new Error('Expected agent message')
+        }
+        const firstBlock = normalized.content[0]
+        expect(firstBlock).toMatchObject({
+            type: 'text'
+        })
+        if (firstBlock.type !== 'text') {
+            throw new Error('Expected fallback text block')
+        }
+        expect(firstBlock.text).toContain('"foo": "bar"')
+    })
+
     it('parses thinking tags embedded in assistant text into reasoning blocks', () => {
         const normalized = normalizeDecryptedMessage(createMessage({
             type: 'assistant',

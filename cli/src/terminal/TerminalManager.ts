@@ -1,4 +1,5 @@
 import { logger } from '@/ui/logger'
+import { getLogicalCwd } from '@/utils/logicalCwd'
 import type {
     TerminalErrorPayload,
     TerminalExitPayload,
@@ -120,7 +121,7 @@ export class TerminalManager {
             return
         }
 
-        const sessionPath = this.getSessionPath() ?? process.cwd()
+        const sessionPath = this.getSessionPath() ?? getLogicalCwd()
         const shell = resolveShell()
         const decoder = new TextDecoder()
 

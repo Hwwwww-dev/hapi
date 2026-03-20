@@ -10,6 +10,7 @@ import { getTelegramWebApp, isTelegramEnvironment, loadTelegramSdk } from './hoo
 import { queryClient } from './lib/query-client'
 import { createAppRouter } from './router'
 import { I18nProvider } from './lib/i18n-context'
+import { restoreSpaRedirect } from './lib/spaRedirect'
 
 function getStartParam(): string | null {
     const query = new URLSearchParams(window.location.search)
@@ -39,6 +40,10 @@ async function bootstrap() {
     const isTelegram = isTelegramEnvironment()
     if (isTelegram) {
         await loadTelegramSdk()
+    }
+
+    if (!isTelegram) {
+        restoreSpaRedirect()
     }
 
     const updateSW = registerSW({
