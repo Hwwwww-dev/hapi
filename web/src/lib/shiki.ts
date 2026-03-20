@@ -152,8 +152,8 @@ export function useShikiHighlighter(
             setHighlighted(rendered as ReactNode)
         }
 
-        // Debounce highlighting
-        const timer = setTimeout(highlight, 50)
+        // Debounce highlighting to reduce churn while streaming long code blocks.
+        const timer = setTimeout(highlight, 150)
         return () => {
             cancelled = true
             clearTimeout(timer)
