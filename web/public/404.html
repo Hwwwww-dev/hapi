@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirecting…</title>
+</head>
+<body>
+    <script>
+        (function () {
+            var routeRoots = ['sessions', 'settings']
+            var pathname = window.location.pathname || '/'
+            var redirect = pathname + window.location.search + window.location.hash
+            sessionStorage.setItem('spaRedirect', redirect)
+
+            function normalizeBasePath(path) {
+                if (!path || path === '/') {
+                    return '/'
+                }
+                return path.endsWith('/') ? path : path + '/'
+            }
+
+            function getBasePath(path) {
+                if (!path || path === '/' || path === '/404.html') {
+                    return '/'
+                }
+
+                if (path.endsWith('/404.html')) {
+                    return normalizeBasePath(path.slice(0, -'404.html'.length))
+                }
+
+                var segments = path.split('/').filter(Boolean)
+                var routeIndex = segments.findIndex(function (segment) {
+                    return routeRoots.indexOf(segment) !== -1
+                })
+
+                if (routeIndex === -1) {
+                    return '/'
+                }
+
+                if (routeIndex === 0) {
+                    return '/'
+                }
+
+                return normalizeBasePath('/' + segments.slice(0, routeIndex).join('/'))
+            }
+
+            window.location.replace(getBasePath(pathname))
+        })()
+    </script>
+</body>
+</html>
