@@ -24,6 +24,7 @@ const RawJSONLinesBaseSchema = z.object({
   uuid: z.string().optional(),
   parentUuid: z.string().nullable().optional(),
   isSidechain: z.boolean().optional(),
+  sidechainGroupId: z.string().nullable().optional(),
   isMeta: z.boolean().optional(),
   isCompactSummary: z.boolean().optional(),
   userType: z.string().optional(),

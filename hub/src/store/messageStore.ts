@@ -1,7 +1,7 @@
 import type { Database } from 'bun:sqlite'
 
 import type { StoredMessage } from './types'
-import { addMessage, getMessages, getMessagesAfter, countMessages, getRootMessages, getSidechainMessagesInRange, getSidechainMessagesFrom, countRootMessages, hasRootMessagesBefore, importNativeMessage, mergeSessionMessages, type NativeMessageImportPayload } from './messages'
+import { addMessage, getMessages, getMessagesAfter, countMessages, getRootMessages, getSidechainMessagesByGroupIds, getAllSidechainMessages, countRootMessages, hasRootMessagesBefore, importNativeMessage, mergeSessionMessages, type NativeMessageImportPayload } from './messages'
 
 export class MessageStore {
     private readonly db: Database
@@ -37,12 +37,12 @@ export class MessageStore {
         return getRootMessages(this.db, sessionId, limit, beforeSeq)
     }
 
-    getSidechainMessagesInRange(sessionId: string, minSeq: number, maxSeq: number): StoredMessage[] {
-        return getSidechainMessagesInRange(this.db, sessionId, minSeq, maxSeq)
+    getSidechainMessagesByGroupIds(sessionId: string, groupIds: string[]): StoredMessage[] {
+        return getSidechainMessagesByGroupIds(this.db, sessionId, groupIds)
     }
 
-    getSidechainMessagesFrom(sessionId: string, minSeq: number): StoredMessage[] {
-        return getSidechainMessagesFrom(this.db, sessionId, minSeq)
+    getAllSidechainMessages(sessionId: string): StoredMessage[] {
+        return getAllSidechainMessages(this.db, sessionId)
     }
 
     countRootMessages(sessionId: string): number {

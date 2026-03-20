@@ -24,10 +24,11 @@ export function reduceChatBlocks(
     agentState: AgentState | null | undefined
 ): { blocks: ChatBlock[]; hasReadyEvent: boolean; latestUsage: LatestUsage | null } {
     const permissionsById = getPermissions(agentState)
-    // Only collect tool IDs from root messages (not sidechain) to avoid
-    // sidechain tool IDs preventing permission-only ToolCards from being created.
-    const rootNormalized = normalized.filter(m => !m.isSidechain)
-    const toolIdsInMessages = collectToolIdsFromMessages(rootNormalized)
+    // Collect tool IDs from ALL messages (including sidechain) so that
+    // sidechain tool IDs prevent duplicate permission-only cards from being
+    // created at the root level.  Sidechain permissions are already rendered
+    // inside their parent Agent/Task tool card via reduceTimeline recursion.
+    const toolIdsInMessages = collectToolIdsFromMessages(normalized)
     const titleChangesByToolUseId = collectTitleChanges(normalized)
 
     const traced = traceMessages(normalized)

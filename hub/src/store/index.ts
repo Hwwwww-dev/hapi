@@ -25,7 +25,7 @@ export { PushStore } from './pushStore'
 export { SessionStore } from './sessionStore'
 export { UserStore } from './userStore'
 
-const SCHEMA_VERSION: number = 8
+const SCHEMA_VERSION: number = 9
 const REQUIRED_TABLES = [
     'sessions',
     'session_native_aliases',
@@ -185,8 +185,15 @@ export class Store {
             return
         }
 
-        if (currentVersion === 7 && SCHEMA_VERSION === 8) {
+        if (currentVersion === 7 && SCHEMA_VERSION === 9) {
             this.migrateFromV7ToV8()
+            this.migrateFromV8ToV9()
+            this.setUserVersion(SCHEMA_VERSION)
+            return
+        }
+
+        if (currentVersion === 8 && SCHEMA_VERSION === 9) {
+            this.migrateFromV8ToV9()
             this.setUserVersion(SCHEMA_VERSION)
             return
         }
@@ -266,6 +273,7 @@ export class Store {
                 source_session_id TEXT,
                 source_key TEXT,
                 is_sidechain INTEGER NOT NULL DEFAULT 0,
+                sidechain_group_id TEXT,
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             );
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, seq);
@@ -273,7 +281,7 @@ export class Store {
             CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_native_source
             ON messages(session_id, source_provider, source_session_id, source_key)
             WHERE source_key IS NOT NULL;
-            CREATE INDEX IF NOT EXISTS idx_messages_sidechain ON messages(session_id, is_sidechain, seq);
+            CREATE INDEX IF NOT EXISTS idx_messages_sidechain_group ON messages(session_id, sidechain_group_id) WHERE sidechain_group_id IS NOT NULL;
             CREATE INDEX IF NOT EXISTS idx_messages_root ON messages(session_id, seq DESC) WHERE is_sidechain = 0;
 
             CREATE TABLE IF NOT EXISTS native_sync_state (
@@ -499,6 +507,24 @@ export class Store {
         `)
         // Create index for efficient filtering
         this.db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_sidechain ON messages(session_id, is_sidechain, seq)`)
+    }
+
+    private migrateFromV8ToV9(): void {
+        // Add sidechain_group_id column for precise sidechain grouping
+        this.db.exec(`ALTER TABLE messages ADD COLUMN sidechain_group_id TEXT`)
+        // Backfill from JSON content (3 possible paths)
+        this.db.exec(`
+            UPDATE messages SET sidechain_group_id = COALESCE(
+                json_extract(content, '$.sidechainGroupId'),
+                json_extract(content, '$.data.sidechainGroupId'),
+                json_extract(content, '$.content.data.sidechainGroupId')
+            )
+            WHERE is_sidechain = 1
+        `)
+        // Replace old sidechain index with group-based index
+        this.db.exec(`DROP INDEX IF EXISTS idx_messages_sidechain`)
+        this.db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_sidechain_group ON messages(session_id, sidechain_group_id) WHERE sidechain_group_id IS NOT NULL`)
+        this.db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_root ON messages(session_id, seq DESC) WHERE is_sidechain = 0`)
     }
 
     private getSessionColumnNames(): Set<string> {

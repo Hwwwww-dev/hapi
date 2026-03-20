@@ -15,6 +15,7 @@ type DbMessageRow = {
     source_session_id: string | null
     source_key: string | null
     is_sidechain: number
+    sidechain_group_id: string | null
 }
 
 function toStoredMessage(row: DbMessageRow): StoredMessage {
@@ -63,6 +64,37 @@ function extractIsSidechain(content: unknown): boolean {
     return false
 }
 
+/**
+ * Extract sidechainGroupId from message content at write time.
+ * Checks three JSON paths:
+ *   - content.sidechainGroupId       (direct top-level)
+ *   - content.data.sidechainGroupId  (nested in data)
+ *   - content.content.data.sidechainGroupId  (role-wrapped)
+ */
+function extractSidechainGroupId(content: unknown): string | null {
+    if (!content || typeof content !== 'object') return null
+    const c = content as Record<string, unknown>
+
+    if (typeof c.sidechainGroupId === 'string') {
+        return c.sidechainGroupId
+    }
+
+    if (c.data && typeof c.data === 'object') {
+        const val = (c.data as Record<string, unknown>).sidechainGroupId
+        if (typeof val === 'string') return val
+    }
+
+    if (c.content && typeof c.content === 'object') {
+        const inner = c.content as Record<string, unknown>
+        if (inner.data && typeof inner.data === 'object') {
+            const val = (inner.data as Record<string, unknown>).sidechainGroupId
+            if (typeof val === 'string') return val
+        }
+    }
+
+    return null
+}
+
 export type NativeMessageImportPayload = {
     content: unknown
     createdAt: number
@@ -107,12 +139,13 @@ export function addMessage(
     const id = randomUUID()
     const json = JSON.stringify(content)
     const isSidechain = extractIsSidechain(content) ? 1 : 0
+    const sidechainGroupId = extractSidechainGroupId(content)
 
     db.prepare(`
         INSERT INTO messages (
-            id, session_id, content, created_at, seq, local_id, is_sidechain
+            id, session_id, content, created_at, seq, local_id, is_sidechain, sidechain_group_id
         ) VALUES (
-            @id, @session_id, @content, @created_at, @seq, @local_id, @is_sidechain
+            @id, @session_id, @content, @created_at, @seq, @local_id, @is_sidechain, @sidechain_group_id
         )
     `).run({
         id,
@@ -121,7 +154,8 @@ export function addMessage(
         created_at: now,
         seq: msgSeq,
         local_id: localId ?? null,
-        is_sidechain: isSidechain
+        is_sidechain: isSidechain,
+        sidechain_group_id: sidechainGroupId
     })
     touchSessionUpdatedAt(db, sessionId, now)
 
@@ -174,34 +208,32 @@ export function getRootMessages(
 }
 
 /**
- * Get sidechain messages within a seq range (inclusive).
+ * Get sidechain messages whose sidechain_group_id matches any of the given IDs.
+ * Used to fetch sidechain messages associated with specific tool_use blocks.
  */
-export function getSidechainMessagesInRange(
+export function getSidechainMessagesByGroupIds(
     db: Database,
     sessionId: string,
-    minSeq: number,
-    maxSeq: number
+    groupIds: string[]
 ): StoredMessage[] {
+    if (groupIds.length === 0) return []
+    const placeholders = groupIds.map(() => '?').join(',')
     const rows = db.prepare(
-        `SELECT * FROM messages WHERE session_id = ? AND seq >= ? AND seq <= ? AND is_sidechain = 1 ORDER BY seq ASC`
-    ).all(sessionId, minSeq, maxSeq) as DbMessageRow[]
-
+        `SELECT * FROM messages WHERE session_id = ? AND sidechain_group_id IN (${placeholders}) ORDER BY seq ASC`
+    ).all(sessionId, ...groupIds) as DbMessageRow[]
     return rows.map(toStoredMessage)
 }
 
 /**
- * Get sidechain messages from a given seq (inclusive, no upper bound).
- * Used for the newest page where a running Agent may have sidechain messages beyond the last root seq.
+ * Get all sidechain messages for a session.
  */
-export function getSidechainMessagesFrom(
+export function getAllSidechainMessages(
     db: Database,
-    sessionId: string,
-    minSeq: number
+    sessionId: string
 ): StoredMessage[] {
     const rows = db.prepare(
-        `SELECT * FROM messages WHERE session_id = ? AND seq >= ? AND is_sidechain = 1 ORDER BY seq ASC`
-    ).all(sessionId, minSeq) as DbMessageRow[]
-
+        `SELECT * FROM messages WHERE session_id = ? AND is_sidechain = 1 ORDER BY seq ASC`
+    ).all(sessionId) as DbMessageRow[]
     return rows.map(toStoredMessage)
 }
 
@@ -262,11 +294,12 @@ export function importNativeMessage(
         }
 
         const updatedIsSidechain = extractIsSidechain(payload.content) ? 1 : 0
+        const updatedSidechainGroupId = extractSidechainGroupId(payload.content)
         db.prepare(`
             UPDATE messages
-            SET content = ?, created_at = ?, is_sidechain = ?
+            SET content = ?, created_at = ?, is_sidechain = ?, sidechain_group_id = ?
             WHERE id = ?
-        `).run(nextContentJson, payload.createdAt, updatedIsSidechain, existing.id)
+        `).run(nextContentJson, payload.createdAt, updatedIsSidechain, updatedSidechainGroupId, existing.id)
 
         const updated = db.prepare('SELECT * FROM messages WHERE id = ?').get(existing.id) as DbMessageRow | undefined
         if (!updated) {
@@ -285,14 +318,15 @@ export function importNativeMessage(
     ).get(sessionId) as { nextSeq: number }
     const id = randomUUID()
     const isSidechain = extractIsSidechain(payload.content) ? 1 : 0
+    const sidechainGroupId = extractSidechainGroupId(payload.content)
 
     db.prepare(`
         INSERT INTO messages (
             id, session_id, content, created_at, seq, local_id,
-            source_provider, source_session_id, source_key, is_sidechain
+            source_provider, source_session_id, source_key, is_sidechain, sidechain_group_id
         ) VALUES (
             @id, @session_id, @content, @created_at, @seq, NULL,
-            @source_provider, @source_session_id, @source_key, @is_sidechain
+            @source_provider, @source_session_id, @source_key, @is_sidechain, @sidechain_group_id
         )
     `).run({
         id,
@@ -303,7 +337,8 @@ export function importNativeMessage(
         source_provider: payload.sourceProvider,
         source_session_id: payload.sourceSessionId,
         source_key: payload.sourceKey,
-        is_sidechain: isSidechain
+        is_sidechain: isSidechain,
+        sidechain_group_id: sidechainGroupId
     })
 
     const inserted = db.prepare('SELECT * FROM messages WHERE id = ?').get(id) as DbMessageRow | undefined

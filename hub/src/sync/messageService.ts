@@ -1,8 +1,34 @@
 import type { AttachmentMetadata, DecryptedMessage } from '@hapi/protocol/types'
 import type { Server } from 'socket.io'
-import type { Store } from '../store'
+import type { Store, StoredMessage } from '../store'
 import { EventPublisher } from './eventPublisher'
 import { maybeApplyFirstMessageSessionTitle } from './sessionTitle'
+
+function extractToolUseIds(messages: StoredMessage[]): string[] {
+    const ids: string[] = []
+    for (const msg of messages) {
+        try {
+            const content = msg.content as any
+            // Navigate through the message wrapping to find tool_use blocks
+            // Path 1: content.data.message.content (CLI-sent messages)
+            // Path 2: content.content.data.message.content (role-wrapped)
+            // Path 3: content.message.content (direct)
+            const msgContent = content?.data?.message?.content
+                ?? content?.content?.data?.message?.content
+                ?? content?.message?.content
+            if (Array.isArray(msgContent)) {
+                for (const block of msgContent) {
+                    if (block?.type === 'tool_use' && typeof block?.id === 'string') {
+                        ids.push(block.id)
+                    }
+                }
+            }
+        } catch {
+            // Skip unparseable messages
+        }
+    }
+    return ids
+}
 
 export class MessageService {
     constructor(
@@ -27,18 +53,16 @@ export class MessageService {
         const rootStored = this.store.messages.getRootMessages(sessionId, options.limit, options.beforeSeq ?? undefined)
         const totalRoot = this.store.messages.countRootMessages(sessionId)
 
-        // 2. Determine seq range of root messages, then fetch sidechain messages in that range
-        //    When loading the newest page (beforeSeq=null), don't cap the upper bound
-        //    so that sidechain messages from a still-running Agent are included.
+        // 2. Fetch sidechain messages associated with the root messages' tool_use blocks
         let allStored = rootStored
         if (rootStored.length > 0) {
-            const minSeq = rootStored[0].seq
-            const maxSeq = rootStored[rootStored.length - 1].seq
-            const isNewestPage = options.beforeSeq === null
-            const sidechainStored = isNewestPage
-                ? this.store.messages.getSidechainMessagesFrom(sessionId, 1)
-                : this.store.messages.getSidechainMessagesInRange(sessionId, minSeq, maxSeq)
-            allStored = [...rootStored, ...sidechainStored].sort((a, b) => a.seq - b.seq)
+            const toolUseIds = extractToolUseIds(rootStored)
+            const sidechainStored = toolUseIds.length > 0
+                ? this.store.messages.getSidechainMessagesByGroupIds(sessionId, toolUseIds)
+                : []
+            if (sidechainStored.length > 0) {
+                allStored = [...rootStored, ...sidechainStored].sort((a, b) => a.seq - b.seq)
+            }
         }
 
         const messages: DecryptedMessage[] = allStored.map((message) => ({

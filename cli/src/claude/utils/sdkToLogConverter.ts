@@ -102,6 +102,7 @@ export class SDKToLogConverter {
         const baseFields = {
             parentUuid: parentUuid,
             isSidechain: isSidechain,
+            sidechainGroupId: (sdkMessage.parent_tool_use_id as string) ?? null,
             userType: 'external' as const,
             cwd: this.context.cwd,
             sessionId: this.context.sessionId,
@@ -253,6 +254,7 @@ export class SDKToLogConverter {
         return {
             parentUuid: parentUuid,
             isSidechain: true,
+            sidechainGroupId: toolUseId,
             userType: 'external' as const,
             cwd: this.context.cwd,
             sessionId: this.context.sessionId,
@@ -294,6 +296,7 @@ export class SDKToLogConverter {
         const logMessage: RawJSONLines = {
             type: 'user',
             isSidechain: isSidechain,
+            sidechainGroupId: parentToolUseId ?? null,
             uuid,
             message: {
                 role: 'user',
