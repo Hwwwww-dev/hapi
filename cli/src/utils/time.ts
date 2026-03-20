@@ -44,7 +44,7 @@ export let backoff = createBackoff();
  * Options for withRetry function
  */
 export type RetryOptions = {
-    /** Maximum number of retry attempts. Default: unlimited */
+    /** Maximum number of retry attempts. Default: 10 */
     maxAttempts?: number
     /** Minimum delay between retries in ms. Default: 1000 */
     minDelay?: number
@@ -68,7 +68,7 @@ export async function withRetry<T>(
     fn: () => Promise<T>,
     options?: RetryOptions
 ): Promise<T> {
-    const maxAttempts = options?.maxAttempts ?? Infinity
+    const maxAttempts = options?.maxAttempts ?? 10
     const minDelay = options?.minDelay ?? 1000
     const maxDelay = options?.maxDelay ?? 30000
     const shouldRetry = options?.shouldRetry ?? (() => true)

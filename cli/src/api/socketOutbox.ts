@@ -41,7 +41,8 @@ function resolveEnvNumber(name: string, fallback: number, allowZero: boolean = f
 
 function estimateSizeBytes(payload: unknown): number {
     try {
-        return Buffer.byteLength(JSON.stringify(payload), 'utf8')
+        const json = JSON.stringify(payload)
+        return json.length * 2
     } catch {
         return Number.MAX_SAFE_INTEGER
     }

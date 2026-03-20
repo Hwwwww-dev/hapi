@@ -448,14 +448,21 @@ class CodexSessionScannerImpl extends BaseSessionScanner<CodexSessionEvent> {
 }
 
 async function sortFilesByMtime(files: string[]): Promise<string[]> {
-    const entries = await Promise.all(files.map(async (file) => {
-        try {
-            const stats = await stat(file);
-            return { file, mtimeMs: stats.mtimeMs };
-        } catch {
-            return { file, mtimeMs: 0 };
-        }
-    }));
+    const BATCH_SIZE = 20;
+    const entries: { file: string; mtimeMs: number }[] = [];
+
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+        const batch = files.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(batch.map(async (file) => {
+            try {
+                const stats = await stat(file);
+                return { file, mtimeMs: stats.mtimeMs };
+            } catch {
+                return { file, mtimeMs: 0 };
+            }
+        }));
+        entries.push(...batchResults);
+    }
 
     return entries
         .sort((a, b) => b.mtimeMs - a.mtimeMs)

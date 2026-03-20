@@ -84,6 +84,8 @@ function AppInner() {
         document.addEventListener('gesturechange', preventDefault as EventListener, { passive: false })
         document.addEventListener('gestureend', preventDefault as EventListener, { passive: false })
 
+        // passive: false is required because the handler calls preventDefault()
+        // conditionally for Ctrl+wheel to block browser zoom gestures.
         window.addEventListener('wheel', onWheel, { passive: false })
         window.addEventListener('keydown', onKeyDown)
 

@@ -19,11 +19,12 @@ interface QueueItem {
 
 export class OutgoingMessageQueue {
     private queue: QueueItem[] = [];
+    private queueIndex = new Map<number, QueueItem>();
     private nextId = 1;
     private lock = new AsyncLock();
     private processTimer?: NodeJS.Timeout;
     private delayTimers = new Map<number, NodeJS.Timeout>();
-    
+
     constructor(private sendFunction: (message: any) => void) {}
     
     /**
@@ -45,7 +46,8 @@ export class OutgoingMessageQueue {
             };
             
             this.queue.push(item);
-            
+            this.queueIndex.set(item.id, item);
+
             // If delayed, set timer to release it
             if (item.delayed) {
                 const timer = setTimeout(() => {
@@ -64,7 +66,7 @@ export class OutgoingMessageQueue {
      */
     private async releaseItem(itemId: number): Promise<void> {
         await this.lock.inLock(async () => {
-            const item = this.queue.find(i => i.id === itemId);
+            const item = this.queueIndex.get(itemId);
             if (item && !item.released) {
                 item.released = true;
                 
@@ -129,6 +131,7 @@ export class OutgoingMessageQueue {
             
             // Remove from queue
             this.queue.shift();
+            this.queueIndex.delete(item.id);
         }
     }
     
