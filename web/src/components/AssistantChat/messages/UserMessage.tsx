@@ -34,6 +34,31 @@ function isCompactContent(text: string): boolean {
     return text.startsWith(COMPACT_CONTENT_PREFIX)
 }
 
+const COMMAND_NAME_REGEX = /<command-name>\s*(\/[^\s<]+)\s*<\/command-name>/i
+const COMMAND_MESSAGE_REGEX = /<command-message>\s*([^<]*?)\s*<\/command-message>/i
+
+/** Detect special native system-like messages (interruptions, continuations, slash commands) */
+function parseSystemLikeMessage(text: string): { icon: string; label: string } | null {
+    const trimmed = text.trim()
+    if (trimmed === '[Request interrupted by user]') {
+        return { icon: '⏹', label: 'Request interrupted' }
+    }
+    if (trimmed === 'Continue from where you left off.') {
+        return { icon: '▶', label: 'Continued conversation' }
+    }
+    // Detect <command-name>/foo</command-name> style slash commands
+    const cmdMatch = trimmed.match(COMMAND_NAME_REGEX)
+    if (cmdMatch) {
+        const cmdName = cmdMatch[1]
+        const msgMatch = trimmed.match(COMMAND_MESSAGE_REGEX)
+        const label = msgMatch && msgMatch[1] && msgMatch[1] !== cmdName.slice(1)
+            ? `${cmdName} ${msgMatch[1]}`
+            : cmdName
+        return { icon: '⚡', label }
+    }
+    return null
+}
+
 export const HappyUserMessage = memo(function HappyUserMessage() {
     const ctx = useHappyChatContext()
     const role = useAssistantState(({ message }) => message.role)
@@ -70,6 +95,7 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
     // All hooks must be before any conditional returns (React rules of hooks)
     const skillInfo = parseSkillContent(text)
     const isCompact = !skillInfo && isCompactContent(text)
+    const systemLikeInfo = !skillInfo && !isCompact ? parseSystemLikeMessage(text) : null
     const [skillExpanded, setSkillExpanded] = useState(false)
     const [compactExpanded, setCompactExpanded] = useState(false)
     const [expanded, setExpanded] = useState(false)
@@ -78,6 +104,21 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
     if (role !== 'user') return null
     const canRetry = status === 'failed' && typeof localId === 'string' && Boolean(ctx.onRetryMessage)
     const onRetry = canRetry ? () => ctx.onRetryMessage!(localId) : undefined
+
+    if (systemLikeInfo) {
+        return (
+            <div className="py-1">
+                <div className="mx-auto w-fit max-w-[92%]">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-3 py-1 text-xs text-[var(--app-hint)]">
+                        <span aria-hidden="true">{systemLikeInfo.icon}</span>
+                        <span>{systemLikeInfo.label}</span>
+                        <span aria-hidden="true">·</span>
+                        <MessageTimestamp value={createdAt} className="text-[10px] text-[var(--app-hint)] opacity-80" />
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
     if (isCliOutput) {
         return (
@@ -194,7 +235,7 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
                     <button
                         type="button"
                         onClick={() => copy(text)}
-                        className="rounded p-0.5 text-[var(--app-hint)] opacity-0 transition-opacity hover:text-[var(--app-fg)] group-hover/user:opacity-100"
+                        className="rounded p-0.5 text-[var(--app-hint)] opacity-60 hover:opacity-100 hover:text-[var(--app-fg)]"
                         title="Copy"
                     >
                         {copied ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}

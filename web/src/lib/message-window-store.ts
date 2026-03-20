@@ -382,12 +382,15 @@ export async function fetchOlderMessages(api: ApiClient, sessionId: string, limi
     updateState(sessionId, (prev) => buildState(prev, { isLoadingMore: true }))
 
     try {
-        const response = await api.getMessages(sessionId, { limit: limit ?? PAGE_SIZE, beforeSeq: initial.oldestSeq })
+        const requestedLimit = limit ?? PAGE_SIZE
+        const response = await api.getMessages(sessionId, { limit: requestedLimit, beforeSeq: initial.oldestSeq })
         updateState(sessionId, (prev) => {
             const merged = mergeMessages(response.messages, prev.messages)
+            // If server returned fewer messages than requested, there are no more
+            const hasMore = response.messages.length >= requestedLimit && response.page.hasMore
             return buildState(prev, {
                 messages: merged,
-                hasMore: response.page.hasMore,
+                hasMore,
                 totalMessages: response.page.total ?? prev.totalMessages,
                 isLoadingMore: false,
             })

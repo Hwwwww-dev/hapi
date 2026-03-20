@@ -157,10 +157,10 @@ export function getMessages(
 export function getRootMessages(
     db: Database,
     sessionId: string,
-    limit: number = 200,
+    limit: number = 500,
     beforeSeq?: number
 ): StoredMessage[] {
-    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(200, limit)) : 200
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(500, limit)) : 500
 
     const rows = (beforeSeq !== undefined && beforeSeq !== null && Number.isFinite(beforeSeq))
         ? db.prepare(

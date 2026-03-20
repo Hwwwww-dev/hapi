@@ -236,7 +236,7 @@ export function MarkdownText() {
                 />
             </div>
             {rawText && (
-                <div className="flex justify-end opacity-0 transition-opacity group-hover/text:opacity-100">
+                <div className="flex justify-start opacity-60 transition-opacity hover:opacity-100">
                     <button
                         type="button"
                         onClick={() => copy(rawText)}

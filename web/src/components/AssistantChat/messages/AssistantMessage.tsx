@@ -54,7 +54,7 @@ export const HappyAssistantMessage = memo(function HappyAssistantMessage() {
 
     return (
         <MessagePrimitive.Root className={rootClass}>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
                 <MessagePrimitive.Content components={MESSAGE_PART_COMPONENTS} />
                 <MessageTimestamp value={createdAt} />
             </div>

@@ -20,7 +20,16 @@ export const HappySystemMessage = memo(function HappySystemMessage() {
         if (message.role !== 'system') return null
         const custom = message.metadata.custom as Partial<HappyChatMessageMetadata> | undefined
         const event = custom?.kind === 'event' ? custom.event : undefined
-        return event ? (event as { type: string }).type : null
+        if (!event) return null
+        const type = (event as { type: string }).type
+        // Detect compact-related messages sent via onCompletionEvent
+        if (type === 'message') {
+            const msg = (event as { message?: string }).message
+            if (msg === 'Compaction completed' || msg === 'Compaction started') {
+                return 'compact'
+            }
+        }
+        return type
     })
     const createdAt = useAssistantState(({ message }) => message.createdAt)
 

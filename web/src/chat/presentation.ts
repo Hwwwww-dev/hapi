@@ -52,7 +52,12 @@ export function getEventPresentation(event: AgentEvent): EventPresentation {
         return { icon: '⏳', text: endsAt ? `Usage limit reached until ${formatUnixTimestamp(endsAt)}` : 'Usage limit reached' }
     }
     if (event.type === 'message') {
-        return { icon: null, text: typeof event.message === 'string' ? event.message : 'Message' }
+        const msg = typeof event.message === 'string' ? event.message : ''
+        // Detect compact-related messages sent by the CLI via onCompletionEvent
+        if (msg === 'Compaction completed' || msg === 'Compaction started') {
+            return { icon: '📦', text: msg === 'Compaction completed' ? 'Conversation compacted' : 'Compacting conversation...' }
+        }
+        return { icon: null, text: msg || 'Message' }
     }
     if (event.type === 'turn-duration') {
         const ms = typeof event.durationMs === 'number' ? event.durationMs : 0

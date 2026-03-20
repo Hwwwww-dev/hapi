@@ -163,7 +163,9 @@ function HappyNestedBlockList(props: {
                 if (block.kind === 'agent-event') {
                     const presentation = getEventPresentation(block.event)
                     const eventType = (block.event as { type: string }).type
-                    const isCompact = eventType === 'compact' || eventType === 'microcompact'
+                    const eventMessage = eventType === 'message' ? (block.event as { message?: string }).message : undefined
+                    const isCompactMessage = eventType === 'message' && (eventMessage === 'Compaction completed' || eventMessage === 'Compaction started')
+                    const isCompact = eventType === 'compact' || eventType === 'microcompact' || isCompactMessage
                     const isMessage = eventType === 'message'
                     const messageText = isMessage && typeof (block.event as Record<string, unknown>).message === 'string'
                         ? (block.event as Record<string, unknown>).message as string
