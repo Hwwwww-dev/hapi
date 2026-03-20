@@ -69,6 +69,44 @@ describe('appServerConfig', () => {
         });
     });
 
+    it('includes model reasoning effort in thread config when provided', () => {
+        const params = buildThreadStartParams({
+            cwd: '/workspace/project',
+            mode: {
+                permissionMode: 'default',
+                collaborationMode: 'default',
+                modelReasoningEffort: 'high'
+            },
+            mcpServers
+        });
+
+        expect(params.config).toEqual({
+            'mcp_servers.hapi': {
+                command: 'node',
+                args: ['mcp']
+            },
+            developer_instructions: codexSystemPrompt,
+            model_reasoning_effort: 'high'
+        });
+    });
+
+    it('includes model reasoning effort in thread config when provided', () => {
+        const params = buildThreadStartParams({
+            cwd: '/workspace/project',
+            mode: { permissionMode: 'default', collaborationMode: 'default', modelReasoningEffort: 'high' },
+            mcpServers
+        });
+
+        expect(params.config).toEqual({
+            'mcp_servers.hapi': {
+                command: 'node',
+                args: ['mcp']
+            },
+            developer_instructions: codexSystemPrompt,
+            model_reasoning_effort: 'high'
+        });
+    });
+
     it('builds turn params with mode defaults', () => {
         const params = buildTurnStartParams({
             threadId: 'thread-1',
@@ -124,6 +162,52 @@ describe('appServerConfig', () => {
             settings: {
                 model: 'o3',
                 developer_instructions: `${codexSystemPrompt}\n\nOnly respond in Chinese.`
+            }
+        });
+    });
+
+    it('carries reasoning effort into collaboration mode settings', () => {
+        const params = buildTurnStartParams({
+            threadId: 'thread-1',
+            message: 'hello',
+            cwd: '/workspace/project',
+            mode: {
+                permissionMode: 'default',
+                model: 'o3',
+                collaborationMode: 'default',
+                modelReasoningEffort: 'medium'
+            }
+        });
+
+        expect(params.collaborationMode).toEqual({
+            mode: 'default',
+            settings: {
+                model: 'o3',
+                reasoning_effort: 'medium',
+                developer_instructions: codexSystemPrompt
+            }
+        });
+    });
+
+    it('carries reasoning effort into collaboration mode settings', () => {
+        const params = buildTurnStartParams({
+            threadId: 'thread-1',
+            message: 'hello',
+            cwd: '/workspace/project',
+            mode: {
+                permissionMode: 'default',
+                model: 'o3',
+                collaborationMode: 'plan',
+                modelReasoningEffort: 'medium'
+            }
+        });
+
+        expect(params.collaborationMode).toEqual({
+            mode: 'plan',
+            settings: {
+                model: 'o3',
+                reasoning_effort: 'medium',
+                developer_instructions: codexSystemPrompt
             }
         });
     });

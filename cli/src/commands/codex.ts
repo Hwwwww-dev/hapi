@@ -20,6 +20,7 @@ export const codexCommand: CommandDefinition = {
                 permissionMode?: CodexPermissionMode
                 resumeSessionId?: string
                 model?: string
+                modelReasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh'
             } = {}
             const unknownArgs: string[] = []
 
@@ -46,6 +47,13 @@ export const codexCommand: CommandDefinition = {
                     }
                     options.model = model
                     unknownArgs.push('--model', model)
+                } else if (arg === '--model-reasoning-effort') {
+                    const effort = commandArgs[++i]
+                    if (effort !== 'low' && effort !== 'medium' && effort !== 'high' && effort !== 'xhigh') {
+                        throw new Error('Invalid --model-reasoning-effort value')
+                    }
+                    options.modelReasoningEffort = effort
+                    unknownArgs.push('--model-reasoning-effort', effort)
                 } else {
                     unknownArgs.push(arg)
                 }

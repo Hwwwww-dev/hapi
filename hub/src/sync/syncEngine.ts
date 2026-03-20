@@ -780,13 +780,14 @@ export class SyncEngine {
         directory: string,
         agent: 'claude' | 'codex' | 'cursor' | 'gemini' | 'opencode' = 'claude',
         model?: string,
+        modelReasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh',
         yolo?: boolean,
         sessionType?: 'simple' | 'worktree',
         worktreeName?: string,
         resumeSessionId?: string,
         sessionId?: string
     ): Promise<{ type: 'success'; sessionId: string } | { type: 'error'; message: string }> {
-        return await this.rpcGateway.spawnSession(machineId, directory, agent, model, yolo, sessionType, worktreeName, resumeSessionId, sessionId)
+        return await this.rpcGateway.spawnSession(machineId, directory, agent, model, modelReasoningEffort, yolo, sessionType, worktreeName, resumeSessionId, sessionId)
     }
 
     async resumeSession(sessionId: string, namespace: string): Promise<ResumeSessionResult> {

@@ -160,6 +160,7 @@ describe('NewSession', () => {
                 '/Users/demo/missing',
                 'claude',
                 undefined,
+                undefined,
                 false,
                 'simple',
                 undefined
@@ -198,6 +199,54 @@ describe('NewSession', () => {
             expect(screen.getByText('工作树模式要求基目录必须已存在。')).toBeInTheDocument()
         })
         expect(screen.getByRole('button', { name: '创建' })).toBeDisabled()
+    })
+
+    it('passes codex reasoning effort with xhigh as the default', async () => {
+        const api = createApi()
+        const onSuccess = vi.fn()
+
+        renderWithProviders(
+            <NewSession
+                api={api as never}
+                machines={[{
+                    id: 'machine-1',
+                    active: true,
+                    metadata: {
+                        host: 'demo-host',
+                        platform: 'darwin',
+                        happyCliVersion: '0.1.0',
+                        homeDir: '/Users/demo'
+                    }
+                }]}
+                onSuccess={onSuccess}
+                onCancel={vi.fn()}
+            />
+        )
+
+        fireEvent.change(await screen.findByPlaceholderText('/path/to/project'), {
+            target: { value: '/Users/demo/projects' }
+        })
+        fireEvent.click(screen.getByDisplayValue('codex'))
+        const createButton = screen.getByRole('button', { name: '创建' })
+        await waitFor(() => {
+            expect(createButton).toBeEnabled()
+        })
+
+        fireEvent.click(createButton)
+
+        await waitFor(() => {
+            expect(api.spawnSession).toHaveBeenCalledWith(
+                'machine-1',
+                '/Users/demo/projects',
+                'codex',
+                undefined,
+                'xhigh',
+                false,
+                'simple',
+                undefined
+            )
+            expect(onSuccess).toHaveBeenCalledWith('session-1')
+        })
     })
 
     it('clears stale path existence when switching machines', async () => {

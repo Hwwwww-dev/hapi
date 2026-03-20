@@ -4,6 +4,7 @@ import type { McpServersConfig } from './buildHapiMcpBridge';
 import { codexSystemPrompt } from './systemPrompt';
 import type {
     ApprovalPolicy,
+    ReasoningEffort,
     SandboxMode,
     SandboxPolicy,
     ThreadStartParams,
@@ -63,6 +64,10 @@ function resolveInstructions(args: {
     };
 }
 
+function resolveReasoningEffort(mode: EnhancedMode): Exclude<ReasoningEffort, 'auto'> | undefined {
+    return mode.modelReasoningEffort;
+}
+
 export function buildThreadStartParams(args: {
     cwd: string;
     mode: EnhancedMode;
@@ -85,7 +90,8 @@ export function buildThreadStartParams(args: {
     } = resolveInstructions(args);
     const configWithInstructions = {
         ...config,
-        developer_instructions: resolvedDeveloperInstructions
+        developer_instructions: resolvedDeveloperInstructions,
+        ...(resolveReasoningEffort(args.mode) ? { model_reasoning_effort: resolveReasoningEffort(args.mode) } : {})
     };
 
     const params: ThreadStartParams = {
@@ -142,6 +148,7 @@ export function buildTurnStartParams(args: {
 
     const collaborationMode = args.mode?.collaborationMode;
     const model = args.overrides?.model ?? args.mode?.model;
+    const reasoningEffort = args.mode ? resolveReasoningEffort(args.mode) : undefined;
     if (collaborationMode) {
         if (!model) {
             throw new Error(`Collaboration mode '${collaborationMode}' requires a resolved model`);
@@ -151,11 +158,16 @@ export function buildTurnStartParams(args: {
             mode: collaborationMode,
             settings: {
                 model,
+                ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
                 developer_instructions: developerInstructions
             }
         };
     } else if (model) {
         params.model = model;
+    }
+
+    if (reasoningEffort) {
+        params.effort = reasoningEffort;
     }
 
     return params;

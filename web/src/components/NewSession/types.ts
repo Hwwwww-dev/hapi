@@ -1,5 +1,6 @@
 export type AgentType = 'claude' | 'codex' | 'cursor' | 'gemini' | 'opencode'
 export type SessionType = 'simple' | 'worktree'
+export type CodexReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh'
 
 export const MODEL_OPTIONS: Record<AgentType, { value: string; label: string }[]> = {
     claude: [
@@ -27,3 +28,5 @@ export const MODEL_OPTIONS: Record<AgentType, { value: string; label: string }[]
     ],
     opencode: [],
 }
+
+export const CODEX_REASONING_EFFORT_OPTIONS: CodexReasoningEffort[] = ['low', 'medium', 'high', 'xhigh']

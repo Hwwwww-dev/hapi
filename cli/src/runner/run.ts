@@ -373,6 +373,9 @@ export async function startRunner(): Promise<void> {
         if (options.model && agent !== 'opencode') {
           args.push('--model', options.model);
         }
+        if (agent === 'codex' && options.modelReasoningEffort) {
+          args.push('--model-reasoning-effort', options.modelReasoningEffort);
+        }
         if (yolo) {
           args.push('--yolo');
         }
