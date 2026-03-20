@@ -137,7 +137,7 @@ export async function runAgentSession(opts: {
                 await backend.prompt(agentSessionId, promptContent, (message) => {
                     const converted = convertAgentMessage(message);
                     if (converted) {
-                        session.sendCodexMessage(converted);
+                        session.sendAgentMessage(converted);
                     }
                 });
             } catch (error) {
