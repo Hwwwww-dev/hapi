@@ -15,6 +15,7 @@ import { registerCommonHandlers } from '../modules/common/registerCommonHandlers
 import { registerMachineDirectoryHandlers } from '../modules/common/handlers/machineDirectories'
 import type { SpawnSessionOptions, SpawnSessionResult } from '../modules/common/rpcTypes'
 import { applyVersionedAck } from './versionedUpdate'
+import { getLogicalCwd } from '@/utils/logicalCwd'
 
 interface ServerToRunnerEvents {
     update: (data: Update) => void
@@ -78,7 +79,7 @@ export class ApiMachineClient {
             logger: (msg, data) => logger.debug(msg, data)
         })
 
-        registerCommonHandlers(this.rpcHandlerManager, process.cwd())
+        registerCommonHandlers(this.rpcHandlerManager, getLogicalCwd())
         registerMachineDirectoryHandlers(this.rpcHandlerManager)
 
         this.rpcHandlerManager.registerHandler<PathExistsRequest, PathExistsResponse>('path-exists', async (params) => {
