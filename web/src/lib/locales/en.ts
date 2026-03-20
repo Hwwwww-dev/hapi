@@ -132,6 +132,7 @@ export default {
 
   // Common buttons
   'button.cancel': 'Cancel',
+  'dialog.confirmTextHint': 'Type "{text}" to confirm:',
   'button.save': 'Save',
   'button.confirm': 'Confirm',
   'button.close': 'Close',
@@ -398,6 +399,7 @@ export default {
   'files.tab.files': 'Files',
   'files.header.git': 'Git',
   'files.header.refresh': 'Refresh',
+  'files.header.refreshed': 'Refreshed',
   'files.header.detached': 'detached',
 
   // SessionFiles - ChangesTab
@@ -547,6 +549,10 @@ export default {
   'dialog.git.deleteTag.description': 'Delete tag "{name}"?',
   'dialog.git.deleteTag.confirm': 'Delete',
   'dialog.git.deleteTag.confirming': 'Deleting…',
+  'dialog.git.deleteBranch.title': 'Delete Branch',
+  'dialog.git.deleteBranch.description': 'Delete branch "{name}"? This cannot be undone.',
+  'dialog.git.deleteBranch.confirm': 'Delete',
+  'dialog.git.deleteBranch.confirming': 'Deleting…',
   'notify.git.tagCreateOk': 'Tag created',
   'notify.git.tagDeleteOk': 'Tag deleted',
 } as const

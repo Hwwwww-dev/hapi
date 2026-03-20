@@ -234,6 +234,13 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
         if (!data.name || typeof data.name !== 'string') return rpcError('branch name is required')
+        const slashIdx = data.name.indexOf('/')
+        if (slashIdx > 0) {
+            // remote branch: git push <remote> --delete <branch>
+            const remote = data.name.slice(0, slashIdx)
+            const branch = data.name.slice(slashIdx + 1)
+            return await queuedGitCommand(['push', remote, '--delete', branch], resolved.cwd, data.timeout)
+        }
         return await queuedGitCommand(['branch', data.force ? '-D' : '-d', data.name], resolved.cwd, data.timeout)
     })
 

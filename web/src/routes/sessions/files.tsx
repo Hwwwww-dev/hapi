@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { useDirectoryExpanded } from '@/hooks/useDirectoryExpanded'
 import { DirectoryTree } from '@/components/SessionFiles/DirectoryTree'
 import { ChangesTab } from '@/components/SessionFiles/ChangesTab'
@@ -11,6 +12,8 @@ import { useAppGoBack } from '@/hooks/useAppGoBack'
 import { useGitStatusFiles } from '@/hooks/queries/useGitStatusFiles'
 import { useSession } from '@/hooks/queries/useSession'
 import { useTranslation } from '@/lib/use-translation'
+import { queryKeys } from '@/lib/query-keys'
+import { notify } from '@/lib/notify'
 
 function BackIcon(props: { className?: string }) {
     return (
@@ -89,7 +92,18 @@ export default function FilesPage() {
     const initialTab: TabType = validTabs.includes(search.tab as TabType) ? (search.tab as TabType) : 'changes'
     const [activeTab, setActiveTab] = useState<TabType>(initialTab)
 
+    const queryClient = useQueryClient()
     const { status: gitStatus, isLoading: gitLoading, refetch: refetchGit } = useGitStatusFiles(api, sessionId)
+
+    const handleRefreshAll = useCallback(async () => {
+        await Promise.all([
+            queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus(sessionId) }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.gitLog(sessionId) }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.gitBranches(sessionId) }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.gitStashList(sessionId) }),
+        ])
+        notify.success(t('files.header.refreshed'))
+    }, [queryClient, sessionId, t])
 
     const rawBranch = gitStatus?.branch ?? ''
     const branchLabel = rawBranch.startsWith('HEAD:')
@@ -140,7 +154,7 @@ export default function FilesPage() {
                             <span className="truncate">{branchLabel}</span>
                         </div>
                     </div>
-                    <button type="button" onClick={() => void refetchGit()} className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]" title={t('files.header.refresh')}>
+                    <button type="button" onClick={() => void handleRefreshAll()} className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]" title={t('files.header.refresh')}>
                         <RefreshIcon className={gitLoading ? 'animate-spin' : ''} />
                     </button>
                 </div>
@@ -169,13 +183,13 @@ export default function FilesPage() {
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="mx-auto w-full max-w-content flex-1 overflow-hidden flex flex-col">
                     {activeTab === 'changes' && (
-                        <ChangesTab api={api} sessionId={sessionId} gitStatus={gitStatus} isLoading={gitLoading} onOpenFile={handleOpenFile} onRefresh={() => void refetchGit()} />
+                        <ChangesTab api={api} sessionId={sessionId} gitStatus={gitStatus} isLoading={gitLoading} onOpenFile={handleOpenFile} onRefresh={() => void handleRefreshAll()} />
                     )}
                     {activeTab === 'history' && (
-                        <HistoryTab api={api} sessionId={sessionId} ahead={gitStatus?.ahead ?? 0} currentBranch={gitStatus?.branch ?? null} onRefresh={() => void refetchGit()} />
+                        <HistoryTab api={api} sessionId={sessionId} ahead={gitStatus?.ahead ?? 0} currentBranch={gitStatus?.branch ?? null} onRefresh={() => void handleRefreshAll()} />
                     )}
                     {activeTab === 'branches' && (
-                        <BranchesTab api={api} sessionId={sessionId} currentBranch={gitStatus?.branch ?? null} onBranchChanged={() => void refetchGit()} />
+                        <BranchesTab api={api} sessionId={sessionId} currentBranch={gitStatus?.branch ?? null} onBranchChanged={() => void handleRefreshAll()} />
                     )}
                     {activeTab === 'directories' && (
                         <DirectoryTree api={api} sessionId={sessionId} rootLabel={rootLabel} onOpenFile={(path) => handleOpenFile(path)} expandedPaths={expanded} onExpandedChange={handleExpandedChange} />

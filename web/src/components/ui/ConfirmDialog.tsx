@@ -19,6 +19,7 @@ type ConfirmDialogProps = {
     onConfirm: () => Promise<void>
     isPending: boolean
     destructive?: boolean
+    confirmText?: string
 }
 
 export function ConfirmDialog(props: ConfirmDialogProps) {
@@ -32,15 +33,17 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
         confirmingLabel,
         onConfirm,
         isPending,
-        destructive = false
+        destructive = false,
+        confirmText,
     } = props
 
     const [error, setError] = useState<string | null>(null)
+    const [inputValue, setInputValue] = useState('')
 
-    // Clear error when dialog opens/closes
     useEffect(() => {
         if (isOpen) {
             setError(null)
+            setInputValue('')
         }
     }, [isOpen])
 
@@ -68,6 +71,20 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
                     </DialogDescription>
                 </DialogHeader>
 
+                {confirmText && (
+                    <div className="mt-3">
+                        <input
+                            type="text"
+                            value={inputValue}
+                            onChange={e => setInputValue(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && inputValue === confirmText) void handleConfirm() }}
+                            autoFocus
+                            className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)] font-mono"
+                            placeholder={t('dialog.confirmTextHint', { text: confirmText })}
+                        />
+                    </div>
+                )}
+
                 {error ? (
                     <div className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
                         {error}
@@ -87,7 +104,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
                         type="button"
                         variant={destructive ? 'destructive' : 'secondary'}
                         onClick={handleConfirm}
-                        disabled={isPending}
+                        disabled={isPending || (confirmText !== undefined && inputValue !== confirmText)}
                     >
                         {isPending ? confirmingLabel : confirmLabel}
                     </Button>

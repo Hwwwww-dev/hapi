@@ -26,6 +26,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
     const [localExpanded, setLocalExpanded] = useState(true)
     const [remoteExpanded, setRemoteExpanded] = useState(true)
     const [confirmBranch, setConfirmBranch] = useState<GitBranchEntry | null>(null)
+    const [deleteBranchTarget, setDeleteBranchTarget] = useState<GitBranchEntry | null>(null)
     const [renamingBranch, setRenamingBranch] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
     const [upstreamBranch, setUpstreamBranch] = useState<string | null>(null)
@@ -136,12 +137,18 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
         } finally { setActionLoading(null) }
     }
 
-    const handleDelete = async (branch: GitBranchEntry) => {
-        setActionLoading(branch.name)
+    const handleDelete = (branch: GitBranchEntry) => {
+        setDeleteBranchTarget(branch)
+    }
+
+    const executeDelete = async () => {
+        if (!deleteBranchTarget) return
+        setActionLoading(deleteBranchTarget.name)
         setError(null)
         try {
-            const res = await api.gitDeleteBranch(sessionId, branch.name)
+            const res = await api.gitDeleteBranch(sessionId, deleteBranchTarget.name)
             if (res.success) {
+                setDeleteBranchTarget(null)
                 await refetch()
                 onBranchChanged()
             } else {
@@ -462,6 +469,18 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                 confirmingLabel={t('dialog.git.checkout.confirming')}
                 onConfirm={executeCheckout}
                 isPending={actionLoading !== null}
+            />
+            <ConfirmDialog
+                isOpen={deleteBranchTarget !== null}
+                onClose={() => setDeleteBranchTarget(null)}
+                title={t('dialog.git.deleteBranch.title')}
+                description={t('dialog.git.deleteBranch.description', { name: deleteBranchTarget?.name ?? '' })}
+                confirmLabel={t('dialog.git.deleteBranch.confirm')}
+                confirmingLabel={t('dialog.git.deleteBranch.confirming')}
+                onConfirm={executeDelete}
+                isPending={actionLoading !== null}
+                destructive
+                confirmText={deleteBranchTarget?.name}
             />
             <ConfirmDialog
                 isOpen={mergeBranch !== null}

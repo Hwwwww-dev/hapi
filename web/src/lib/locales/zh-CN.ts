@@ -134,6 +134,7 @@ export default {
 
   // Common buttons
   'button.cancel': '取消',
+  'dialog.confirmTextHint': '输入 "{text}" 以确认：',
   'button.save': '保存',
   'button.confirm': '确认',
   'button.close': '关闭',
@@ -400,6 +401,7 @@ export default {
   'files.tab.files': '文件',
   'files.header.git': 'Git',
   'files.header.refresh': '刷新',
+  'files.header.refreshed': '已刷新',
   'files.header.detached': '游离',
 
   // SessionFiles - ChangesTab
@@ -549,6 +551,10 @@ export default {
   'dialog.git.deleteTag.description': '删除标签 "{name}"？',
   'dialog.git.deleteTag.confirm': '删除',
   'dialog.git.deleteTag.confirming': '删除中…',
+  'dialog.git.deleteBranch.title': '删除分支',
+  'dialog.git.deleteBranch.description': '删除分支 "{name}"？此操作不可撤销。',
+  'dialog.git.deleteBranch.confirm': '删除',
+  'dialog.git.deleteBranch.confirming': '删除中…',
   'notify.git.tagCreateOk': '标签已创建',
   'notify.git.tagDeleteOk': '标签已删除',
 } as const
