@@ -146,6 +146,9 @@ export default {
   'newSession.placeholder': '/path/to/project',
   'newSession.recent': 'Recent paths',
   'newSession.directoryValidation.mustExist': 'Directory must already exist.',
+  'newSession.directoryValidation.simpleWillCreate': 'Directory does not exist yet. It will be created when you start the session.',
+  'newSession.directoryValidation.simpleWillCreateConfirmed': 'Click again to create the directory and start the session.',
+  'newSession.directoryValidation.worktreeMustExist': 'Worktree mode requires the base directory to already exist.',
   'newSession.directoryPicker.browse': 'Browse',
   'newSession.directoryPicker.title': 'Choose directory',
   'newSession.directoryPicker.description': 'Browse existing directories or create a child directory in the current location.',
@@ -173,6 +176,7 @@ export default {
   'newSession.yolo.title': 'Bypass approvals and sandbox',
   'newSession.yolo.desc': 'Uses dangerous agent flags when spawning.',
   'newSession.create': 'Create',
+  'newSession.createAndCreateDirectory': 'Create & make directory',
   'newSession.creating': 'Creating…',
 
   // Spawn session (old component)

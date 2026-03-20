@@ -148,6 +148,9 @@ export default {
   'newSession.placeholder': '/path/to/project',
   'newSession.recent': '最近路径',
   'newSession.directoryValidation.mustExist': '目录必须已存在。',
+  'newSession.directoryValidation.simpleWillCreate': '目录不存在，将在创建会话时一并创建。',
+  'newSession.directoryValidation.simpleWillCreateConfirmed': '再次点击将创建目录并启动会话。',
+  'newSession.directoryValidation.worktreeMustExist': '工作树模式要求基目录必须已存在。',
   'newSession.directoryPicker.browse': '浏览',
   'newSession.directoryPicker.title': '选择目录',
   'newSession.directoryPicker.description': '浏览现有目录，或在当前目录下新建一个子目录。',
@@ -175,6 +178,7 @@ export default {
   'newSession.yolo.title': '跳过审批和沙箱',
   'newSession.yolo.desc': '启动时使用危险的代理标志。',
   'newSession.create': '创建',
+  'newSession.createAndCreateDirectory': '创建并创建目录',
   'newSession.creating': '创建中…',
 
   // Spawn session (old component)

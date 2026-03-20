@@ -14,6 +14,8 @@ export function DirectorySection(props: {
     recentPaths: string[]
     showPathValidation: boolean
     pathExists: boolean | null
+    statusMessage?: string | null
+    statusTone?: 'warning' | 'error' | null
     onDirectoryChange: (value: string) => void
     onDirectoryFocus: () => void
     onDirectoryBlur: () => void
@@ -67,6 +69,18 @@ export function DirectorySection(props: {
             {props.showPathValidation && props.pathExists === false ? (
                 <div className="text-xs text-red-600">
                     {t('newSession.directoryValidation.mustExist')}
+                </div>
+            ) : null}
+
+            {props.statusMessage ? (
+                <div
+                    className={`mt-1 rounded-md px-2 py-1 text-xs ${
+                        props.statusTone === 'error'
+                            ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                            : 'bg-amber-500/10 text-[var(--app-hint)]'
+                    }`}
+                >
+                    {props.statusMessage}
                 </div>
             ) : null}
 

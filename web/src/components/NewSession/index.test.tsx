@@ -6,7 +6,7 @@ import { NewSession } from './index'
 
 function createApi() {
     return {
-        getSessions: vi.fn(async () => ({ sessions: [] })),
+        getSessions: vi.fn(async () => ({ groups: [] })),
         checkMachinePathsExists: vi.fn(async (_machineId: string, paths: string[]) => ({
             exists: Object.fromEntries(paths.map((path) => [path, path === '/Users/demo/projects']))
         })),
@@ -111,7 +111,64 @@ describe('NewSession', () => {
         expect(await screen.findByDisplayValue('/Users/demo/projects')).toBeInTheDocument()
     })
 
-    it('blocks session creation when the typed directory does not exist', async () => {
+    it('warns before creating a simple session in a missing directory and confirms on second click', async () => {
+        const api = createApi()
+        const onSuccess = vi.fn()
+
+        renderWithProviders(
+            <NewSession
+                api={api as never}
+                machines={[{
+                    id: 'machine-1',
+                    active: true,
+                    metadata: {
+                        host: 'demo-host',
+                        platform: 'darwin',
+                        happyCliVersion: '0.1.0',
+                        homeDir: '/Users/demo'
+                    }
+                }]}
+                onSuccess={onSuccess}
+                onCancel={vi.fn()}
+            />
+        )
+
+        fireEvent.change(await screen.findByPlaceholderText('/path/to/project'), {
+            target: { value: '/Users/demo/missing' }
+        })
+
+        await waitFor(() => {
+            expect(screen.getByText('目录不存在，将在创建会话时一并创建。')).toBeInTheDocument()
+        })
+
+        const createButton = screen.getByRole('button', { name: '创建' })
+        expect(createButton).toBeEnabled()
+
+        fireEvent.click(createButton)
+
+        await waitFor(() => {
+            expect(screen.getByText('再次点击将创建目录并启动会话。')).toBeInTheDocument()
+        })
+        expect(screen.getByRole('button', { name: '创建并创建目录' })).toBeEnabled()
+        expect(api.spawnSession).not.toHaveBeenCalled()
+
+        fireEvent.click(screen.getByRole('button', { name: '创建并创建目录' }))
+
+        await waitFor(() => {
+            expect(api.spawnSession).toHaveBeenCalledWith(
+                'machine-1',
+                '/Users/demo/missing',
+                'claude',
+                undefined,
+                false,
+                'simple',
+                undefined
+            )
+            expect(onSuccess).toHaveBeenCalledWith('session-1')
+        })
+    })
+
+    it('still blocks worktree creation when the base directory does not exist', async () => {
         const api = createApi()
 
         renderWithProviders(
@@ -135,9 +192,10 @@ describe('NewSession', () => {
         fireEvent.change(await screen.findByPlaceholderText('/path/to/project'), {
             target: { value: '/Users/demo/missing' }
         })
+        fireEvent.click(screen.getByLabelText('工作树'))
 
         await waitFor(() => {
-            expect(screen.getByText('目录必须已存在。')).toBeInTheDocument()
+            expect(screen.getByText('工作树模式要求基目录必须已存在。')).toBeInTheDocument()
         })
         expect(screen.getByRole('button', { name: '创建' })).toBeDisabled()
     })
@@ -217,7 +275,8 @@ describe('NewSession', () => {
 
         resolveMachine2?.({ exists: { '/shared/project': false } })
         await waitFor(() => {
-            expect(createButton).toBeDisabled()
+            expect(createButton).toBeEnabled()
+            expect(screen.getByText('目录不存在，将在创建会话时一并创建。')).toBeInTheDocument()
         })
     })
 })

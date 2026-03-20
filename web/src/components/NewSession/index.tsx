@@ -7,6 +7,7 @@ import { useSessions } from '@/hooks/queries/useSessions'
 import { useActiveSuggestions, type Suggestion } from '@/hooks/useActiveSuggestions'
 import { useDirectorySuggestions } from '@/hooks/useDirectorySuggestions'
 import { useRecentPaths } from '@/hooks/useRecentPaths'
+import { useTranslation } from '@/lib/use-translation'
 import type { AgentType, SessionType } from './types'
 import { ActionButtons } from './ActionButtons'
 import { AgentSelector } from './AgentSelector'
@@ -32,6 +33,7 @@ export function NewSession(props: {
     onCancel: () => void
 }) {
     const { haptic } = usePlatform()
+    const { t } = useTranslation()
     const { spawnSession, isPending, error: spawnError } = useSpawnSession(props.api)
     const { sessions } = useSessions(props.api)
     const isFormDisabled = Boolean(isPending || props.isLoading)
@@ -48,6 +50,7 @@ export function NewSession(props: {
     const [yoloMode, setYoloMode] = useState(loadPreferredYoloMode)
     const [sessionType, setSessionType] = useState<SessionType>('simple')
     const [worktreeName, setWorktreeName] = useState('')
+    const [directoryCreationConfirmed, setDirectoryCreationConfirmed] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const worktreeInputRef = useRef<HTMLInputElement>(null)
 
@@ -116,6 +119,8 @@ export function NewSession(props: {
             return () => { cancelled = true }
         }
 
+        setPathExistence((prev) => Object.keys(prev).length === 0 ? prev : {})
+
         void props.api.checkMachinePathsExists(machineId, pathsToCheck)
             .then((result) => {
                 if (cancelled) return
@@ -137,8 +142,25 @@ export function NewSession(props: {
     )
 
     const typedPathExists = typedDirectory ? pathExistence[typedDirectory] ?? null : null
+    const needsDirectoryCreationWarning = sessionType === 'simple' && typedDirectory !== '' && typedPathExists === false
+    const missingWorktreeDirectory = sessionType === 'worktree' && typedDirectory !== '' && typedPathExists === false
+    const directoryStatusMessage = missingWorktreeDirectory
+        ? t('newSession.directoryValidation.worktreeMustExist')
+        : needsDirectoryCreationWarning
+            ? (directoryCreationConfirmed
+                ? t('newSession.directoryValidation.simpleWillCreateConfirmed')
+                : t('newSession.directoryValidation.simpleWillCreate'))
+            : null
+    const directoryStatusTone = missingWorktreeDirectory ? 'error' : needsDirectoryCreationWarning ? 'warning' : null
+    const createLabel = needsDirectoryCreationWarning && directoryCreationConfirmed
+        ? t('newSession.createAndCreateDirectory')
+        : undefined
     const pickerStartPath = selectedMachine?.metadata?.homeDir ?? null
     const machinePlatform = selectedMachine?.metadata?.platform ?? null
+
+    useEffect(() => {
+        setDirectoryCreationConfirmed(false)
+    }, [machineId, sessionType, typedDirectory])
 
     const getSuggestions = useCallback(async (query: string): Promise<Suggestion[]> => {
         const lowered = query.toLowerCase()
@@ -234,10 +256,21 @@ export function NewSession(props: {
     }, [suggestions, selectedIndex, moveUp, moveDown, clearSuggestions, handleSuggestionSelect])
 
     async function handleCreate() {
-        if (!machineId || !typedDirectory || typedPathExists !== true) return
+        if (!machineId || !typedDirectory) return
 
         setError(null)
         try {
+            if (missingWorktreeDirectory) {
+                haptic.notification('error')
+                setError(t('newSession.directoryValidation.worktreeMustExist'))
+                return
+            }
+
+            if (needsDirectoryCreationWarning && !directoryCreationConfirmed) {
+                setDirectoryCreationConfirmed(true)
+                return
+            }
+
             const resolvedModel = model !== 'auto' && agent !== 'opencode' ? model : undefined
             const result = await spawnSession({
                 machineId,
@@ -266,8 +299,8 @@ export function NewSession(props: {
     }
 
     const canBrowse = Boolean(machineId && pickerStartPath)
-    const showPathValidation = Boolean(typedDirectory) && typedPathExists === false
-    const canCreate = Boolean(machineId && typedDirectory && typedPathExists === true && !isFormDisabled)
+    const showPathValidation = Boolean(typedDirectory) && typedPathExists === false && !directoryStatusMessage
+    const canCreate = Boolean(machineId && typedDirectory && typedPathExists !== null && !missingWorktreeDirectory && !isFormDisabled)
 
     return (
         <div className="flex flex-col divide-y divide-[var(--app-divider)]">
@@ -292,6 +325,8 @@ export function NewSession(props: {
                 recentPaths={recentPaths}
                 showPathValidation={showPathValidation}
                 pathExists={typedPathExists}
+                statusMessage={directoryStatusMessage}
+                statusTone={directoryStatusTone}
                 onDirectoryChange={handleDirectoryChange}
                 onDirectoryFocus={handleDirectoryFocus}
                 onDirectoryBlur={handleDirectoryBlur}
@@ -344,6 +379,7 @@ export function NewSession(props: {
                 isPending={isPending}
                 canCreate={canCreate}
                 isDisabled={isFormDisabled}
+                createLabel={createLabel}
                 onCancel={props.onCancel}
                 onCreate={handleCreate}
             />
