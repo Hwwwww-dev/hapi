@@ -191,7 +191,7 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
     }, [props.forceScrollToken, scrollToBottom])
 
     const handleLoadMore = useCallback(() => {
-        if (isLoadingMessagesRef.current || !hasMoreMessagesRef.current || isLoadingMoreRef.current || loadLockRef.current) {
+        if (atBottomRef.current || isLoadingMessagesRef.current || !hasMoreMessagesRef.current || isLoadingMoreRef.current || loadLockRef.current) {
             return
         }
         const viewport = viewportRef.current

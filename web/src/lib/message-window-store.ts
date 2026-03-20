@@ -355,12 +355,20 @@ export async function fetchLatestMessages(api: ApiClient, sessionId: string): Pr
                     warning: null,
                 })
             }
-            const pendingResult = mergeIntoPending(prev, response.messages)
+            // Only treat messages newer than our current window as pending.
+            // Older messages (including sidechain) from the API response are not "new"
+            // and should not inflate the pending indicator.
+            const trulyNew = prev.newestSeq != null
+                ? response.messages.filter(m => (m.seq ?? 0) > prev.newestSeq!)
+                : response.messages
+            const pendingResult = mergeIntoPending(prev, trulyNew)
             return buildState(prev, {
                 pending: pendingResult.pending,
                 pendingVisibleCount: pendingResult.pendingVisibleCount,
                 pendingOverflowCount: pendingResult.pendingOverflowCount,
                 pendingOverflowVisibleCount: pendingResult.pendingOverflowVisibleCount,
+                hasMore: response.page.hasMore,
+                totalMessages: response.page.total ?? null,
                 isLoading: false,
                 warning: pendingResult.warning,
             })

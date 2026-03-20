@@ -36,7 +36,7 @@ export class MessageService {
             const maxSeq = rootStored[rootStored.length - 1].seq
             const isNewestPage = options.beforeSeq === null
             const sidechainStored = isNewestPage
-                ? this.store.messages.getSidechainMessagesFrom(sessionId, minSeq)
+                ? this.store.messages.getSidechainMessagesFrom(sessionId, 1)
                 : this.store.messages.getSidechainMessagesInRange(sessionId, minSeq, maxSeq)
             allStored = [...rootStored, ...sidechainStored].sort((a, b) => a.seq - b.seq)
         }
