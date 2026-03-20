@@ -286,7 +286,7 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
                 description={t('dialog.git.push.description')}
                 confirmLabel={t('dialog.git.push.confirm')}
                 confirmingLabel={t('dialog.git.push.confirming')}
-                onConfirm={async () => { await runGitAction('push', () => api.gitPush(sessionId)) }}
+                onConfirm={async () => { await runGitAction('push', () => api.gitPush(sessionId, 'origin', 'HEAD')) }}
                 isPending={gitActionLoading === 'push'}
             />
             <ConfirmDialog

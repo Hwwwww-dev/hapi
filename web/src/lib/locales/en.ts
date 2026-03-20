@@ -374,6 +374,7 @@ export default {
   'notify.git.stashPopped': 'Stash popped',
   'notify.git.uncommitOk': 'Commit undone',
   'notify.git.failed': '{action} failed',
+  'notify.refreshed': 'Refreshed',
   'git.uncommit': 'Uncommit',
   'dialog.git.uncommit.title': 'Uncommit',
   'dialog.git.uncommit.description': 'Undo commit "{subject}"? Changes will be kept in staging area.',

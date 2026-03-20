@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback } from 'react'
+import { lazy, Suspense, startTransition, useCallback, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { ApiClient } from '@/api/client'
 import type { Session } from '@/types/api'
@@ -12,7 +12,7 @@ import {
     useMatchRoute,
     useNavigate,
     useParams,
-    useSearch,
+
 } from '@tanstack/react-router'
 import { App } from '@/App'
 import { SessionChat } from '@/components/SessionChat'
@@ -33,7 +33,8 @@ import { queryKeys } from '@/lib/query-keys'
 import { useToast } from '@/lib/toast-context'
 import { useTranslation } from '@/lib/use-translation'
 import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message-window-store'
-import { normalizeSessionAgentTab, toSessionAgentSearch, getTabFlavor, getTabActive, type SessionAgentTab } from '@/lib/agentFlavorUtils'
+import { getTabFlavor, getTabActive, loadAgentTab, saveAgentTab, type SessionAgentTab } from '@/lib/agentFlavorUtils'
+import { notify } from '@/lib/notify'
 const FilesPage = lazy(() => import('@/routes/sessions/files'))
 const FilePage = lazy(() => import('@/routes/sessions/file'))
 const TerminalPage = lazy(() => import('@/routes/sessions/terminal'))
@@ -115,39 +116,26 @@ function SessionsPage() {
     const pathname = useLocation({ select: location => location.pathname })
     const matchRoute = useMatchRoute()
     const { t } = useTranslation()
-    const search = useSearch({ from: '/sessions' })
-    const agentTab = normalizeSessionAgentTab(search.agent)
+    const [agentTab, setAgentTab] = useState<SessionAgentTab>(loadAgentTab)
     const { sessions, groups, isLoading, error, refetch, removeSession, loadMoreForDirectory, isLoadingMoreFor } = useSessions(api, getTabFlavor(agentTab), getTabActive(agentTab))
 
     const handleRefresh = useCallback(() => {
-        void refetch()
-    }, [refetch])
+        void refetch().then(() => notify.success(t('notify.refreshed'), 1500))
+    }, [refetch, t])
 
     const projectCount = groups.length
     const sessionMatch = matchRoute({ to: '/sessions/$sessionId', fuzzy: true })
     const selectedSessionId = sessionMatch && sessionMatch.sessionId !== 'new' ? sessionMatch.sessionId : null
     const isSessionsIndex = pathname === '/sessions' || pathname === '/sessions/'
     const handleAgentTabChange = useCallback((nextTab: SessionAgentTab) => {
-        navigate({
-            to: pathname,
-            search: (prev) => {
-                const nextSearch = {
-                    ...(prev && typeof prev === 'object' ? prev : {})
-                } as Record<string, unknown>
-                delete nextSearch.agent
-                return {
-                    ...nextSearch,
-                    ...toSessionAgentSearch(nextTab)
-                }
-            },
-            replace: true,
-        })
-    }, [navigate, pathname])
+        saveAgentTab(nextTab)
+        setAgentTab(nextTab)
+    }, [])
 
     return (
-        <div className="flex h-full min-h-0">
+        <div className="relative flex h-full min-h-0">
             <div
-                className={`${isSessionsIndex ? 'flex' : 'hidden lg:flex'} w-full lg:w-[420px] xl:w-[480px] shrink-0 flex-col bg-[var(--app-bg)] lg:border-r lg:border-[var(--app-divider)]`}
+                className={`flex w-full lg:w-[420px] xl:w-[480px] shrink-0 flex-col bg-[var(--app-bg)] lg:border-r lg:border-[var(--app-divider)]${isSessionsIndex ? '' : ' invisible absolute inset-0 pointer-events-none lg:visible lg:static lg:pointer-events-auto'}`}
             >
                 <div className="bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
                     <div className="mx-auto w-full max-w-content flex items-center justify-between px-3 py-2">
@@ -198,7 +186,6 @@ function SessionsPage() {
                         onSelect={(sessionId) => navigate({
                             to: '/sessions/$sessionId',
                             params: { sessionId },
-                            search: toSessionAgentSearch(agentTab),
                             replace: !!selectedSessionId,
                         })}
                         onNewSession={() => navigate({ to: '/sessions/new' })}
@@ -211,14 +198,13 @@ function SessionsPage() {
                         removeSession={removeSession}
                         onDeletedNavigate={() => navigate({
                             to: '/sessions',
-                            search: toSessionAgentSearch(agentTab),
                             replace: true,
                         })}
                     />
                 </div>
             </div>
 
-            <div className={`${isSessionsIndex ? 'hidden lg:flex' : 'flex'} min-w-0 flex-1 flex-col bg-[var(--app-bg)]`}>
+            <div className={`flex min-w-0 flex-1 flex-col bg-[var(--app-bg)]${isSessionsIndex ? ' invisible absolute inset-0 pointer-events-none lg:visible lg:static lg:pointer-events-auto' : ''}`}>
                 <div className="flex-1 min-h-0">
                     <Outlet />
                 </div>
@@ -265,8 +251,12 @@ function SessionPageContent(props: {
 }) {
     const { api, session, sessionId, refetchSession } = props
     const { t } = useTranslation()
-    const goBack = useAppGoBack()
     const navigate = useNavigate()
+    const goBack = useCallback(() => {
+        startTransition(() => {
+            navigate({ to: '/sessions', replace: true })
+        })
+    }, [navigate])
     const queryClient = useQueryClient()
     const { addToast } = useToast()
     const {
@@ -489,10 +479,6 @@ const indexRoute = createRoute({
 const sessionsRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/sessions',
-    validateSearch: (search: Record<string, unknown>): { agent?: SessionAgentTab } => {
-        const agent = normalizeSessionAgentTab(typeof search.agent === 'string' ? search.agent : undefined)
-        return { agent }
-    },
     component: SessionsPage,
 })
 

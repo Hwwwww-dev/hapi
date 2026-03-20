@@ -47,6 +47,23 @@ export function toSessionAgentSearch(tab: SessionAgentTab): SessionAgentSearch {
     return { agent: tab }
 }
 
+const AGENT_TAB_STORAGE_KEY = 'hapi:agent-tab'
+
+export function loadAgentTab(): SessionAgentTab {
+    try {
+        const stored = localStorage.getItem(AGENT_TAB_STORAGE_KEY)
+        return normalizeSessionAgentTab(stored)
+    } catch {
+        return 'claude'
+    }
+}
+
+export function saveAgentTab(tab: SessionAgentTab): void {
+    try {
+        localStorage.setItem(AGENT_TAB_STORAGE_KEY, tab)
+    } catch {}
+}
+
 const FLAVOR_DISPLAY_NAMES: Record<string, string> = {
     claude: 'Claude Code',
     codex: 'Codex',

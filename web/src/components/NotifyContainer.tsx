@@ -35,7 +35,7 @@ function NotifyMessage({ item, onDone }: { item: NotifyItem; onDone: () => void 
             onClick={dismiss}
         >
             <span className={`text-sm font-bold ${style.color}`}>{style.icon}</span>
-            <span className="text-sm text-[var(--app-fg)] whitespace-nowrap">{item.message}</span>
+            <span className="text-sm text-[var(--app-fg)] break-words">{item.message}</span>
             {item.duration > 0 && (
                 <div className="absolute inset-x-0 bottom-0 h-[3px] overflow-hidden rounded-b-lg">
                     <div

@@ -396,6 +396,30 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                     });
                 }
             }
+            if (msgType === 'function_call_begin') {
+                const callId = asString(msg.call_id ?? msg.callId);
+                const name = asString(msg.name);
+                if (callId && name) {
+                    session.sendCodexMessage({
+                        type: 'tool-call',
+                        name,
+                        callId,
+                        input: msg.input ?? {},
+                        id: randomUUID()
+                    });
+                }
+            }
+            if (msgType === 'function_call_end') {
+                const callId = asString(msg.call_id ?? msg.callId);
+                if (callId) {
+                    session.sendCodexMessage({
+                        type: 'tool-call-result',
+                        callId,
+                        output: msg.output,
+                        id: randomUUID()
+                    });
+                }
+            }
             if (msgType === 'token_count') {
                 session.sendCodexMessage({
                     ...msg,

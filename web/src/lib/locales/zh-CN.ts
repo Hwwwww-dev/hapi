@@ -376,6 +376,7 @@ export default {
   'notify.git.stashPopped': '已恢复 Stash',
   'notify.git.uncommitOk': '已撤销提交',
   'notify.git.failed': '{action} 失败',
+  'notify.refreshed': '已刷新',
   'git.uncommit': '撤销提交',
   'dialog.git.uncommit.title': '撤销提交',
   'dialog.git.uncommit.description': '撤销提交 "{subject}"？更改将保留在暂存区。',

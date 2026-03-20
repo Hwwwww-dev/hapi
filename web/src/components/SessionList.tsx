@@ -615,7 +615,7 @@ export function SessionList(props: {
             <div
                 key={contentAnimationKey}
                 data-testid="session-list-content"
-                className="animate-session-list-swap flex flex-col gap-2 px-2 pb-2"
+                className="animate-session-list-swap flex flex-col gap-2 px-2 py-2"
             >
                 {isOnlineTab ? (
                     /* Online tab: flat list of active sessions */

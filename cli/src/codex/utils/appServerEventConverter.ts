@@ -466,6 +466,46 @@ export class AppServerEventConverter {
                 return events;
             }
 
+            if (itemType === 'functioncall') {
+                if (method === 'item/started') {
+                    const name = asString(item.name);
+                    const callId = asString(item.callId ?? item.call_id ?? item.id) ?? itemId;
+                    const input = item.arguments ?? item.input;
+                    events.push({
+                        type: 'function_call_begin',
+                        call_id: callId,
+                        name: name ?? 'unknown',
+                        input: typeof input === 'string' ? (() => { try { return JSON.parse(input); } catch { return input; } })() : input
+                    });
+                }
+
+                if (method === 'item/completed') {
+                    const callId = asString(item.callId ?? item.call_id ?? item.id) ?? itemId;
+                    const output = item.output ?? item.result ?? item.content;
+                    events.push({
+                        type: 'function_call_end',
+                        call_id: callId,
+                        output
+                    });
+                }
+
+                return events;
+            }
+
+            if (itemType === 'functioncalloutput') {
+                if (method === 'item/completed') {
+                    const callId = asString(item.callId ?? item.call_id ?? item.id) ?? itemId;
+                    const output = item.output ?? item.result ?? item.content;
+                    events.push({
+                        type: 'function_call_end',
+                        call_id: callId,
+                        output
+                    });
+                }
+
+                return events;
+            }
+
             if (itemType === 'filechange') {
                 if (method === 'item/started') {
                     const changes = extractChanges(item.changes ?? item.change ?? item.diff);

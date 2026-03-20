@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
 import type { ApiClient } from '@/api/client'
 import type { DecryptedMessage } from '@/types/api'
 import {
@@ -74,10 +74,21 @@ export function useMessages(api: ApiClient | null, sessionId: string | null): {
         }
     }, [sessionId])
 
+    const pageSizeRef = useRef(50)
+    const lastLoadRef = useRef(0)
+
     const loadMore = useCallback(async () => {
         if (!api || !sessionId) return
         if (!state.hasMore || state.isLoadingMore) return
-        await fetchOlderMessages(api, sessionId)
+        const now = Date.now()
+        const elapsed = now - lastLoadRef.current
+        if (elapsed >= 3000 || lastLoadRef.current === 0) {
+            pageSizeRef.current = 50
+        } else if (pageSizeRef.current < 300) {
+            pageSizeRef.current = Math.min(pageSizeRef.current * 2, 300)
+        }
+        lastLoadRef.current = now
+        await fetchOlderMessages(api, sessionId, pageSizeRef.current)
     }, [api, sessionId, state.hasMore, state.isLoadingMore])
 
     const refetch = useCallback(async () => {

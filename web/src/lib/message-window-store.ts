@@ -366,7 +366,7 @@ export async function fetchLatestMessages(api: ApiClient, sessionId: string): Pr
     }
 }
 
-export async function fetchOlderMessages(api: ApiClient, sessionId: string): Promise<void> {
+export async function fetchOlderMessages(api: ApiClient, sessionId: string, limit?: number): Promise<void> {
     const initial = getState(sessionId)
     if (initial.isLoadingMore || !initial.hasMore) {
         return
@@ -377,7 +377,7 @@ export async function fetchOlderMessages(api: ApiClient, sessionId: string): Pro
     updateState(sessionId, (prev) => buildState(prev, { isLoadingMore: true }))
 
     try {
-        const response = await api.getMessages(sessionId, { limit: PAGE_SIZE, beforeSeq: initial.oldestSeq })
+        const response = await api.getMessages(sessionId, { limit: limit ?? PAGE_SIZE, beforeSeq: initial.oldestSeq })
         updateState(sessionId, (prev) => {
             const merged = mergeMessages(response.messages, prev.messages)
             return buildState(prev, {
