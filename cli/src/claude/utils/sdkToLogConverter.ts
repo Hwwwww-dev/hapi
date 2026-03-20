@@ -147,13 +147,13 @@ export class SDKToLogConverter {
                     // Assistant messages often have additional fields
                     requestId: (assistantMsg as any).requestId
                 }
-                // if (assistantMsg.message.content && Array.isArray(assistantMsg.message.content)) {
-                //     for (const content of assistantMsg.message.content) {
-                //         if (content.type === 'tool_use' && content.id) {
-                //             this.sidechainLastUUID.set(content.id, uuid);
-                //         }
-                //     }
-                // }
+                if (assistantMsg.message.content && Array.isArray(assistantMsg.message.content)) {
+                    for (const content of assistantMsg.message.content) {
+                        if (content.type === 'tool_use' && content.id) {
+                            this.sidechainLastUUID.set(content.id, uuid);
+                        }
+                    }
+                }
                 break
             }
 
@@ -248,9 +248,10 @@ export class SDKToLogConverter {
     convertSidechainUserMessage(toolUseId: string, content: string): RawJSONLines {
         const uuid = randomUUID()
         const timestamp = new Date().toISOString()
+        const parentUuid = this.sidechainLastUUID.get(toolUseId) ?? null;
         this.sidechainLastUUID.set(toolUseId, uuid);
         return {
-            parentUuid: null,
+            parentUuid: parentUuid,
             isSidechain: true,
             userType: 'external' as const,
             cwd: this.context.cwd,
