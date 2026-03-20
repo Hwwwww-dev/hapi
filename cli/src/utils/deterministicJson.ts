@@ -94,12 +94,15 @@ export function deterministicStringify(
                 .filter(item => item !== undefined);
             
             if (sortArrays) {
-                // Sort arrays by their stringified content for true determinism
-                processed.sort((a, b) => {
-                    const aStr = JSON.stringify(processValue(a));
-                    const bStr = JSON.stringify(processValue(b));
-                    return aStr.localeCompare(bStr);
-                });
+                // Schwartzian transform: pre-compute stringify, sort, then unwrap
+                const decorated = processed.map(item => ({
+                    value: item,
+                    key: JSON.stringify(item)
+                }));
+                decorated.sort((a, b) => a.key.localeCompare(b.key));
+                const sorted = decorated.map(d => d.value);
+                seen.delete(value);
+                return sorted;
             }
             
             seen.delete(value);

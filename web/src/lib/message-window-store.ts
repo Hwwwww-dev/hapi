@@ -144,17 +144,22 @@ function updateState(sessionId: string, updater: (prev: InternalState) => Intern
 }
 
 function deriveSeqBounds(messages: DecryptedMessage[]): { oldestSeq: number | null; newestSeq: number | null } {
+    // Messages are sorted by compareMessages (seq first, then createdAt).
+    // Scan from the start for the first numeric seq (oldest),
+    // and from the end for the first numeric seq (newest).
+    // This is O(1) in practice since most messages have seq numbers.
     let oldest: number | null = null
+    for (let i = 0; i < messages.length; i++) {
+        if (typeof messages[i].seq === 'number') {
+            oldest = messages[i].seq as number
+            break
+        }
+    }
     let newest: number | null = null
-    for (const message of messages) {
-        if (typeof message.seq !== 'number') {
-            continue
-        }
-        if (oldest === null || message.seq < oldest) {
-            oldest = message.seq
-        }
-        if (newest === null || message.seq > newest) {
-            newest = message.seq
+    for (let i = messages.length - 1; i >= 0; i--) {
+        if (typeof messages[i].seq === 'number') {
+            newest = messages[i].seq as number
+            break
         }
     }
     return { oldestSeq: oldest, newestSeq: newest }

@@ -288,7 +288,7 @@ export class NativeSyncService {
             const intervalMs = this.resolveSessionSyncInterval(summary.lastActivityAt, now)
             const lastSyncAt = this.lastSessionSyncAt.get(this.getSessionSyncKey(summary))
             if (lastSyncAt === undefined) {
-                return 0
+                return Math.min(this.pollIntervalMs, NativeSyncService.ACTIVE_POLL_INTERVAL_MS)
             }
 
             const remainingMs = Math.max(0, intervalMs - (now - lastSyncAt))

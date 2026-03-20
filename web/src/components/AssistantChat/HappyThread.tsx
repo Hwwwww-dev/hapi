@@ -217,10 +217,15 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
             loadLockRef.current = false
             console.error('Failed to load older messages:', error)
         }).finally(() => {
-            if (!loadStartedRef.current && !isLoadingMoreRef.current && pendingScrollRef.current) {
-                pendingScrollRef.current = null
-                loadLockRef.current = false
-            }
+            // Always schedule a safety release: if the lock hasn't been cleared
+            // by useLayoutEffect (scroll restoration) within a reasonable time,
+            // release it to prevent deadlock from ref-update race conditions.
+            setTimeout(() => {
+                if (loadLockRef.current && pendingScrollRef.current) {
+                    pendingScrollRef.current = null
+                    loadLockRef.current = false
+                }
+            }, 500)
         })
     }, [])
 
@@ -265,17 +270,17 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
         }
         const delta = viewport.scrollHeight - pending.scrollHeight
         viewport.scrollTop = pending.scrollTop + delta
+        pendingScrollRef.current = null
+        loadLockRef.current = false
         // Double-check after browser paint to handle late layout shifts
         requestAnimationFrame(() => {
-            if (!pendingScrollRef.current && viewport) {
+            if (viewport) {
                 const newDelta = viewport.scrollHeight - pending.scrollHeight
                 if (Math.abs(newDelta - delta) > 2) {
                     viewport.scrollTop = pending.scrollTop + newDelta
                 }
             }
         })
-        pendingScrollRef.current = null
-        loadLockRef.current = false
     }, [props.messagesVersion])
 
     useEffect(() => {

@@ -59,6 +59,13 @@ function compareMessages(a: DecryptedMessage, b: DecryptedMessage): number {
     return a.id.localeCompare(b.id)
 }
 
+function isSorted(arr: DecryptedMessage[]): boolean {
+    for (let i = 1; i < arr.length; i++) {
+        if (compareMessages(arr[i - 1], arr[i]) > 0) return false
+    }
+    return true
+}
+
 export function mergeMessages(existing: DecryptedMessage[], incoming: DecryptedMessage[]): DecryptedMessage[] {
     if (existing.length === 0) {
         return [...incoming].sort(compareMessages)
@@ -113,7 +120,11 @@ export function mergeMessages(existing: DecryptedMessage[], incoming: DecryptedM
         result.push(optimistic)
     }
 
-    result.sort(compareMessages)
+    // Skip O(n log n) sort when result is already in order (common case:
+    // both inputs were sorted and messages were appended/prepended).
+    if (!isSorted(result)) {
+        result.sort(compareMessages)
+    }
     return result
 }
 

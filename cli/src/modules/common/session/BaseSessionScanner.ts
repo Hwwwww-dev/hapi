@@ -26,9 +26,13 @@ type BaseSessionScannerOptions = {
 };
 
 export abstract class BaseSessionScanner<TEvent> {
+    private static readonly MAX_PROCESSED_KEYS = 50_000;
+    private static readonly PRUNE_TARGET = 30_000;
+
     private readonly sync: InvalidateSync;
     private readonly watchers = new Map<string, () => void>();
     private readonly processedEventKeys = new Set<string>();
+    private readonly processedKeyOrder: string[] = [];
     private readonly fileCursors = new Map<string, number>();
     private intervalId: ReturnType<typeof setInterval> | null = null;
     private stopped = false;
@@ -184,6 +188,21 @@ export abstract class BaseSessionScanner<TEvent> {
     }
 
     private recordProcessedKey(key: string): void {
-        this.processedEventKeys.add(key);
+        if (!this.processedEventKeys.has(key)) {
+            this.processedEventKeys.add(key);
+            this.processedKeyOrder.push(key);
+            this.pruneProcessedKeysIfNeeded();
+        }
+    }
+
+    private pruneProcessedKeysIfNeeded(): void {
+        if (this.processedKeyOrder.length <= BaseSessionScanner.MAX_PROCESSED_KEYS) {
+            return;
+        }
+        const removeCount = this.processedKeyOrder.length - BaseSessionScanner.PRUNE_TARGET;
+        const removed = this.processedKeyOrder.splice(0, removeCount);
+        for (const key of removed) {
+            this.processedEventKeys.delete(key);
+        }
     }
 }
