@@ -105,6 +105,7 @@ export function reduceTimeline(
                         localId: msg.localId,
                         createdAt: msg.createdAt,
                         text: c.text,
+                        truncated: c.truncated,
                         meta: msg.meta
                     })
                     continue

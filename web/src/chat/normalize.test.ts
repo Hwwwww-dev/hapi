@@ -84,6 +84,61 @@ describe('normalizeDecryptedMessage', () => {
         }))
     })
 
+    it('marks overlong Claude thinking blocks as truncated reasoning', () => {
+        const thinking = '想'.repeat(64 * 1024 + 8)
+        const normalized = normalizeDecryptedMessage(createMessage({
+            type: 'assistant',
+            message: {
+                role: 'assistant',
+                content: [
+                    { type: 'thinking', thinking }
+                ]
+            }
+        }))
+
+        expect(normalized).toEqual(expect.objectContaining({
+            role: 'agent',
+            content: [
+                expect.objectContaining({
+                    type: 'reasoning',
+                    truncated: true
+                })
+            ]
+        }))
+        expect(normalized?.role).toBe('agent')
+        if (normalized?.role === 'agent') {
+            const [reasoning] = normalized.content
+            expect(reasoning).toEqual(expect.objectContaining({ type: 'reasoning' }))
+            if (reasoning?.type === 'reasoning') {
+                expect(reasoning.text.length).toBe(64 * 1024)
+            }
+        }
+    })
+
+    it('marks overlong Codex reasoning messages as truncated reasoning', () => {
+        const thinking = '算'.repeat(64 * 1024 + 4)
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'agent',
+            content: {
+                type: 'codex',
+                data: {
+                    type: 'reasoning',
+                    message: thinking
+                }
+            }
+        }))
+
+        expect(normalized).toEqual(expect.objectContaining({
+            role: 'agent',
+            content: [
+                expect.objectContaining({
+                    type: 'reasoning',
+                    truncated: true
+                })
+            ]
+        }))
+    })
+
     it('keeps Claude native user text block arrays as user text', () => {
         const normalized = normalizeDecryptedMessage(createMessage({
             type: 'user',

@@ -3,6 +3,8 @@ import { useMessage } from '@assistant-ui/react'
 import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown'
 import { cn } from '@/lib/utils'
 import { defaultComponents, MARKDOWN_PLUGINS } from '@/components/assistant-ui/markdown-text'
+import { useTranslation } from '@/lib/use-translation'
+import type { HappyChatMessageMetadata } from '@/lib/assistant-runtime'
 
 function ChevronIcon(props: { className?: string; open?: boolean }) {
     return (
@@ -52,12 +54,15 @@ export const Reasoning: FC = () => {
  */
 export const ReasoningGroup: FC<PropsWithChildren> = ({ children }) => {
     const [isOpen, setIsOpen] = useState(false)
+    const { t } = useTranslation()
 
     // Check if reasoning is still streaming
     const message = useMessage()
     const isStreaming = message.status?.type === 'running'
         && message.content.length > 0
         && message.content[message.content.length - 1]?.type === 'reasoning'
+    const custom = message.metadata?.custom as Partial<HappyChatMessageMetadata> | undefined
+    const isTruncated = custom?.reasoningTruncated === true
 
     return (
         <div className="aui-reasoning-group my-2">
@@ -87,6 +92,11 @@ export const ReasoningGroup: FC<PropsWithChildren> = ({ children }) => {
             >
                 <div className="pl-4 pt-2 border-l-2 border-[var(--app-border)] ml-0.5">
                     {children}
+                    {isTruncated ? (
+                        <div className="mt-2 text-xs text-[var(--app-hint)]">
+                            {t('chat.reasoning.truncated')}
+                        </div>
+                    ) : null}
                 </div>
             </div>
         </div>

@@ -195,6 +195,7 @@ export default {
   'chat.settings': 'Settings',
   'chat.terminal': 'Terminal',
   'chat.switchRemote': 'Switch to remote mode',
+  'chat.reasoning.truncated': 'Reasoning content was too long and has been truncated',
 
   // Terminal
   'terminal.commandName': 'Command',

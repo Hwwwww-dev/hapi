@@ -12,6 +12,7 @@ export type HappyChatMessageMetadata = {
     status?: HappyMessageStatus
     localId?: string | null
     originalText?: string
+    reasoningTruncated?: boolean
     toolCallId?: string
     event?: AgentEvent
     source?: CliOutputBlock['source']
@@ -59,7 +60,10 @@ function toThreadMessageLike(block: ChatBlock): ThreadMessageLike {
             createdAt: new Date(block.createdAt),
             content: [{ type: 'reasoning', text: block.text }],
             metadata: {
-                custom: { kind: 'assistant' } satisfies HappyChatMessageMetadata
+                custom: {
+                    kind: 'assistant',
+                    reasoningTruncated: block.truncated
+                } satisfies HappyChatMessageMetadata
             }
         }
     }

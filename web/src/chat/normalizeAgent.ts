@@ -4,6 +4,7 @@ import { asNumber, asString, isObject, safeStringify } from '@hapi/protocol'
 const MAX_ASSISTANT_SOURCE_BLOCKS = 16
 const MAX_THINKING_PARSE_TEXT_LENGTH = 64 * 1024
 const MAX_THINKING_BLOCKS = 32
+const MAX_REASONING_TEXT_LENGTH = 64 * 1024
 
 function normalizeToolResultPermissions(value: unknown): ToolResultPermission | undefined {
     if (!isObject(value)) return undefined
@@ -43,6 +44,24 @@ function toTextContent(
     return [{ type: 'text', text, uuid, parentUUID }]
 }
 
+function toReasoningContent(
+    text: string,
+    uuid: string,
+    parentUUID: string | null
+): NormalizedAgentContent {
+    if (text.length <= MAX_REASONING_TEXT_LENGTH) {
+        return { type: 'reasoning', text, uuid, parentUUID }
+    }
+
+    return {
+        type: 'reasoning',
+        text: text.slice(0, MAX_REASONING_TEXT_LENGTH),
+        truncated: true,
+        uuid,
+        parentUUID
+    }
+}
+
 function normalizeThinkingTaggedText(
     text: string,
     uuid: string,
@@ -75,7 +94,7 @@ function normalizeThinkingTaggedText(
 
         const thinkingText = (match[1] ?? '').trim()
         if (thinkingText.length > 0) {
-            blocks.push({ type: 'reasoning', text: thinkingText, uuid, parentUUID })
+            blocks.push(toReasoningContent(thinkingText, uuid, parentUUID))
         }
 
         lastIndex = index + match[0].length
@@ -132,7 +151,7 @@ function normalizeAssistantBlocks(
             continue
         }
         if (block.type === 'thinking' && typeof block.thinking === 'string') {
-            normalized.push({ type: 'reasoning', text: block.thinking, uuid: fallbackUuid, parentUUID: fallbackParentUUID })
+            normalized.push(toReasoningContent(block.thinking, fallbackUuid, fallbackParentUUID))
             continue
         }
         if ((block.type === 'tool_use' || block.type === 'tool_call') && typeof block.id === 'string') {
@@ -197,7 +216,7 @@ function normalizeAssistantOutput(
                 continue
             }
             if (block.type === 'thinking' && typeof block.thinking === 'string') {
-                blocks.push({ type: 'reasoning', text: block.thinking, uuid, parentUUID })
+                blocks.push(toReasoningContent(block.thinking, uuid, parentUUID))
                 continue
             }
             if ((block.type === 'tool_use' || block.type === 'tool_call') && typeof block.id === 'string') {
@@ -538,7 +557,7 @@ export function normalizeAgentRecord(
                 createdAt,
                 role: 'agent',
                 isSidechain: false,
-                content: [{ type: 'reasoning', text: data.message, uuid: messageId, parentUUID: null }],
+                content: [toReasoningContent(data.message, messageId, null)],
                 meta
             }
         }

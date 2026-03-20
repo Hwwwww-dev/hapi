@@ -197,6 +197,7 @@ export default {
   'chat.settings': '设置',
   'chat.terminal': '终端',
   'chat.switchRemote': '切换到远程模式',
+  'chat.reasoning.truncated': '思考内容过长，已截断',
 
   // Terminal
   'terminal.commandName': '命令',

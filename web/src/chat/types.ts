@@ -58,6 +58,7 @@ export type NormalizedAgentContent =
     | {
         type: 'reasoning'
         text: string
+        truncated?: boolean
         uuid: string
         parentUUID: string | null
     }
@@ -139,6 +140,7 @@ export type AgentReasoningBlock = {
     localId: string | null
     createdAt: number
     text: string
+    truncated?: boolean
     meta?: unknown
 }
 
