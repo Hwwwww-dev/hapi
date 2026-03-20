@@ -82,7 +82,7 @@ export function useMessages(api: ApiClient | null, sessionId: string | null): {
         if (!state.hasMore || state.isLoadingMore) return
         const now = Date.now()
         const elapsed = now - lastLoadRef.current
-        if (elapsed >= 3000 || lastLoadRef.current === 0) {
+        if (elapsed >= 5000 || lastLoadRef.current === 0) {
             pageSizeRef.current = 50
         } else if (pageSizeRef.current < 300) {
             pageSizeRef.current = Math.min(pageSizeRef.current * 2, 300)

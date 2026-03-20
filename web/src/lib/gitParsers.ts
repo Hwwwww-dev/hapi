@@ -352,13 +352,14 @@ function normalizeNumstatPath(rawPath: string): { newPath: string; oldPath?: str
 
 export function parseTagList(stdout: string): GitTagEntry[] {
     return stdout.split('\n').filter(l => l.trim()).map(line => {
-        const [name, hash, short, dateStr, ...subjectParts] = line.split('\x00')
+        const [name, hash, short, dateStr, subject, author] = line.split('\t')
         return {
             name: name ?? '',
             hash: hash ?? '',
             short: short ?? '',
             date: parseInt(dateStr ?? '0', 10),
-            subject: subjectParts.join('\x00')
+            subject: subject ?? '',
+            author: author ?? '',
         }
     })
 }

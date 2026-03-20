@@ -212,6 +212,7 @@ export type GitTagEntry = {
     short: string
     date: number
     subject: string
+    author: string
 }
 
 export type SlashCommand = {

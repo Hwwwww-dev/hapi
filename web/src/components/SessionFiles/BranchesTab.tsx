@@ -20,6 +20,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
     const [showCreateInput, setShowCreateInput] = useState(false)
     const [newBranchName, setNewBranchName] = useState('')
     const [newBranchFrom, setNewBranchFrom] = useState('')
+    const [checkoutAfterCreate, setCheckoutAfterCreate] = useState(true)
     const [actionLoading, setActionLoading] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [localExpanded, setLocalExpanded] = useState(true)
@@ -172,17 +173,25 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
         setError(null)
         try {
             const res = await api.gitCreateBranch(sessionId, name, newBranchFrom.trim() || undefined)
-            if (res.success) {
-                setNewBranchName('')
-                setNewBranchFrom('')
-                setShowCreateInput(false)
-                await refetch()
-                onBranchChanged()
-            } else {
+            if (!res.success) {
                 const msg = res.stderr ?? res.error ?? t('git.createBranchFailed')
                 setError(msg)
                 notify.error(msg)
+                return
             }
+            if (checkoutAfterCreate) {
+                const checkoutRes = await api.gitCheckout(sessionId, name)
+                if (!checkoutRes.success) {
+                    const msg = checkoutRes.stderr ?? checkoutRes.error ?? t('git.checkoutFailed')
+                    setError(msg)
+                    notify.error(msg)
+                }
+            }
+            setNewBranchName('')
+            setNewBranchFrom('')
+            setShowCreateInput(false)
+            await refetch()
+            onBranchChanged()
         } finally {
             setActionLoading(null)
         }
@@ -390,17 +399,36 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                             autoFocus
                             className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
                         />
-                        <input
-                            type="text"
-                            placeholder={t('git.branchFrom')}
+                        <select
                             value={newBranchFrom}
                             onChange={e => setNewBranchFrom(e.target.value)}
-                            className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
-                        />
+                            className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)]"
+                        >
+                            <option value="">{currentBranch ? `${currentBranch} (HEAD)` : 'HEAD'}</option>
+                            {local.filter(b => b.name !== currentBranch).map(b => (
+                                <option key={b.name} value={b.name}>{b.name}</option>
+                            ))}
+                            {remote.length > 0 && (
+                                <optgroup label={t('git.remoteBranches', { n: remote.length })}>
+                                    {remote.map(b => (
+                                        <option key={b.name} value={b.name}>{b.name}</option>
+                                    ))}
+                                </optgroup>
+                            )}
+                        </select>
+                        <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-[var(--app-hint)]">
+                            <input
+                                type="checkbox"
+                                checked={checkoutAfterCreate}
+                                onChange={e => setCheckoutAfterCreate(e.target.checked)}
+                                className="rounded"
+                            />
+                            {t('git.checkoutAfterCreate')}
+                        </label>
                         <div className="flex gap-2">
                             <button
                                 type="button"
-                                onClick={handleCreateBranch}
+                                onClick={() => void handleCreateBranch()}
                                 disabled={!newBranchName.trim() || actionLoading === 'create'}
                                 className="flex-1 min-h-[44px] text-sm font-medium rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50 transition-opacity"
                             >

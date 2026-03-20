@@ -447,6 +447,8 @@ export default {
   'git.creating': '创建中...',
   'git.create': '创建',
   'git.newBranch': '+ 新建分支',
+  'git.newBranchFromCommit': '从此处新建分支',
+  'git.checkoutAfterCreate': '创建后切换',
   'git.uncommittedWarning': '有未提交的更改，请先提交或暂存后再切换分支。',
   'git.checkoutFailed': '切换分支失败',
   'git.createBranchFailed': '创建分支失败',

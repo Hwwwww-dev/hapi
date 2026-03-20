@@ -408,7 +408,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
     rpcHandlerManager.registerHandler<{ cwd?: string; timeout?: number }, GitCommandResponse>('git-tag-list', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
-        return await queuedGitCommand(['tag', '-l', '--sort=-creatordate', '--format=%(refname:strip=2)%x00%(objectname)%x00%(objectname:short)%x00%(creatordate:unix)%x00%(subject)'], resolved.cwd, data.timeout)
+        return await queuedGitCommand(['tag', '-l', '--sort=-creatordate', '--format=%(refname:strip=2)\t%(objectname)\t%(objectname:short)\t%(creatordate:unix)\t%(subject)\t%(authorname)'], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; name: string; message?: string; ref?: string; timeout?: number }, GitCommandResponse>('git-tag-create', async (data) => {

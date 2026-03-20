@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ApiClient } from '@/api/client'
 import type { GitBranchEntry } from '@/types/api'
@@ -16,19 +17,28 @@ export function useGitBranches(api: ApiClient | null, sessionId: string | null, 
                 api.gitRemoteBranches(resolvedSessionId)
             ])
             const local = localResult.success && localResult.stdout
-                ? parseBranchList(localResult.stdout, false, currentBranch)
+                ? parseBranchList(localResult.stdout, false, null)
                 : []
             const remote = remoteResult.success && remoteResult.stdout
-                ? parseBranchList(remoteResult.stdout, true, currentBranch)
+                ? parseBranchList(remoteResult.stdout, true, null)
                 : []
             return { local, remote }
         },
         enabled: !!api && !!resolvedSessionId
     })
 
+    const local = useMemo(
+        () => (query.data?.local ?? []).map(b => ({ ...b, isCurrent: b.name === currentBranch })),
+        [query.data?.local, currentBranch]
+    )
+    const remote = useMemo(
+        () => query.data?.remote ?? [],
+        [query.data?.remote]
+    )
+
     return {
-        local: query.data?.local ?? [],
-        remote: query.data?.remote ?? [],
+        local,
+        remote,
         isLoading: query.isLoading,
         error: query.error,
         refetch: query.refetch

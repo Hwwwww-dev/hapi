@@ -18,10 +18,11 @@ export type NativeSyncApi = {
 
 export class NativeSyncService {
     private static readonly MAX_IMPORT_BATCH_BYTES = 256 * 1024
-    private static readonly ACTIVE_ACTIVITY_WINDOW_MS = 5 * 60_000
-    private static readonly WARM_ACTIVITY_WINDOW_MS = 30 * 60_000
+    private static readonly ACTIVE_ACTIVITY_WINDOW_MS = 2 * 60_000
+    private static readonly WARM_ACTIVITY_WINDOW_MS = 15 * 60_000
     private static readonly ACTIVE_POLL_INTERVAL_MS = 5_000
-    private static readonly IDLE_POLL_INTERVAL_MS = 120_000
+    private static readonly IDLE_POLL_INTERVAL_MS = 10 * 60_000
+    private static readonly SKIP_ACTIVITY_WINDOW_MS = 60 * 60_000
 
     private readonly api: NativeSyncApi
     private readonly providers: NativeSyncProvider[]
@@ -264,6 +265,10 @@ export class NativeSyncService {
     }
 
     private shouldSyncSession(summary: NativeSessionSummary, now: number): boolean {
+        if (now - summary.lastActivityAt >= NativeSyncService.SKIP_ACTIVITY_WINDOW_MS) {
+            return false
+        }
+
         const lastSyncAt = this.lastSessionSyncAt.get(this.getSessionSyncKey(summary))
         if (lastSyncAt === undefined) {
             return true

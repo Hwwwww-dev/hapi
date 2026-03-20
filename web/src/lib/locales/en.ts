@@ -445,6 +445,8 @@ export default {
   'git.creating': 'Creating...',
   'git.create': 'Create',
   'git.newBranch': '+ New Branch',
+  'git.newBranchFromCommit': 'New Branch from Here',
+  'git.checkoutAfterCreate': 'Checkout after creation',
   'git.uncommittedWarning': 'You have uncommitted changes. Please commit or stash them before switching branches.',
   'git.checkoutFailed': 'Checkout failed',
   'git.createBranchFailed': 'Create branch failed',

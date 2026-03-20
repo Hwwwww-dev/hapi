@@ -224,6 +224,7 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                             onResetMixed={selectedBranch ? undefined : () => setResetMixedTarget(commit)}
                             onResetHard={selectedBranch ? undefined : () => setResetHardTarget(commit)}
                             onCreateTag={() => setCreateTagTarget(commit)}
+                            onBranchCreated={() => { setSkip(0); setAllCommits([]); onRefresh() }}
                         />
                     ))}
                     {isLoading && (
@@ -253,6 +254,7 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                                 <div className="flex-1 min-w-0">
                                     <div className="text-sm text-[var(--app-fg)] font-medium truncate">{tag.name}</div>
                                     <div className="text-xs text-[var(--app-hint)] mt-0.5 flex items-center gap-1">
+                                        {tag.author && <><span>{tag.author}</span><span>·</span></>}
                                         <span className="font-mono">{tag.short}</span>
                                         {tag.subject && <><span>·</span><span className="truncate">{tag.subject}</span></>}
                                     </div>

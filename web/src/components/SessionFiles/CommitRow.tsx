@@ -44,6 +44,7 @@ type CommitRowProps = {
     onResetMixed?: () => void
     onResetHard?: () => void
     onCreateTag?: () => void
+    onBranchCreated?: () => void
 }
 
 function CommitActionMenu({
@@ -53,6 +54,7 @@ function CommitActionMenu({
     onResetMixed,
     onResetHard,
     onCreateTag,
+    onCreateBranch,
 }: {
     isLocal?: boolean
     onUncommit?: () => void
@@ -60,6 +62,7 @@ function CommitActionMenu({
     onResetMixed?: () => void
     onResetHard?: () => void
     onCreateTag?: () => void
+    onCreateBranch?: () => void
 }) {
     const [open, setOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
@@ -85,6 +88,12 @@ function CommitActionMenu({
             </button>
             {open && (
                 <div className="animate-fade-in-scale absolute right-0 top-full z-20 mt-1 min-w-[160px] rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] py-1 shadow-lg">
+                    {onCreateBranch && (
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); onCreateBranch() }}
+                            className="w-full px-3 py-1.5 text-left text-xs text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors">
+                            {t('git.newBranchFromCommit')}
+                        </button>
+                    )}
                     {onCherryPick && (
                         <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); onCherryPick() }}
                             className="w-full px-3 py-1.5 text-left text-xs text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors">
@@ -122,13 +131,18 @@ function CommitActionMenu({
     )
 }
 
-export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherryPick, onResetMixed, onResetHard, onCreateTag }: CommitRowProps) {
+export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherryPick, onResetMixed, onResetHard, onCreateTag, onBranchCreated }: CommitRowProps) {
     const { t } = useTranslation()
     const [expanded, setExpanded] = useState(false)
     const [files, setFiles] = useState<FileEntry[]>([])
     const [loading, setLoading] = useState(false)
     const [loaded, setLoaded] = useState(false)
     const [dialogFile, setDialogFile] = useState<string | null>(null)
+    const [showBranchForm, setShowBranchForm] = useState(false)
+    const [branchName, setBranchName] = useState('')
+    const [checkoutAfterCreate, setCheckoutAfterCreate] = useState(true)
+    const [branchLoading, setBranchLoading] = useState(false)
+    const branchInputRef = useRef<HTMLInputElement>(null)
 
     async function handleToggle() {
         if (!expanded && !loaded) {
@@ -144,6 +158,37 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
             }
         }
         setExpanded(prev => !prev)
+    }
+
+    function handleOpenBranchForm() {
+        setShowBranchForm(true)
+        setBranchName('')
+        setTimeout(() => branchInputRef.current?.focus(), 0)
+    }
+
+    async function handleCreateBranch() {
+        const name = branchName.trim()
+        if (!name || branchLoading) return
+        setBranchLoading(true)
+        try {
+            const res = await api.gitCreateBranch(sessionId, name, commit.hash)
+            if (!res.success) {
+                notify.error(res.stderr ?? res.error ?? t('git.createBranchFailed'))
+                return
+            }
+            if (checkoutAfterCreate) {
+                const checkoutRes = await api.gitCheckout(sessionId, name)
+                if (!checkoutRes.success) {
+                    notify.error(checkoutRes.stderr ?? checkoutRes.error ?? t('git.checkoutFailed'))
+                }
+            }
+            notify.success(checkoutAfterCreate ? t('notify.git.checkoutOk') : t('git.create'))
+            setShowBranchForm(false)
+            setBranchName('')
+            onBranchCreated?.()
+        } finally {
+            setBranchLoading(false)
+        }
     }
 
     return (
@@ -174,16 +219,54 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                         </div>
                     </div>
                 </button>
-                {(onUncommit || onCherryPick || onResetMixed || onResetHard || onCreateTag) && (
-                    <div className="absolute right-2 top-2">
-                        <CommitActionMenu
-                            isLocal={isLocal}
-                            onUncommit={onUncommit}
-                            onCherryPick={onCherryPick}
-                            onResetMixed={onResetMixed}
-                            onResetHard={onResetHard}
-                            onCreateTag={onCreateTag}
+                <div className="absolute right-2 top-2">
+                    <CommitActionMenu
+                        isLocal={isLocal}
+                        onUncommit={onUncommit}
+                        onCherryPick={onCherryPick}
+                        onResetMixed={onResetMixed}
+                        onResetHard={onResetHard}
+                        onCreateTag={onCreateTag}
+                        onCreateBranch={handleOpenBranchForm}
+                    />
+                </div>
+                {showBranchForm && (
+                    <div className="pl-9 pr-4 pb-3 pt-1 flex flex-col gap-2" onClick={e => e.stopPropagation()}>
+                        <input
+                            ref={branchInputRef}
+                            type="text"
+                            placeholder={t('git.branchName')}
+                            value={branchName}
+                            onChange={e => setBranchName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') void handleCreateBranch(); if (e.key === 'Escape') setShowBranchForm(false) }}
+                            className="w-full text-xs px-2 py-1.5 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
                         />
+                        <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-[var(--app-hint)]">
+                            <input
+                                type="checkbox"
+                                checked={checkoutAfterCreate}
+                                onChange={e => setCheckoutAfterCreate(e.target.checked)}
+                                className="rounded"
+                            />
+                            {t('git.checkoutAfterCreate')}
+                        </label>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => void handleCreateBranch()}
+                                disabled={!branchName.trim() || branchLoading}
+                                className="flex-1 min-h-[32px] text-xs font-medium rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50 transition-opacity"
+                            >
+                                {branchLoading ? t('git.creating') : t('git.create')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShowBranchForm(false)}
+                                className="px-3 min-h-[32px] text-xs rounded border border-[var(--app-border)] text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
+                            >
+                                {t('button.cancel')}
+                            </button>
+                        </div>
                     </div>
                 )}
                 {expanded && loaded && (
