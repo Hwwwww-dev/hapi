@@ -82,7 +82,7 @@ export const ReasoningGroup: FC<PropsWithChildren> = ({ children }) => {
             <div
                 className={cn(
                     'overflow-hidden transition-all duration-200 ease-in-out',
-                    isOpen ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
+                    isOpen ? 'max-h-none opacity-100' : 'max-h-0 opacity-0'
                 )}
             >
                 <div className="pl-4 pt-2 border-l-2 border-[var(--app-border)] ml-0.5">

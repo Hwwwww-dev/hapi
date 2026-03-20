@@ -1,7 +1,7 @@
 import type { Database } from 'bun:sqlite'
 
 import type { StoredMessage } from './types'
-import { addMessage, getMessages, getMessagesAfter, countMessages, getRootMessages, getSidechainMessagesInRange, getSidechainMessagesFrom, countRootMessages, importNativeMessage, mergeSessionMessages, type NativeMessageImportPayload } from './messages'
+import { addMessage, getMessages, getMessagesAfter, countMessages, getRootMessages, getSidechainMessagesInRange, getSidechainMessagesFrom, countRootMessages, hasRootMessagesBefore, importNativeMessage, mergeSessionMessages, type NativeMessageImportPayload } from './messages'
 
 export class MessageStore {
     private readonly db: Database
@@ -47,6 +47,10 @@ export class MessageStore {
 
     countRootMessages(sessionId: string): number {
         return countRootMessages(this.db, sessionId)
+    }
+
+    hasRootMessagesBefore(sessionId: string, beforeSeq: number): boolean {
+        return hasRootMessagesBefore(this.db, sessionId, beforeSeq)
     }
 
     mergeSessionMessages(

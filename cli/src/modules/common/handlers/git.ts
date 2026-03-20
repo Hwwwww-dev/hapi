@@ -211,12 +211,13 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         return await queuedGitCommand(args, resolved.cwd, data.timeout ?? 60_000)
     })
 
-    rpcHandlerManager.registerHandler<{ cwd?: string; limit?: number; skip?: number; timeout?: number }, GitCommandResponse>('git-log', async (data) => {
+    rpcHandlerManager.registerHandler<{ cwd?: string; limit?: number; skip?: number; branch?: string; timeout?: number }, GitCommandResponse>('git-log', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
         const limit = Math.min(Math.max(data.limit ?? 50, 1), 500)
         const args = ['log', '--format=%H%x00%h%x00%an%x00%ae%x00%at%x00%s', '-n', String(limit)]
         if (data.skip && data.skip > 0) args.push('--skip=' + String(data.skip))
+        if (data.branch) args.push(data.branch)
         return await queuedGitCommand(args, resolved.cwd, data.timeout)
     })
 

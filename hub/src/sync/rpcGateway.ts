@@ -241,7 +241,7 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-push', options) as RpcCommandResponse
     }
 
-    async gitLog(sessionId: string, options: { cwd?: string; limit?: number; skip?: number }): Promise<RpcCommandResponse> {
+    async gitLog(sessionId: string, options: { cwd?: string; limit?: number; skip?: number; branch?: string }): Promise<RpcCommandResponse> {
         return await this.sessionRpc(sessionId, 'git-log', options) as RpcCommandResponse
     }
 

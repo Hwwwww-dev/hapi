@@ -3,6 +3,7 @@ import type { ApiClient } from '@/api/client'
 import type { CommitEntry } from '@/types/api'
 import { useGitLog } from '@/hooks/queries/useGitLog'
 import { useGitTags } from '@/hooks/queries/useGitTags'
+import { useGitBranches } from '@/hooks/queries/useGitBranches'
 import { useTranslation } from '@/lib/use-translation'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { notify } from '@/lib/notify'
@@ -12,15 +13,18 @@ type HistoryTabProps = {
     api: ApiClient
     sessionId: string
     ahead: number
+    currentBranch: string | null
     onRefresh: () => void
 }
 
-export function HistoryTab({ api, sessionId, ahead, onRefresh }: HistoryTabProps) {
+export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: HistoryTabProps) {
     const { t } = useTranslation()
     const [allCommits, setAllCommits] = useState<CommitEntry[]>([])
     const [skip, setSkip] = useState(0)
     const [hasMore, setHasMore] = useState(true)
-    const { commits, isLoading } = useGitLog(api, sessionId, { limit: 50, skip })
+    const [selectedBranch, setSelectedBranch] = useState<string | undefined>(undefined)
+    const { local: localBranches, remote: remoteBranches } = useGitBranches(api, sessionId, currentBranch)
+    const { commits, isLoading } = useGitLog(api, sessionId, { limit: 50, skip, branch: selectedBranch })
     const scrollRef = useRef<HTMLDivElement>(null)
     const [uncommitTarget, setUncommitTarget] = useState<CommitEntry | null>(null)
     const [uncommitLoading, setUncommitLoading] = useState(false)
@@ -49,6 +53,14 @@ export function HistoryTab({ api, sessionId, ahead, onRefresh }: HistoryTabProps
     const { tags, isLoading: tagsLoading, refetch: refetchTags } = useGitTags(api, sessionId)
     const [deleteTagTarget, setDeleteTagTarget] = useState<string | null>(null)
     const [deleteTagLoading, setDeleteTagLoading] = useState(false)
+
+    const handleBranchChange = useCallback((branch: string) => {
+        const value = branch === '' ? undefined : branch
+        setSelectedBranch(value)
+        setAllCommits([])
+        setSkip(0)
+        setHasMore(true)
+    }, [])
 
     useEffect(() => {
         if (commits.length > 0) {
@@ -172,6 +184,32 @@ export function HistoryTab({ api, sessionId, ahead, onRefresh }: HistoryTabProps
                     {t('git.tags', { n: tags.length })}
                 </button>
             </div>
+            {/* Branch selector */}
+            {viewMode === 'commits' && (localBranches.length > 0 || remoteBranches.length > 0) && (
+                <div className="px-3 py-2 border-b border-[var(--app-divider)] shrink-0">
+                    <select
+                        value={selectedBranch ?? ''}
+                        onChange={e => handleBranchChange(e.target.value)}
+                        className="w-full text-xs px-2 py-1.5 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)] truncate"
+                    >
+                        <option value="">{currentBranch ? `${currentBranch} (HEAD)` : 'HEAD'}</option>
+                        {localBranches.length > 0 && (
+                            <optgroup label={t('git.localBranches', { n: localBranches.length })}>
+                                {localBranches.filter(b => b.name !== currentBranch).map(b => (
+                                    <option key={b.name} value={b.name}>{b.name}</option>
+                                ))}
+                            </optgroup>
+                        )}
+                        {remoteBranches.length > 0 && (
+                            <optgroup label={t('git.remoteBranches', { n: remoteBranches.length })}>
+                                {remoteBranches.map(b => (
+                                    <option key={b.name} value={b.name}>{b.name}</option>
+                                ))}
+                            </optgroup>
+                        )}
+                    </select>
+                </div>
+            )}
             {viewMode === 'commits' && (
                 <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
                     {allCommits.map((commit, index) => (
@@ -180,11 +218,11 @@ export function HistoryTab({ api, sessionId, ahead, onRefresh }: HistoryTabProps
                             commit={commit}
                             api={api}
                             sessionId={sessionId}
-                            isLocal={index < ahead}
-                            onUncommit={() => setUncommitTarget(commit)}
+                            isLocal={!selectedBranch && index < ahead}
+                            onUncommit={selectedBranch ? undefined : () => setUncommitTarget(commit)}
                             onCherryPick={() => setCherryPickTarget(commit)}
-                            onResetMixed={() => setResetMixedTarget(commit)}
-                            onResetHard={() => setResetHardTarget(commit)}
+                            onResetMixed={selectedBranch ? undefined : () => setResetMixedTarget(commit)}
+                            onResetHard={selectedBranch ? undefined : () => setResetHardTarget(commit)}
                             onCreateTag={() => setCreateTagTarget(commit)}
                         />
                     ))}

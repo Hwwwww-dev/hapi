@@ -333,10 +333,11 @@ export class ApiClient {
         })
     }
 
-    async gitLog(sessionId: string, limit?: number, skip?: number): Promise<GitCommandResponse> {
+    async gitLog(sessionId: string, limit?: number, skip?: number, branch?: string): Promise<GitCommandResponse> {
         const params = new URLSearchParams()
         if (limit !== undefined) params.set('limit', String(limit))
         if (skip !== undefined) params.set('skip', String(skip))
+        if (branch) params.set('branch', branch)
         const qs = params.toString()
         return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-log${qs ? `?${qs}` : ''}`)
     }

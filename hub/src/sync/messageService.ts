@@ -60,7 +60,7 @@ export class MessageService {
 
         const nextBeforeSeq = oldestRootSeq
         const hasMore = nextBeforeSeq !== null
-            && this.store.messages.getRootMessages(sessionId, 1, nextBeforeSeq).length > 0
+            && this.store.messages.hasRootMessagesBefore(sessionId, nextBeforeSeq)
 
         return {
             messages,

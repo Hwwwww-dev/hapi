@@ -220,6 +220,17 @@ export function countRootMessages(db: Database, sessionId: string): number {
     return row?.count ?? 0
 }
 
+/**
+ * Lightweight check: are there any root messages before the given seq?
+ * Uses SELECT 1 to avoid SELECT * and JSON parsing overhead.
+ */
+export function hasRootMessagesBefore(db: Database, sessionId: string, beforeSeq: number): boolean {
+    const row = db.prepare(
+        `SELECT 1 FROM messages WHERE session_id = ? AND seq < ? AND is_sidechain = 0 LIMIT 1`
+    ).get(sessionId, beforeSeq)
+    return row !== undefined
+}
+
 export function importNativeMessage(
     db: Database,
     sessionId: string,

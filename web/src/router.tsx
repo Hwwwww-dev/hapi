@@ -400,7 +400,17 @@ function SessionDetailRoute() {
     const basePath = `/sessions/${sessionId}`
     const isChat = pathname === basePath || pathname === `${basePath}/`
 
-    return isChat ? <SessionPage /> : <Outlet />
+    // Keep SessionPage mounted (hidden) on child routes to avoid
+    // re-initialising heavy hooks (useMessages, useSendMessage …)
+    // when swiping back — gives native-app-like instant transitions.
+    return (
+        <>
+            <div className={isChat ? 'contents' : 'hidden'}>
+                <SessionPage />
+            </div>
+            {!isChat && <Outlet />}
+        </>
+    )
 }
 
 function NewSessionPage() {

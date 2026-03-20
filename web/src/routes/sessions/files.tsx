@@ -172,7 +172,7 @@ export default function FilesPage() {
                         <ChangesTab api={api} sessionId={sessionId} gitStatus={gitStatus} isLoading={gitLoading} onOpenFile={handleOpenFile} onRefresh={() => void refetchGit()} />
                     )}
                     {activeTab === 'history' && (
-                        <HistoryTab api={api} sessionId={sessionId} ahead={gitStatus?.ahead ?? 0} onRefresh={() => void refetchGit()} />
+                        <HistoryTab api={api} sessionId={sessionId} ahead={gitStatus?.ahead ?? 0} currentBranch={gitStatus?.branch ?? null} onRefresh={() => void refetchGit()} />
                     )}
                     {activeTab === 'branches' && (
                         <BranchesTab api={api} sessionId={sessionId} currentBranch={gitStatus?.branch ?? null} onBranchChanged={() => void refetchGit()} />

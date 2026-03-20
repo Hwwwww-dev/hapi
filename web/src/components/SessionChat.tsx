@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { AssistantRuntimeProvider } from '@assistant-ui/react'
 import type { ApiClient } from '@/api/client'
@@ -25,7 +25,7 @@ import { ScrollToBottomButton } from '@/components/AssistantChat/ScrollToBottomB
 
 const SESSION_CHAT_RENDERER_INSTANCE_ID = Date.now()
 
-export function SessionChat(props: {
+export const SessionChat = memo(function SessionChat(props: {
     api: ApiClient
     session: Session
     messages: DecryptedMessage[]
@@ -451,4 +451,4 @@ export function SessionChat(props: {
             )}
         </div>
     )
-}
+})

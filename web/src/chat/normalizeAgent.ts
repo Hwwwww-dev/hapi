@@ -2,8 +2,8 @@ import type { AgentEvent, NormalizedAgentContent, NormalizedMessage, ToolResultP
 import { asNumber, asString, isObject, safeStringify } from '@hapi/protocol'
 
 const MAX_ASSISTANT_SOURCE_BLOCKS = 16
-const MAX_THINKING_PARSE_TEXT_LENGTH = 8 * 1024
-const MAX_THINKING_BLOCKS = 8
+const MAX_THINKING_PARSE_TEXT_LENGTH = 64 * 1024
+const MAX_THINKING_BLOCKS = 32
 
 function normalizeToolResultPermissions(value: unknown): ToolResultPermission | undefined {
     if (!isObject(value)) return undefined

@@ -223,6 +223,7 @@ export class Store {
             );
             CREATE INDEX IF NOT EXISTS idx_sessions_tag ON sessions(tag);
             CREATE INDEX IF NOT EXISTS idx_sessions_tag_namespace ON sessions(tag, namespace);
+            CREATE INDEX IF NOT EXISTS idx_sessions_namespace_active ON sessions(namespace, updated_at DESC) WHERE deleted_at IS NULL;
 
             CREATE TABLE IF NOT EXISTS session_native_aliases (
                 namespace TEXT NOT NULL,
@@ -273,6 +274,7 @@ export class Store {
             ON messages(session_id, source_provider, source_session_id, source_key)
             WHERE source_key IS NOT NULL;
             CREATE INDEX IF NOT EXISTS idx_messages_sidechain ON messages(session_id, is_sidechain, seq);
+            CREATE INDEX IF NOT EXISTS idx_messages_root ON messages(session_id, seq DESC) WHERE is_sidechain = 0;
 
             CREATE TABLE IF NOT EXISTS native_sync_state (
                 session_id TEXT PRIMARY KEY,
