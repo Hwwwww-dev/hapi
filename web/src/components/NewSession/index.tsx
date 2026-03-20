@@ -119,17 +119,21 @@ export function NewSession(props: {
         [allPaths, typedDirectory]
     )
 
+    // Stabilize pathsToCheck reference: only update when content actually changes
+    const pathsToCheckKey = JSON.stringify(pathsToCheck)
+    const stablePathsToCheck = useMemo(() => pathsToCheck, [pathsToCheckKey])
+
     useEffect(() => {
         let cancelled = false
 
-        if (!machineId || pathsToCheck.length === 0) {
+        if (!machineId || stablePathsToCheck.length === 0) {
             setPathExistence((prev) => Object.keys(prev).length === 0 ? prev : {})
             return () => { cancelled = true }
         }
 
         setPathExistence((prev) => Object.keys(prev).length === 0 ? prev : {})
 
-        void props.api.checkMachinePathsExists(machineId, pathsToCheck)
+        void props.api.checkMachinePathsExists(machineId, stablePathsToCheck)
             .then((result) => {
                 if (cancelled) return
                 setPathExistence(result.exists ?? {})
@@ -142,7 +146,7 @@ export function NewSession(props: {
         return () => {
             cancelled = true
         }
-    }, [machineId, pathsToCheck, props.api])
+    }, [machineId, stablePathsToCheck, props.api])
 
     const verifiedPaths = useMemo(
         () => allPaths.filter((path) => pathExistence[path]),
