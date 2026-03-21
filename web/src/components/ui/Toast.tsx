@@ -1,26 +1,11 @@
 import * as React from 'react'
-import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
-const toastVariants = cva(
-    'pointer-events-auto w-full max-w-sm rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] text-[var(--app-fg)] shadow-lg',
-    {
-        variants: {
-            variant: {
-                default: 'border-[var(--app-border)] bg-[var(--app-bg)]'
-            }
-        },
-        defaultVariants: {
-            variant: 'default'
-        }
-    }
-)
-
-export type ToastProps = React.HTMLAttributes<HTMLDivElement> &
-    VariantProps<typeof toastVariants> & {
+export type ToastProps = React.HTMLAttributes<HTMLDivElement> & {
     title: string
     body: string
     onClose?: () => void
+    variant?: 'default'
 }
 
 export function Toast({ title, body, onClose, className, variant, ...props }: ToastProps) {
@@ -30,7 +15,14 @@ export function Toast({ title, body, onClose, className, variant, ...props }: To
     }
 
     return (
-        <div className={cn(toastVariants({ variant }), 'animate-fade-in-up', className)} role="status" {...props}>
+        <div
+            className={cn(
+                'pointer-events-auto w-full max-w-sm rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] text-[var(--app-fg)] shadow-lg animate-fade-in-up',
+                className
+            )}
+            role="status"
+            {...props}
+        >
             <div className="flex items-start gap-3 p-3">
                 <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold leading-5">{title}</div>

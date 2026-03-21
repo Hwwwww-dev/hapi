@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { IconPlus, IconBulb, IconRight, IconFolder, IconRefresh } from '@arco-design/web-react/icon'
 import { getExplicitSessionTitle, getSessionListFallbackTitle, type SessionSummary } from '@/types/api'
 import type { ApiClient } from '@/api/client'
 import { useLongPress } from '@/hooks/useLongPress'
@@ -69,109 +69,6 @@ function groupNativeChildren(sessions: SessionSummary[]): SessionWithChildren[] 
         }))
 }
 
-
-
-function PlusIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-    )
-}
-
-function BulbIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <path d="M9 18h6" />
-            <path d="M10 22h4" />
-            <path d="M12 2a7 7 0 0 0-4 12c.6.6 1 1.2 1 2h6c0-.8.4-1.4 1-2a7 7 0 0 0-4-12Z" />
-        </svg>
-    )
-}
-
-function ChevronIcon(props: { className?: string; collapsed?: boolean }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={`${props.className ?? ''} transition-transform duration-200 ${props.collapsed ? '' : 'rotate-90'}`}
-        >
-            <polyline points="9 18 15 12 9 6" />
-        </svg>
-    )
-}
-
-function FolderIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-        </svg>
-    )
-}
-
-function RefreshIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <path d="M21 2v6h-6" />
-            <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-            <path d="M3 22v-6h6" />
-            <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-        </svg>
-    )
-}
-
 function getSessionTitle(session: SessionSummary): string {
     return getExplicitSessionTitle(session) ?? getSessionListFallbackTitle(session)
 }
@@ -195,20 +92,6 @@ function getNativeOriginLabel(session: SessionSummary): string | null {
     if (!nativeSessionId) return provider
 
     return `${provider} · ${nativeSessionId.slice(0, 8)}`
-}
-
-function getNativeSessionProviderLabel(session: SessionSummary): string | null {
-    const nativeProvider = session.metadata?.nativeProvider?.trim()
-    if (nativeProvider) {
-        return nativeProvider
-    }
-
-    const source = session.metadata?.source
-    if (source === 'native' || source === 'hybrid') {
-        return getAgentLabel(session)
-    }
-
-    return null
 }
 
 function formatRelativeTime(value: number, t: (key: string, params?: Record<string, string | number>) => string): string | null {
@@ -277,7 +160,6 @@ const SessionItem = memo(function SessionItem(props: {
     const { t } = useTranslation()
     const { session: s, onSelect, groupDirectory, api, selected = false } = props
     const { haptic } = usePlatform()
-    const navigate = useNavigate()
     const [menuOpen, setMenuOpen] = useState(false)
     const [menuAnchorPoint, setMenuAnchorPoint] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
     const [renameOpen, setRenameOpen] = useState(false)
@@ -319,7 +201,6 @@ const SessionItem = memo(function SessionItem(props: {
     })
 
     const sessionName = getSessionTitle(s)
-    const nativeSessionProviderLabel = getNativeSessionProviderLabel(s)
     const nativeSessionId = s.metadata?.nativeSessionId?.trim() || null
     const relativeSessionPath = getRelativeSessionPath(s, groupDirectory)
     const sessionTimes = formatSessionTimes(s, t)
@@ -369,7 +250,7 @@ const SessionItem = memo(function SessionItem(props: {
                                 if (!progress) return null
                                 return (
                                     <span className="flex items-center gap-1 rounded-full bg-[var(--app-secondary-bg)] px-2 py-0.5 text-[var(--app-hint)]">
-                                        <BulbIcon className="h-3 w-3" />
+                                        <IconBulb style={{ fontSize: 12 }} />
                                         {progress.completed}/{progress.total}
                                     </span>
                                 )
@@ -575,7 +456,7 @@ export function SessionList(props: {
                             title={t('session.chat.refresh')}
                             aria-busy={props.isLoading}
                         >
-                            <RefreshIcon className={`h-4 w-4 ${props.isLoading ? 'animate-spin' : ''}`} />
+                            <IconRefresh className={props.isLoading ? 'animate-spin' : ''} style={{ fontSize: 16 }} />
                         </button>
                         <button
                             type="button"
@@ -583,7 +464,7 @@ export function SessionList(props: {
                             className="session-list-new-button rounded-full p-1.5 text-[var(--app-link)] transition-colors"
                             title={t('sessions.new')}
                         >
-                            <PlusIcon className="h-5 w-5" />
+                            <IconPlus style={{ fontSize: 20 }} />
                         </button>
                     </div>
                 </div>
@@ -661,12 +542,12 @@ export function SessionList(props: {
                                 onClick={() => toggleGroup(group.directory, isCollapsed)}
                                 className="sticky top-0 z-10 flex w-full items-center gap-3 border-b border-[var(--app-divider)] bg-[var(--app-bg)] px-3 py-2.5 text-left transition-colors hover:bg-[var(--app-secondary-bg)]"
                             >
-                                <ChevronIcon
-                                    className="h-4 w-4 text-[var(--app-hint)]"
-                                    collapsed={isCollapsed}
+                                <IconRight
+                                    className={`text-[var(--app-hint)] transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`}
+                                    style={{ fontSize: 16 }}
                                 />
                                 <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${group.hasActiveSession ? 'bg-[var(--app-secondary-bg)] text-[var(--app-link)]' : 'bg-[var(--app-secondary-bg)] text-[var(--app-hint)]'}`}>
-                                    <FolderIcon className="h-4 w-4" />
+                                    <IconFolder style={{ fontSize: 16 }} />
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2 min-w-0">

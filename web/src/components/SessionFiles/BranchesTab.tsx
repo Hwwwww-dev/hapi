@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { Select } from '@arco-design/web-react'
 import type { ApiClient } from '@/api/client'
 import { useGitBranches } from '@/hooks/queries/useGitBranches'
 import { useGitRemotes } from '@/hooks/queries/useGitRemotes'
@@ -244,7 +245,6 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                 <BranchRow
                                     key={branch.name}
                                     branch={branch}
-                                    currentBranch={currentBranch}
                                     loading={actionLoading === branch.name}
                                     isRenaming={renamingBranch === branch.name}
                                     renameValue={renamingBranch === branch.name ? renameValue : ''}
@@ -297,7 +297,6 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                         <BranchRow
                                             key={branch.name}
                                             branch={branch}
-                                            currentBranch={currentBranch}
                                             loading={actionLoading === branch.name}
                                             isRenaming={false}
                                             renameValue=""
@@ -406,23 +405,24 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                             autoFocus
                             className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
                         />
-                        <select
+                        <Select
                             value={newBranchFrom}
-                            onChange={e => setNewBranchFrom(e.target.value)}
-                            className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)]"
+                            onChange={(val: string) => setNewBranchFrom(val)}
+                            className="w-full"
+                            getPopupContainer={(node) => node.parentElement ?? document.body}
                         >
-                            <option value="">{currentBranch ? `${currentBranch} (HEAD)` : 'HEAD'}</option>
+                            <Select.Option value="">{currentBranch ? `${currentBranch} (HEAD)` : 'HEAD'}</Select.Option>
                             {local.filter(b => b.name !== currentBranch).map(b => (
-                                <option key={b.name} value={b.name}>{b.name}</option>
+                                <Select.Option key={b.name} value={b.name}>{b.name}</Select.Option>
                             ))}
                             {remote.length > 0 && (
-                                <optgroup label={t('git.remoteBranches', { n: remote.length })}>
+                                <Select.OptGroup label={t('git.remoteBranches', { n: remote.length })}>
                                     {remote.map(b => (
-                                        <option key={b.name} value={b.name}>{b.name}</option>
+                                        <Select.Option key={b.name} value={b.name}>{b.name}</Select.Option>
                                     ))}
-                                </optgroup>
+                                </Select.OptGroup>
                             )}
-                        </select>
+                        </Select>
                         <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-[var(--app-hint)]">
                             <input
                                 type="checkbox"
@@ -539,9 +539,8 @@ function RemoteActionMenu({ onEditUrl, onRemove }: { onEditUrl: () => void; onRe
     )
 }
 
-function BranchActionMenu({ branch, currentBranch, onRename, onSetUpstream, onMerge, onDelete }: {
+function BranchActionMenu({ branch, onRename, onSetUpstream, onMerge, onDelete }: {
     branch: GitBranchEntry
-    currentBranch: string | null
     onRename: () => void
     onSetUpstream: () => void
     onMerge: () => void
@@ -606,10 +605,10 @@ function BranchActionMenu({ branch, currentBranch, onRename, onSetUpstream, onMe
         </div>
     )
 }
-function BranchRow({ branch, currentBranch, loading, isRenaming, renameValue, remoteBranches, upstreamBranch, onClick,
+function BranchRow({ branch, loading, isRenaming, renameValue, remoteBranches, upstreamBranch, onClick,
     onRenameChange, onRenameSubmit, onRenameCancel, onStartRename, onStartUpstream, onSelectUpstream, onCancelUpstream, onMerge, onDelete,
 }: {
-    branch: GitBranchEntry; currentBranch: string | null; loading: boolean
+    branch: GitBranchEntry; loading: boolean
     isRenaming: boolean; renameValue: string; remoteBranches: GitBranchEntry[]
     upstreamBranch: string | null
     onClick: () => void
@@ -664,7 +663,6 @@ function BranchRow({ branch, currentBranch, loading, isRenaming, renameValue, re
                 {!isRenaming && (
                     <BranchActionMenu
                         branch={branch}
-                        currentBranch={currentBranch}
                         onRename={onStartRename}
                         onSetUpstream={onStartUpstream}
                         onMerge={onMerge}

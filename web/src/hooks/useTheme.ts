@@ -79,6 +79,8 @@ function isIOS(): boolean {
 
 function applyTheme(scheme: ColorScheme): void {
     document.documentElement.setAttribute('data-theme', scheme)
+    // Sync Arco Design dark mode
+    document.body.setAttribute('arco-theme', scheme === 'dark' ? 'dark' : '')
 }
 
 function applyPlatform(): void {

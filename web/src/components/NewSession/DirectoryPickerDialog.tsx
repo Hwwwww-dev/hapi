@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Input } from '@arco-design/web-react'
 import type { ApiClient } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -119,13 +120,12 @@ export function DirectoryPickerDialog(props: {
                                 {t('newSession.directoryPicker.newName')}
                             </label>
                             <div className="flex gap-2">
-                                <input
+                                <Input
                                     id="new-session-picker-name"
-                                    type="text"
                                     value={newDirectoryName}
-                                    onChange={(event) => setNewDirectoryName(event.target.value)}
+                                    onChange={(val) => setNewDirectoryName(val)}
                                     placeholder={t('newSession.directoryPicker.newPlaceholder')}
-                                    className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] p-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-link)]"
+                                    className="w-full"
                                     disabled={isCreating}
                                 />
                                 <Button type="submit" disabled={!newDirectoryName.trim() || isCreating || !currentPath}>

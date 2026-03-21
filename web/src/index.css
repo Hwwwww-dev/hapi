@@ -3,6 +3,130 @@
 
 @custom-variant dark (&:is([data-theme="dark"] *));
 
+/* ── Arco Design theme bridge: map --app-* → Arco --color-* ──
+   Must be on `body` because Arco declares its variables on `body`,
+   and nearest-scope wins over inherited `:root` values. ── */
+body {
+    --color-bg-1: var(--app-bg);
+    --color-bg-2: var(--app-secondary-bg);
+    --color-text-1: var(--app-fg);
+    --color-text-3: var(--app-hint);
+    --color-border-1: var(--app-border);
+    --color-fill-2: var(--app-secondary-bg);
+    --color-primary-6: var(--app-button);
+}
+
+/* ── Arco component style overrides for app theme consistency ── */
+
+/* Menu - remove default borders, match app hover */
+.arco-menu {
+    background: transparent !important;
+}
+.arco-menu-item {
+    border-radius: 6px !important;
+    margin: 1px 0 !important;
+    color: var(--app-fg) !important;
+}
+.arco-menu-item:hover {
+    background: var(--app-subtle-bg) !important;
+}
+.arco-menu-item.arco-menu-selected {
+    background: var(--app-subtle-bg) !important;
+    color: var(--app-link) !important;
+}
+
+/* Dropdown - match app border and shadow */
+.arco-dropdown {
+    border: 1px solid var(--app-border) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+    background: var(--app-bg) !important;
+    overflow: hidden;
+    padding: 4px !important;
+}
+[data-theme="dark"] .arco-dropdown {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Select - match app input styling */
+.arco-select-view {
+    border-color: var(--app-border) !important;
+    background: var(--app-subtle-bg) !important;
+    border-radius: 8px !important;
+}
+.arco-select-view:hover {
+    border-color: var(--app-hint) !important;
+}
+.arco-select-view.arco-select-view-focus {
+    border-color: var(--app-link) !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-link) 15%, transparent) !important;
+}
+.arco-select-popup {
+    border: 1px solid var(--app-border) !important;
+    border-radius: 10px !important;
+    background: var(--app-bg) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+    overflow: hidden;
+}
+[data-theme="dark"] .arco-select-popup {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+}
+.arco-select-option {
+    border-radius: 6px !important;
+    margin: 1px 4px !important;
+}
+.arco-select-option:hover {
+    background: var(--app-subtle-bg) !important;
+}
+.arco-select-option.arco-select-option-selected {
+    background: var(--app-subtle-bg) !important;
+    color: var(--app-link) !important;
+}
+
+/* Switch - match app button color */
+.arco-switch-checked {
+    background: var(--app-button) !important;
+}
+
+/* Radio - match app link color */
+.arco-radio-checked .arco-radio-mask {
+    background: var(--app-link) !important;
+    border-color: var(--app-link) !important;
+}
+
+/* Alert - match app banner colors */
+.arco-alert {
+    border-radius: 10px !important;
+}
+
+/* Modal - match app dialog style */
+.arco-modal {
+    border-radius: 14px !important;
+    overflow: hidden;
+}
+.arco-modal-mask {
+    background: rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Drawer - match app drawer style */
+.arco-drawer-content {
+    background: var(--app-bg) !important;
+}
+
+/* Input - match app input style */
+.arco-input {
+    border-color: var(--app-border) !important;
+    background: var(--app-subtle-bg) !important;
+    border-radius: 8px !important;
+}
+.arco-input:hover {
+    border-color: var(--app-hint) !important;
+}
+.arco-input:focus,
+.arco-input.arco-input-focus {
+    border-color: var(--app-link) !important;
+}
+
 :root {
     --app-bg: var(--tg-theme-bg-color, #ffffff);
     --app-fg: var(--tg-theme-text-color, #111827);

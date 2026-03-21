@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { Select } from '@arco-design/web-react'
 import type { ApiClient } from '@/api/client'
 import type { CommitEntry } from '@/types/api'
 import { useGitLog } from '@/hooks/queries/useGitLog'
@@ -187,27 +188,28 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
             {/* Branch selector */}
             {viewMode === 'commits' && (localBranches.length > 0 || remoteBranches.length > 0) && (
                 <div className="px-3 py-2 border-b border-[var(--app-divider)] shrink-0">
-                    <select
+                    <Select
                         value={selectedBranch ?? ''}
-                        onChange={e => handleBranchChange(e.target.value)}
-                        className="w-full text-xs px-2 py-1.5 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)] truncate"
+                        onChange={(val: string) => handleBranchChange(val)}
+                        className="w-full"
+                        getPopupContainer={(node) => node.parentElement ?? document.body}
                     >
-                        <option value="">{currentBranch ? `${currentBranch} (HEAD)` : 'HEAD'}</option>
+                        <Select.Option value="">{currentBranch ? `${currentBranch} (HEAD)` : 'HEAD'}</Select.Option>
                         {localBranches.length > 0 && (
-                            <optgroup label={t('git.localBranches', { n: localBranches.length })}>
+                            <Select.OptGroup label={t('git.localBranches', { n: localBranches.length })}>
                                 {localBranches.filter(b => b.name !== currentBranch).map(b => (
-                                    <option key={b.name} value={b.name}>{b.name}</option>
+                                    <Select.Option key={b.name} value={b.name}>{b.name}</Select.Option>
                                 ))}
-                            </optgroup>
+                            </Select.OptGroup>
                         )}
                         {remoteBranches.length > 0 && (
-                            <optgroup label={t('git.remoteBranches', { n: remoteBranches.length })}>
+                            <Select.OptGroup label={t('git.remoteBranches', { n: remoteBranches.length })}>
                                 {remoteBranches.map(b => (
-                                    <option key={b.name} value={b.name}>{b.name}</option>
+                                    <Select.Option key={b.name} value={b.name}>{b.name}</Select.Option>
                                 ))}
-                            </optgroup>
+                            </Select.OptGroup>
                         )}
-                    </select>
+                    </Select>
                 </div>
             )}
             {viewMode === 'commits' && (
