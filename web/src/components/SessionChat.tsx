@@ -22,6 +22,7 @@ import { useTranslation } from '@/lib/use-translation'
 import { useVoiceOptional } from '@/lib/voice-context'
 import { RealtimeVoiceSession, registerSessionStore, registerVoiceHooksStore, voiceHooks } from '@/realtime'
 import { ScrollToBottomButton } from '@/components/AssistantChat/ScrollToBottomButton'
+import { isRemoteTerminalSupported } from '@/utils/terminalSupport'
 
 const SESSION_CHAT_RENDERER_INSTANCE_ID = Date.now()
 
@@ -52,6 +53,7 @@ export const SessionChat = memo(function SessionChat(props: {
     const { haptic } = usePlatform()
     const navigate = useNavigate()
     const sessionInactive = !props.session.active
+    const terminalSupported = isRemoteTerminalSupported(props.session.metadata)
     const normalizedCacheRef = useRef<Map<string, { source: DecryptedMessage; normalized: NormalizedMessage | null }>>(new Map())
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
@@ -459,7 +461,8 @@ export const SessionChat = memo(function SessionChat(props: {
                         onPermissionModeChange={handlePermissionModeChange}
                         onModelChange={handleModelChange}
                         onSwitchToRemote={handleSwitchToRemote}
-                        onTerminal={props.session.active ? handleViewTerminal : undefined}
+                        onTerminal={props.session.active && terminalSupported ? handleViewTerminal : undefined}
+                        terminalUnsupported={props.session.active && !terminalSupported}
                         autocompleteSuggestions={props.autocompleteSuggestions}
                         voiceStatus={voice?.status}
                         voiceMicMuted={voice?.micMuted}
