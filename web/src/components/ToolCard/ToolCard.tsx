@@ -31,6 +31,9 @@ import {
     IconCheck,
     IconClose,
 } from '@arco-design/web-react/icon'
+import { Collapse } from '@arco-design/web-react'
+
+const CollapseItem = Collapse.Item
 
 const ELAPSED_INTERVAL_MS = 1000
 
@@ -358,15 +361,16 @@ function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metad
                     return (
                         <div key={block.id} className="px-2 py-1 min-w-0 max-w-full">
                             {isLong ? (
-                                <details className="group">
-                                    <summary className="cursor-pointer select-none text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)] list-none flex items-center gap-1">
-                                        <span className="transition-transform group-open:rotate-90">▶</span>
-                                        <span className="truncate">{block.text.split('\n')[0].slice(0, 80).trim()}…</span>
-                                    </summary>
-                                    <div className="mt-1 overflow-x-auto">
-                                        <MarkdownRenderer content={block.text} />
-                                    </div>
-                                </details>
+                                <Collapse bordered={false} className="toolcard-collapse">
+                                    <CollapseItem
+                                        name="agent-text"
+                                        header={<span className="truncate text-xs text-[var(--app-hint)]">{block.text.split('\n')[0].slice(0, 80).trim()}…</span>}
+                                    >
+                                        <div className="overflow-x-auto">
+                                            <MarkdownRenderer content={block.text} />
+                                        </div>
+                                    </CollapseItem>
+                                </Collapse>
                             ) : (
                                 <div className="overflow-x-auto">
                                     <MarkdownRenderer content={block.text} />
@@ -525,44 +529,47 @@ function ToolCardInner(props: ToolCardProps) {
                                 && Object.keys(permission.answers).length > 0
 
                             return (
-                                <div className="mt-3 flex max-h-[75vh] flex-col gap-4 overflow-auto">
-                                    <div>
-                                        <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">
-                                            {isQuestionToolWithAnswers ? t('tool.questionsAnswers') : t('tool.input')}
-                                        </div>
-                                        {FullToolView
-                                            ? <FullToolView block={props.block} metadata={props.metadata} />
-                                            : renderToolInput(props.block)
-                                        }
-                                    </div>
+                                <div className="toolcard-dialog mt-3 flex max-h-[75vh] flex-col gap-4 overflow-y-auto scrollbar-hide">
+                                    <Collapse bordered={false} activeKey={['input']} className="toolcard-collapse shrink-0">
+                                        <CollapseItem
+                                            name="input"
+                                            header={<span className="text-xs text-[var(--app-hint)]">{isQuestionToolWithAnswers ? t('tool.questionsAnswers') : t('tool.input')}</span>}
+                                        >
+                                            {FullToolView
+                                                ? <FullToolView block={props.block} metadata={props.metadata} />
+                                                : renderToolInput(props.block)
+                                            }
+                                        </CollapseItem>
+                                    </Collapse>
                                     {isTaskOrAgent && props.block.children.length > 0 ? (
-                                        <details className="group">
-                                            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-2.5 py-1.5 text-xs text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] select-none">
-                                                <span className="transition-transform group-open:rotate-90">▶</span>
-                                                <span className="flex-1">{t('tool.taskSteps')} ({props.block.children.length})</span>
-                                            </summary>
-                                            <div className="mt-1.5">
+                                        <Collapse bordered={false} className="toolcard-collapse shrink-0">
+                                            <CollapseItem
+                                                name="task-steps"
+                                                header={<span className="text-xs text-[var(--app-hint)]">{t('tool.taskSteps')} ({props.block.children.length})</span>}
+                                            >
                                                 <TaskChildrenList children={props.block.children} metadata={props.metadata} />
-                                            </div>
-                                        </details>
+                                            </CollapseItem>
+                                        </Collapse>
                                     ) : null}
                                     {!isQuestionToolWithAnswers && (
-                                        <div>
-                                            <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">{t('tool.result')}</div>
-                                            {presentation.minimal ? (
-                                                <details className="group" open>
-                                                    <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-2.5 py-1.5 text-xs text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] select-none">
-                                                        <span className="transition-transform group-open:rotate-90">▶</span>
-                                                        <span className="flex-1">{t('tool.result')}</span>
-                                                    </summary>
-                                                    <div className="mt-1.5">
-                                                        <ResultToolView block={props.block} metadata={props.metadata} />
-                                                    </div>
-                                                </details>
-                                            ) : (
+                                        <Collapse bordered={false} defaultActiveKey={presentation.minimal ? [] : ['result']} className="toolcard-collapse shrink-0">
+                                            <CollapseItem
+                                                name="result"
+                                                header={<span className="text-xs text-[var(--app-hint)]">{t('tool.result')}</span>}
+                                            >
                                                 <ResultToolView block={props.block} metadata={props.metadata} />
-                                            )}
-                                        </div>
+                                            </CollapseItem>
+                                        </Collapse>
+                                    )}
+                                    {import.meta.env.DEV && props.block.tool.result != null && (
+                                        <Collapse bordered={false} className="toolcard-collapse shrink-0">
+                                            <CollapseItem
+                                                name="raw-result"
+                                                header={<span className="text-xs font-medium text-[var(--app-hint)]">{t('tool.rawResult')}</span>}
+                                            >
+                                                <CodeBlock code={safeStringify(props.block.tool.result)} language="json" />
+                                            </CollapseItem>
+                                        </Collapse>
                                     )}
                                 </div>
                             )
@@ -580,15 +587,14 @@ function ToolCardInner(props: ToolCardProps) {
                     ) : null}
 
                     {showTaskResult ? (
-                        <details className="group mt-3">
-                            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-2.5 py-1.5 text-xs text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] select-none">
-                                <span className="transition-transform group-open:rotate-90">▶</span>
-                                <span className="flex-1">{t('tool.result')}</span>
-                            </summary>
-                            <div className="mt-1.5">
+                        <Collapse bordered={false} className="toolcard-collapse mt-3">
+                            <CollapseItem
+                                name="task-result"
+                                header={<span className="text-xs text-[var(--app-hint)]">{t('tool.result')}</span>}
+                            >
                                 <ResultToolView block={props.block} metadata={props.metadata} />
-                            </div>
-                        </details>
+                            </CollapseItem>
+                        </Collapse>
                     ) : null}
 
                     {showInline ? (

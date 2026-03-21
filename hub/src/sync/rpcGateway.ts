@@ -251,6 +251,10 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-show-stat', options) as RpcCommandResponse
     }
 
+    async gitShowNumstat(sessionId: string, options: { cwd?: string; hash: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-show-numstat', options) as RpcCommandResponse
+    }
+
     async gitShowFile(sessionId: string, options: { cwd?: string; hash: string; filePath: string }): Promise<RpcCommandResponse> {
         return await this.sessionRpc(sessionId, 'git-show-file', options) as RpcCommandResponse
     }

@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ApiClient } from '@/api/client'
 import type { StashEntry } from '@/types/api'
-import { parseStashList } from '@/lib/gitParsers'
 import { queryKeys } from '@/lib/query-keys'
 
 export function useGitStashList(api: ApiClient | null, sessionId: string | null) {
@@ -12,8 +11,8 @@ export function useGitStashList(api: ApiClient | null, sessionId: string | null)
         queryFn: async (): Promise<StashEntry[]> => {
             if (!api || !resolvedSessionId) return []
             const result = await api.gitStashList(resolvedSessionId)
-            if (!result.success || !result.stdout) return []
-            return parseStashList(result.stdout)
+            if (!result.success || !result.data) return []
+            return result.data
         },
         enabled: !!api && !!resolvedSessionId
     })

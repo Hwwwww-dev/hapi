@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, useCallback } from 'react'
 import type { ApiClient } from '@/api/client'
 import type { GitStatusFiles } from '@/types/api'
-import { buildGitStatusFiles } from '@/lib/gitParsers'
 import { queryKeys } from '@/lib/query-keys'
 
 export function useGitStatusFiles(api: ApiClient | null, sessionId: string | null): {
@@ -22,34 +21,15 @@ export function useGitStatusFiles(api: ApiClient | null, sessionId: string | nul
                 throw new Error('Session unavailable')
             }
 
-            const statusResult = await api.getGitStatus(sessionId)
-            if (!statusResult.success) {
+            const result = await api.getGitStatusFiles(sessionId)
+            if (!result.success) {
                 return {
                     status: null,
-                    error: statusResult.error ?? statusResult.stderr ?? 'Git status unavailable'
+                    error: result.error ?? 'Git status unavailable'
                 }
             }
 
-            const [unstagedResult, stagedResult] = await Promise.all([
-                api.getGitDiffNumstat(sessionId, false),
-                api.getGitDiffNumstat(sessionId, true)
-            ])
-
-            const status = buildGitStatusFiles(
-                statusResult.stdout ?? '',
-                unstagedResult.success ? (unstagedResult.stdout ?? '') : '',
-                stagedResult.success ? (stagedResult.stdout ?? '') : ''
-            )
-
-            const errors: string[] = []
-            if (!unstagedResult.success) {
-                errors.push(`Unstaged diff unavailable: ${unstagedResult.error ?? unstagedResult.stderr ?? 'unknown error'}`)
-            }
-            if (!stagedResult.success) {
-                errors.push(`Staged diff unavailable: ${stagedResult.error ?? stagedResult.stderr ?? 'unknown error'}`)
-            }
-
-            return { status, error: errors.length ? errors.join(' ') : null }
+            return { status: result.data ?? null, error: null }
         },
         enabled: Boolean(api && sessionId),
     })

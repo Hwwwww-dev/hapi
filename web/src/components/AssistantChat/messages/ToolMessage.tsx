@@ -11,6 +11,9 @@ import { MessageStatusIndicator } from '@/components/AssistantChat/messages/Mess
 import { ToolCard } from '@/components/ToolCard/ToolCard'
 import { useHappyChatContext } from '@/components/AssistantChat/context'
 import { CliOutputBlock } from '@/components/CliOutputBlock'
+import { Collapse } from '@arco-design/web-react'
+
+const CollapseItem = Collapse.Item
 
 function isToolCallBlock(value: unknown): value is ToolCallBlock {
     if (!isObject(value)) return false
@@ -136,15 +139,16 @@ function HappyNestedBlockList(props: {
                 if (block.kind === 'agent-text') {
                     return (
                         <div key={`agent:${block.id}`} className="px-1 min-w-0 max-w-full animate-fade-in-up">
-                            <details className="group">
-                                <summary className="cursor-pointer select-none text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)] list-none flex items-center gap-1 mb-1">
-                                    <span className="transition-transform group-open:rotate-90">▶</span>
-                                    <span className="truncate">{block.text.split('\n')[0].slice(0, 80).trim() || 'Agent 输出'}…</span>
-                                </summary>
-                                <div className="overflow-x-auto">
-                                    <MarkdownRenderer content={block.text} />
-                                </div>
-                            </details>
+                            <Collapse bordered={false} className="toolcard-collapse">
+                                <CollapseItem
+                                    name="agent-text"
+                                    header={<span className="text-xs text-[var(--app-hint)]">{block.text.split('\n')[0].slice(0, 80).trim() || 'Agent 输出'}…</span>}
+                                >
+                                    <div className="overflow-x-auto">
+                                        <MarkdownRenderer content={block.text} />
+                                    </div>
+                                </CollapseItem>
+                            </Collapse>
                         </div>
                     )
                 }
@@ -185,16 +189,16 @@ function HappyNestedBlockList(props: {
                     if (isMessage && messageText && messageText.length > 120) {
                         return (
                             <div key={`event:${block.id}`} className="py-1 animate-fade-in-up">
-                                <details className="rounded-lg border border-[var(--app-divider)] bg-[var(--app-secondary-bg)]">
-                                    <summary className="cursor-pointer select-none px-3 py-2 text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)]">
-                                        <span className="inline-flex items-center gap-1.5">
-                                            <span>Context summary</span>
-                                        </span>
-                                    </summary>
-                                    <div className="border-t border-[var(--app-divider)] px-3 py-2 text-xs text-[var(--app-fg)] leading-relaxed whitespace-pre-wrap">
-                                        {messageText}
-                                    </div>
-                                </details>
+                                <Collapse bordered={false} className="toolcard-collapse">
+                                    <CollapseItem
+                                        name="context-summary"
+                                        header={<span className="text-xs text-[var(--app-hint)]">Context summary</span>}
+                                    >
+                                        <div className="text-xs text-[var(--app-fg)] leading-relaxed whitespace-pre-wrap">
+                                            {messageText}
+                                        </div>
+                                    </CollapseItem>
+                                </Collapse>
                             </div>
                         )
                     }

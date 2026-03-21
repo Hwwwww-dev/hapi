@@ -381,8 +381,12 @@ export function parseRemoteList(stdout: string): GitRemoteEntry[] {
 
 export function parseGitLog(stdout: string): CommitEntry[] {
     if (!stdout.trim()) return []
-    return stdout.trim().split('\n').map((line) => {
-        const parts = line.split('\0')
+    // Each commit record is separated by \x1e (record separator)
+    return stdout.split('\x1e').map((record) => {
+        const trimmed = record.trim()
+        if (!trimmed) return null
+        // Fields within a record are separated by \0
+        const parts = trimmed.split('\0')
         if (parts.length < 6) return null
         return {
             hash: parts[0],
@@ -390,7 +394,8 @@ export function parseGitLog(stdout: string): CommitEntry[] {
             author: parts[2],
             email: parts[3],
             date: parseInt(parts[4], 10),
-            subject: parts[5]
+            subject: parts[5],
+            body: (parts[6] ?? '').trim()
         }
     }).filter((entry): entry is CommitEntry => entry !== null)
 }

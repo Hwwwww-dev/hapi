@@ -358,6 +358,23 @@ export function HappyComposer(props: {
             }
         }
 
+        // Ctrl+J → insert newline at cursor
+        if (key === 'j' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault()
+            const el = textareaRef.current
+            if (el) {
+                const { selectionStart, selectionEnd } = el
+                const currentText = composerText
+                const before = currentText.slice(0, selectionStart)
+                const after = currentText.slice(selectionEnd)
+                api.composer().setText(before + '\n\n' + after)
+                requestAnimationFrame(() => {
+                    el.selectionStart = el.selectionEnd = selectionStart + 2
+                })
+            }
+            return
+        }
+
         if (key === 'Escape' && threadIsRunning) {
             e.preventDefault()
             handleAbort()
@@ -382,6 +399,7 @@ export function HappyComposer(props: {
         messageQueue,
         hasText,
         trimmed,
+        composerText,
         api,
         threadIsRunning,
         handleAbort,

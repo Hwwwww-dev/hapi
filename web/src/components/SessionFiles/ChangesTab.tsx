@@ -3,10 +3,11 @@ import type { ApiClient } from '@/api/client'
 import type { GitStatusFiles, GitFileStatus } from '@/types/api'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useTranslation } from '@/lib/use-translation'
+import { Collapse } from '@arco-design/web-react'
 import { notify } from '@/lib/notify'
-import { GitToolbar } from './GitToolbar'
 import { GitFileRow } from './GitFileRow'
-import { StashSheet } from './StashSheet'
+
+const CollapseItem = Collapse.Item
 
 type ChangesTabProps = {
     api: ApiClient
@@ -20,10 +21,8 @@ type ChangesTabProps = {
 export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, onRefresh }: ChangesTabProps) {
     const { t } = useTranslation()
     const [commitMessage, setCommitMessage] = useState('')
-    const [gitActionLoading, setGitActionLoading] = useState<'fetch' | 'pull' | 'push' | null>(null)
     const [commitLoading, setCommitLoading] = useState(false)
-    const [stashOpen, setStashOpen] = useState(false)
-    const [confirmAction, setConfirmAction] = useState<'fetch' | 'pull' | 'push' | 'commit' | null>(null)
+    const [commitConfirmOpen, setCommitConfirmOpen] = useState(false)
     // Frontend-only selection state (no API call on toggle)
     const [selectedUnstaged, setSelectedUnstaged] = useState<Set<string>>(new Set())
     const [selectedStaged, setSelectedStaged] = useState<Set<string>>(new Set())
@@ -33,10 +32,6 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
     // Batch operation loading
     const [batchLoading, setBatchLoading] = useState(false)
 
-    // Collapse state for staged/unstaged sections
-    const [stagedExpanded, setStagedExpanded] = useState(true)
-    const [unstagedExpanded, setUnstagedExpanded] = useState(true)
-
     const staged = gitStatus?.stagedFiles ?? []
     const unstaged = gitStatus?.unstagedFiles ?? []
 
@@ -45,21 +40,6 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
     const unstagedKey = useMemo(() => unstaged.map(f => f.fullPath).join(','), [unstaged])
     useEffect(() => { setSelectedStaged(new Set()) }, [stagedKey])
     useEffect(() => { setSelectedUnstaged(new Set()) }, [unstagedKey])
-
-    const runGitAction = useCallback(async (action: 'fetch' | 'pull' | 'push', fn: () => Promise<{ success: boolean; error?: string; stderr?: string }>) => {
-        setGitActionLoading(action)
-        const res = await fn()
-        setGitActionLoading(null)
-        if (!res.success) {
-            const msg = res.stderr ?? res.error ?? `${action} failed`
-            notify.error(msg)
-            return
-        }
-        setConfirmAction(null)
-        onRefresh()
-        const labels: Record<string, string> = { fetch: t('notify.git.fetchOk'), pull: t('notify.git.pullOk'), push: t('notify.git.pushOk') }
-        notify.success(labels[action] ?? `${action} completed`)
-    }, [onRefresh])
 
     // Frontend-only toggle for unstaged selection
     const toggleUnstaged = useCallback((file: GitFileStatus) => {
@@ -125,13 +105,12 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
         setCommitLoading(false)
         if (res.success) {
             setCommitMessage('')
-            setConfirmAction(null)
+            setCommitConfirmOpen(false)
             onRefresh()
             notify.success(t('notify.git.commitOk'))
         } else {
             const msg = res.stderr ?? res.error ?? 'Commit failed'
             notify.error(msg)
-            return
         }
     }, [api, sessionId, commitMessage, staged.length, onRefresh])
 
@@ -146,10 +125,8 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
         setRollbackLoading(true)
         let res
         if (rollbackTarget.status === 'untracked') {
-            // New file: delete it via git clean
             res = await api.gitCleanFile(sessionId, rollbackTarget.fullPath)
         } else {
-            // Tracked file: restore from HEAD
             res = await api.gitRollbackFile(sessionId, rollbackTarget.fullPath)
         }
         setRollbackLoading(false)
@@ -179,68 +156,55 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
 
     return (
         <div className="flex flex-col flex-1 overflow-hidden">
-            <GitToolbar
-                onFetch={() => setConfirmAction('fetch')}
-                onPull={() => setConfirmAction('pull')}
-                onPush={() => setConfirmAction('push')}
-                onStash={() => setStashOpen(true)}
-                loading={gitActionLoading}
-            />
             <div className="flex-1 overflow-y-auto">
-                {/* Staged section */}
-                <div className="border-b border-[var(--app-divider)]">
-                    <button type="button" onClick={() => setStagedExpanded(p => !p)} className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-[var(--app-subtle-bg)] transition-colors">
-                        <div className="flex items-center gap-1.5">
-                            <svg className={`w-3 h-3 text-[var(--app-hint)] transition-transform ${stagedExpanded ? 'rotate-90' : ''}`} viewBox="0 0 16 16" fill="currentColor"><path d="M6 4l4 4-4 4z"/></svg>
-                            <span className="text-xs font-semibold text-[var(--app-fg)]">{t('git.stagedChanges', { n: staged.length })}</span>
-                        </div>
-                        {staged.length > 0 && (
+                <Collapse bordered={false} defaultActiveKey={['staged', 'unstaged']} className="changes-collapse">
+                    <CollapseItem
+                        name="staged"
+                        header={<span className="font-semibold text-[var(--app-fg)]">{t('git.stagedChanges', { n: staged.length })}</span>}
+                        extra={staged.length > 0 ? (
                             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                                <button type="button" onClick={toggleAllStaged} className="text-[10px] text-[var(--app-link)] hover:underline">
+                                <button type="button" onClick={toggleAllStaged} className="text-[var(--app-link)] hover:underline">
                                     {selectedStaged.size === staged.length ? t('git.deselectAll') : t('git.selectAll')}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleUnstageSelected}
                                     disabled={selectedStaged.size === 0 || batchLoading}
-                                    className="text-[10px] px-1.5 py-0.5 rounded-md border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40"
+                                    className="px-1.5 py-0.5 rounded-md border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40"
                                 >
                                     {t('git.unstageN', { n: selectedStaged.size })}
                                 </button>
                             </div>
-                        )}
-                    </button>
-                    {stagedExpanded && staged.map((file, i) => (
-                        <GitFileRow key={file.fullPath} file={file} onOpen={onOpenFile} showCheckbox checked={selectedStaged.has(file.fullPath)} onToggle={toggleStaged} showDivider={i < staged.length - 1} />
-                    ))}
-                </div>
-                {/* Unstaged section */}
-                <div>
-                    <button type="button" onClick={() => setUnstagedExpanded(p => !p)} className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-[var(--app-subtle-bg)] transition-colors">
-                        <div className="flex items-center gap-1.5">
-                            <svg className={`w-3 h-3 text-[var(--app-hint)] transition-transform ${unstagedExpanded ? 'rotate-90' : ''}`} viewBox="0 0 16 16" fill="currentColor"><path d="M6 4l4 4-4 4z"/></svg>
-                            <span className="text-xs font-semibold text-[var(--app-fg)]">{t('git.unstagedChanges', { n: unstaged.length })}</span>
-                        </div>
-                        {unstaged.length > 0 && (
+                        ) : undefined}
+                    >
+                        {staged.map((file, i) => (
+                            <GitFileRow key={file.fullPath} file={file} onOpen={onOpenFile} showCheckbox checked={selectedStaged.has(file.fullPath)} onToggle={toggleStaged} showDivider={i < staged.length - 1} />
+                        ))}
+                    </CollapseItem>
+                    <CollapseItem
+                        name="unstaged"
+                        header={<span className="font-semibold text-[var(--app-fg)]">{t('git.unstagedChanges', { n: unstaged.length })}</span>}
+                        extra={unstaged.length > 0 ? (
                             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                                <button type="button" onClick={toggleAllUnstaged} className="text-[10px] text-[var(--app-link)] hover:underline">
+                                <button type="button" onClick={toggleAllUnstaged} className="text-[var(--app-link)] hover:underline">
                                     {selectedUnstaged.size === unstaged.length ? t('git.deselectAll') : t('git.selectAll')}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleStageSelected}
                                     disabled={selectedUnstaged.size === 0 || batchLoading}
-                                    className="text-[10px] px-1.5 py-0.5 rounded-md border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40"
+                                    className="px-1.5 py-0.5 rounded-md border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40"
                                 >
                                     {t('git.stageN', { n: selectedUnstaged.size })}
                                 </button>
                             </div>
-                        )}
-                    </button>
-                    {unstagedExpanded && unstaged.map((file, i) => (
-                        <GitFileRow key={file.fullPath} file={file} onOpen={onOpenFile} actions={[{ label: t('dialog.git.rollback.confirm'), onClick: () => requestRollback(file.fullPath), destructive: true }]} showCheckbox checked={selectedUnstaged.has(file.fullPath)} onToggle={toggleUnstaged} showDivider={i < unstaged.length - 1} />
-                    ))}
-                </div>
+                        ) : undefined}
+                    >
+                        {unstaged.map((file, i) => (
+                            <GitFileRow key={file.fullPath} file={file} onOpen={onOpenFile} actions={[{ label: t('dialog.git.rollback.confirm'), onClick: () => requestRollback(file.fullPath), destructive: true }]} showCheckbox checked={selectedUnstaged.has(file.fullPath)} onToggle={toggleUnstaged} showDivider={i < unstaged.length - 1} />
+                        ))}
+                    </CollapseItem>
+                </Collapse>
             </div>
             {/* Fixed bottom: actions + commit */}
             <div className="border-t border-[var(--app-divider)] bg-[var(--app-bg)] p-3 flex flex-col gap-2">
@@ -251,53 +215,35 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
                 <textarea
                     value={commitMessage}
                     onChange={e => setCommitMessage(e.target.value)}
+                    onKeyDown={e => {
+                        if (e.ctrlKey && e.key === 'j') {
+                            e.preventDefault()
+                            const target = e.currentTarget
+                            const { selectionStart, selectionEnd } = target
+                            const before = commitMessage.slice(0, selectionStart)
+                            const after = commitMessage.slice(selectionEnd)
+                            setCommitMessage(before + '\n' + after)
+                            requestAnimationFrame(() => {
+                                target.selectionStart = target.selectionEnd = selectionStart + 1
+                            })
+                        }
+                    }}
                     placeholder={t('git.commitPlaceholder')}
                     className="text-xs border border-[var(--app-border)] rounded-md p-1.5 resize-none h-16 bg-[var(--app-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] focus:outline-none focus:border-[var(--app-link)]"
                 />
                 <button
                     type="button"
-                    onClick={() => setConfirmAction('commit')}
+                    onClick={() => setCommitConfirmOpen(true)}
                     disabled={commitLoading || !commitMessage.trim() || staged.length === 0}
                     className="text-xs px-3 py-1.5 rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-40 hover:opacity-90 transition-opacity"
                 >
                     {commitLoading ? t('git.committing') : staged.length > 0 ? t('git.commitN', { n: staged.length }) : t('git.commit')}
                 </button>
             </div>
-            <StashSheet api={api} sessionId={sessionId} open={stashOpen} onClose={() => setStashOpen(false)} onStashChanged={onRefresh} />
-            {/* Git action confirm dialogs */}
+            {/* Commit confirm dialog */}
             <ConfirmDialog
-                isOpen={confirmAction === 'fetch'}
-                onClose={() => setConfirmAction(null)}
-                title={t('dialog.git.fetch.title')}
-                description={t('dialog.git.fetch.description')}
-                confirmLabel={t('dialog.git.fetch.confirm')}
-                confirmingLabel={t('dialog.git.fetch.confirming')}
-                onConfirm={async () => { await runGitAction('fetch', () => api.gitFetch(sessionId)) }}
-                isPending={gitActionLoading === 'fetch'}
-            />
-            <ConfirmDialog
-                isOpen={confirmAction === 'pull'}
-                onClose={() => setConfirmAction(null)}
-                title={t('dialog.git.pull.title')}
-                description={t('dialog.git.pull.description')}
-                confirmLabel={t('dialog.git.pull.confirm')}
-                confirmingLabel={t('dialog.git.pull.confirming')}
-                onConfirm={async () => { await runGitAction('pull', () => api.gitPull(sessionId)) }}
-                isPending={gitActionLoading === 'pull'}
-            />
-            <ConfirmDialog
-                isOpen={confirmAction === 'push'}
-                onClose={() => setConfirmAction(null)}
-                title={t('dialog.git.push.title')}
-                description={t('dialog.git.push.description')}
-                confirmLabel={t('dialog.git.push.confirm')}
-                confirmingLabel={t('dialog.git.push.confirming')}
-                onConfirm={async () => { await runGitAction('push', () => api.gitPush(sessionId, 'origin', 'HEAD')) }}
-                isPending={gitActionLoading === 'push'}
-            />
-            <ConfirmDialog
-                isOpen={confirmAction === 'commit'}
-                onClose={() => setConfirmAction(null)}
+                isOpen={commitConfirmOpen}
+                onClose={() => setCommitConfirmOpen(false)}
                 title={t('dialog.git.commit.title')}
                 description={t('dialog.git.commit.description', { n: staged.length })}
                 confirmLabel={t('dialog.git.commit.confirm')}

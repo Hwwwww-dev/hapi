@@ -2,8 +2,10 @@ import { useState, useRef, useEffect } from 'react'
 import type { ApiClient } from '@/api/client'
 import type { CommitEntry } from '@/types/api'
 import { FileViewDialog } from './FileViewDialog'
+import { SimpleMarkdown } from '@/components/SimpleMarkdown'
 import { notify } from '@/lib/notify'
 import { useTranslation } from '@/lib/use-translation'
+import { Tooltip, Collapse } from '@arco-design/web-react'
 
 function formatRelativeTime(timestamp: number, t: (key: string, params?: Record<string, string | number>) => string): string {
     const now = Date.now() / 1000
@@ -15,24 +17,7 @@ function formatRelativeTime(timestamp: number, t: (key: string, params?: Record<
     return new Date(timestamp * 1000).toLocaleDateString()
 }
 
-type FileEntry = { status: 'A' | 'M' | 'D' | string; path: string }
-
-function parseChangedFiles(output: string): FileEntry[] {
-    return output
-        .split('\n')
-        .map(line => line.replace(/\r$/, '').trim())
-        .filter(line => line.length > 0)
-        .map(line => {
-            const tab = line.indexOf('\t')
-            if (tab === -1) {
-                // fallback: split on whitespace
-                const parts = line.split(/\s+/)
-                if (parts.length >= 2) return { status: parts[0], path: parts.slice(1).join(' ') }
-                return { status: 'M', path: line }
-            }
-            return { status: line.slice(0, tab).trim(), path: line.slice(tab + 1).trim() }
-        })
-}
+import type { ShowStatEntry } from '@/types/api'
 
 type CommitRowProps = {
     commit: CommitEntry
@@ -134,7 +119,7 @@ function CommitActionMenu({
 export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherryPick, onResetMixed, onResetHard, onCreateTag, onBranchCreated }: CommitRowProps) {
     const { t } = useTranslation()
     const [expanded, setExpanded] = useState(false)
-    const [files, setFiles] = useState<FileEntry[]>([])
+    const [files, setFiles] = useState<ShowStatEntry[]>([])
     const [loading, setLoading] = useState(false)
     const [loaded, setLoaded] = useState(false)
     const [dialogFile, setDialogFile] = useState<string | null>(null)
@@ -149,8 +134,8 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
             setLoading(true)
             try {
                 const res = await api.gitShowStat(sessionId, commit.hash)
-                if (res.success && res.stdout) {
-                    setFiles(parseChangedFiles(res.stdout))
+                if (res.success && res.data) {
+                    setFiles(res.data)
                 }
             } finally {
                 setLoading(false)
@@ -197,7 +182,7 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                 <button
                     type="button"
                     onClick={() => void handleToggle()}
-                    className="w-full flex items-start gap-2 py-0.5 pr-8 text-left hover:bg-[var(--app-subtle-bg)] transition-colors"
+                    className="w-full flex items-start gap-2 px-2 py-1.5 pr-8 text-left rounded-md hover:bg-[var(--app-subtle-bg)] transition-colors"
                 >
                     <div className="flex-1 min-w-0">
                         <div className="text-sm text-[var(--app-fg)] truncate flex items-center gap-1.5">
@@ -211,7 +196,9 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                             <span>·</span>
                             <span>{commit.author}</span>
                             <span>·</span>
-                            <span>{formatRelativeTime(commit.date, t)}</span>
+                            <Tooltip content={new Date(commit.date * 1000).toLocaleString()} trigger={['hover', 'click']}>
+                                <span>{formatRelativeTime(commit.date, t)}</span>
+                            </Tooltip>
                         </div>
                     </div>
                 </button>
@@ -267,6 +254,14 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                 )}
                 {expanded && loaded && (
                     <div className="pr-4 pb-3">
+                        {commit.body && (
+                            <Collapse bordered={false} className="commit-body-collapse mb-3 ml-1 rounded-md border border-[var(--app-divider)]">
+                                <Collapse.Item name="body" header={<span className="text-xs text-[var(--app-hint)]">{t('git.expandCommitBody')}</span>}>
+                                    <div className="text-sm font-medium text-[var(--app-fg)] mb-2">{commit.subject}</div>
+                                    <SimpleMarkdown content={commit.body} className="prose prose-sm dark:prose-invert max-w-none break-words text-[var(--app-secondary-fg)]" />
+                                </Collapse.Item>
+                            </Collapse>
+                        )}
                         {files.length === 0
                             ? <div className="text-xs text-[var(--app-hint)]">{t('git.noChangedFiles')}</div>
                             : files.map(f => (
@@ -280,6 +275,12 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                                         {f.status === 'A' ? 'A' : f.status === 'D' ? 'D' : 'M'}
                                     </span>
                                     <span className="text-xs text-[var(--app-link)] font-mono truncate">{f.path}</span>
+                                    {(f.additions > 0 || f.deletions > 0) && (
+                                        <span className="shrink-0 ml-auto flex items-center gap-1 text-[10px] font-mono">
+                                            {f.additions > 0 && <span className="text-green-500">+{f.additions}</span>}
+                                            {f.deletions > 0 && <span className="text-red-500">-{f.deletions}</span>}
+                                        </span>
+                                    )}
                                 </button>
                             ))
                         }

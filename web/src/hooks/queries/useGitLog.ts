@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ApiClient } from '@/api/client'
 import type { CommitEntry } from '@/types/api'
-import { parseGitLog } from '@/lib/gitParsers'
 import { queryKeys } from '@/lib/query-keys'
 
 export function useGitLog(api: ApiClient | null, sessionId: string | null, options?: { limit?: number; skip?: number; branch?: string }) {
@@ -15,8 +14,8 @@ export function useGitLog(api: ApiClient | null, sessionId: string | null, optio
         queryFn: async (): Promise<CommitEntry[]> => {
             if (!api || !resolvedSessionId) return []
             const result = await api.gitLog(resolvedSessionId, limit, skip, branch)
-            if (!result.success || !result.stdout) return []
-            return parseGitLog(result.stdout)
+            if (!result.success || !result.data) return []
+            return result.data
         },
         enabled: !!api && !!resolvedSessionId
     })
