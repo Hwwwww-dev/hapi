@@ -440,7 +440,7 @@ const GrepResultView: ToolViewComponent = (props: ToolViewProps) => {
         <>
             <div className="flex flex-col gap-2">
                 {Array.from(groups.entries()).map(([file, matches]) => (
-                    <div key={file} className="rounded border border-[var(--app-divider)] overflow-hidden">
+                    <div key={file} className="rounded-md border border-[var(--app-divider)] overflow-hidden">
                         <div className="flex items-center gap-1.5 bg-[var(--app-secondary-bg)] px-2 py-1">
                             <span className="text-[10px]">{fileIcon(file)}</span>
                             <span className="font-mono text-xs text-[var(--app-hint)] truncate flex-1">{file}</span>
@@ -519,7 +519,7 @@ const ReadResultView: ToolViewComponent = (props: ToolViewProps) => {
                     <div className="mb-1.5 flex items-center gap-1.5 text-xs text-[var(--app-hint)] font-mono">
                         <span className="opacity-60">📄</span>
                         <span className="truncate">{basename(path)}</span>
-                        <span className="shrink-0 rounded bg-[var(--app-secondary-bg)] px-1 py-0.5 text-[10px]">{language}</span>
+                        <span className="shrink-0 rounded-md bg-[var(--app-secondary-bg)] px-1 py-0.5 text-[10px]">{language}</span>
                     </div>
                 ) : null}
                 <CodeBlock code={cleanContent} language={language} />

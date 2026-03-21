@@ -1,3 +1,4 @@
+import { Select } from '@arco-design/web-react'
 import type { AgentType } from './types'
 import { MODEL_OPTIONS } from './types'
 import { useTranslation } from '@/lib/use-translation'
@@ -20,18 +21,18 @@ export function ModelSelector(props: {
                 {t('newSession.model')}{' '}
                 <span className="font-normal">({t('newSession.model.optional')})</span>
             </label>
-            <select
+            <Select
                 value={props.model}
-                onChange={(e) => props.onModelChange(e.target.value)}
+                onChange={(val) => props.onModelChange(val)}
                 disabled={props.isDisabled}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--app-divider)] bg-[var(--app-bg)] text-[var(--app-text)] focus:outline-none focus:ring-2 focus:ring-[var(--app-link)] disabled:opacity-50"
+                className="w-full"
             >
                 {options.map((option) => (
-                    <option key={option.value} value={option.value}>
+                    <Select.Option key={option.value} value={option.value}>
                         {option.label}
-                    </option>
+                    </Select.Option>
                 ))}
-            </select>
+            </Select>
         </div>
     )
 }

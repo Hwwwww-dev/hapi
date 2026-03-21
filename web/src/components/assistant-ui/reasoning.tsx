@@ -1,33 +1,11 @@
 import { useState, type FC, type PropsWithChildren } from 'react'
 import { useMessage } from '@assistant-ui/react'
 import { MarkdownTextPrimitive } from '@assistant-ui/react-markdown'
+import { IconRight } from '@arco-design/web-react/icon'
 import { cn } from '@/lib/utils'
 import { defaultComponents, MARKDOWN_PLUGINS } from '@/components/assistant-ui/markdown-text'
 import { useTranslation } from '@/lib/use-translation'
 import type { HappyChatMessageMetadata } from '@/lib/assistant-runtime'
-
-function ChevronIcon(props: { className?: string; open?: boolean }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={cn(
-                'transition-transform duration-200',
-                props.open ? 'rotate-90' : '',
-                props.className
-            )}
-        >
-            <polyline points="9 18 15 12 9 6" />
-        </svg>
-    )
-}
 
 function ShimmerDot() {
     return (
@@ -75,7 +53,13 @@ export const ReasoningGroup: FC<PropsWithChildren> = ({ children }) => {
                     'transition-colors cursor-pointer select-none'
                 )}
             >
-                <ChevronIcon open={isOpen} />
+                <IconRight
+                    style={{ fontSize: 12 }}
+                    className={cn(
+                        'transition-transform duration-200',
+                        isOpen ? 'rotate-90' : ''
+                    )}
+                />
                 <span>Reasoning</span>
                 {isStreaming && (
                     <span className="flex items-center gap-1 ml-1 text-[var(--app-hint)]">

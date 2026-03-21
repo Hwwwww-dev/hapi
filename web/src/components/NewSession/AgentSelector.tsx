@@ -1,3 +1,4 @@
+import { Radio } from '@arco-design/web-react'
 import type { AgentType } from './types'
 import { useTranslation } from '@/lib/use-translation'
 
@@ -13,25 +14,18 @@ export function AgentSelector(props: {
             <label className="text-xs font-medium text-[var(--app-hint)]">
                 {t('newSession.agent')}
             </label>
-            <div className="flex gap-3">
+            <Radio.Group
+                value={props.agent}
+                onChange={(val) => props.onAgentChange(val as AgentType)}
+                disabled={props.isDisabled}
+                className="flex gap-3"
+            >
                 {(['claude', 'codex', 'cursor'] as const).map((agentType) => (
-                    <label
-                        key={agentType}
-                        className="flex items-center gap-1.5 cursor-pointer"
-                    >
-                        <input
-                            type="radio"
-                            name="agent"
-                            value={agentType}
-                            checked={props.agent === agentType}
-                            onChange={() => props.onAgentChange(agentType)}
-                            disabled={props.isDisabled}
-                            className="accent-[var(--app-link)]"
-                        />
+                    <Radio key={agentType} value={agentType}>
                         <span className="text-sm capitalize">{agentType}</span>
-                    </label>
+                    </Radio>
                 ))}
-            </div>
+            </Radio.Group>
         </div>
     )
 }

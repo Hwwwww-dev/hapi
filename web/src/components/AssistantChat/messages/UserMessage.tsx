@@ -52,10 +52,10 @@ function extractNativeTags(text: string): Record<string, string> | null {
 function parseSystemLikeMessage(text: string): { icon: string; label: string } | null {
     const trimmed = text.trim()
     if (trimmed === '[Request interrupted by user]') {
-        return { icon: '⏹', label: 'Request interrupted' }
+        return { icon: '', label: 'Request interrupted' }
     }
     if (trimmed === 'Continue from where you left off.') {
-        return { icon: '▶', label: 'Continued conversation' }
+        return { icon: '', label: 'Aborted by user' }
     }
     const tags = extractNativeTags(trimmed)
     if (!tags) return null
@@ -66,7 +66,7 @@ function parseSystemLikeMessage(text: string): { icon: string; label: string } |
         const label = cmdMsg && cmdMsg !== cmdName.replace(/^\//, '')
             ? `${cmdName} ${cmdMsg}`
             : cmdName
-        return { icon: '⚡', label }
+        return { icon: '', label }
     }
     // Shell commands: <bash-input>git push</bash-input>
     if (tags['bash-input']) {
@@ -76,10 +76,10 @@ function parseSystemLikeMessage(text: string): { icon: string; label: string } |
         const output = stdout || stderr || null
         const shortOutput = output ? output.split('\n')[0].slice(0, 60) : null
         const label = shortOutput ? `$ ${cmd} → ${shortOutput}` : `$ ${cmd}`
-        return { icon: '💻', label }
+        return { icon: '', label }
     }
     // Bare caveat/system tags without recognized content
-    return { icon: '📋', label: 'System event' }
+    return { icon: '', label: 'System event' }
 }
 
 export const HappyUserMessage = memo(function HappyUserMessage() {
@@ -133,7 +133,6 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
             <div className="py-1">
                 <div className="mx-auto w-fit max-w-[92%]">
                     <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-3 py-1 text-xs text-[var(--app-hint)]">
-                        <span aria-hidden="true">{systemLikeInfo.icon}</span>
                         <span>{systemLikeInfo.label}</span>
                         <span aria-hidden="true">·</span>
                         <MessageTimestamp value={createdAt} className="text-[10px] text-[var(--app-hint)] opacity-80" />
@@ -258,7 +257,7 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
                     <button
                         type="button"
                         onClick={() => copy(text)}
-                        className="rounded p-0.5 text-[var(--app-hint)] opacity-60 hover:opacity-100 hover:text-[var(--app-fg)]"
+                        className="rounded-md p-0.5 text-[var(--app-hint)] opacity-60 hover:opacity-100 hover:text-[var(--app-fg)]"
                         title="Copy"
                     >
                         {copied ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}

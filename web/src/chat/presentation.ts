@@ -35,19 +35,19 @@ export function getEventPresentation(event: AgentEvent): EventPresentation {
     if (event.type === 'api-error') {
         const { retryAttempt, maxRetries } = event as { retryAttempt: number; maxRetries: number }
         if (maxRetries > 0 && retryAttempt >= maxRetries) {
-            return { icon: '⚠️', text: 'API error: Max retries reached' }
+            return { icon: null, text: 'API error: Max retries reached' }
         }
         if (maxRetries > 0) {
-            return { icon: '⏳', text: `API error: Retrying (${retryAttempt}/${maxRetries})` }
+            return { icon: null, text: `API error: Retrying (${retryAttempt}/${maxRetries})` }
         }
         if (retryAttempt > 0) {
-            return { icon: '⏳', text: 'API error: Retrying...' }
+            return { icon: null, text: 'API error: Retrying...' }
         }
-        return { icon: '⚠️', text: 'API error' }
+        return { icon: null, text: 'API error' }
     }
     if (event.type === 'switch') {
         const mode = event.mode === 'local' ? 'local' : 'remote'
-        return { icon: '🔄', text: `Switched to ${mode}` }
+        return { icon: null, text: `Switched to ${mode}` }
     }
     if (event.type === 'title-changed') {
         const title = typeof event.title === 'string' ? event.title : ''
@@ -56,33 +56,33 @@ export function getEventPresentation(event: AgentEvent): EventPresentation {
     if (event.type === 'permission-mode-changed') {
         const modeValue = (event as Record<string, unknown>).mode
         const mode = typeof modeValue === 'string' ? modeValue : 'default'
-        return { icon: '🔐', text: `Permission mode: ${mode}` }
+        return { icon: null, text: `Permission mode: ${mode}` }
     }
     if (event.type === 'limit-reached') {
         const endsAt = typeof event.endsAt === 'number' ? event.endsAt : null
-        return { icon: '⏳', text: endsAt ? `Usage limit reached until ${formatUnixTimestamp(endsAt)}` : 'Usage limit reached' }
+        return { icon: null, text: endsAt ? `Usage limit reached until ${formatUnixTimestamp(endsAt)}` : 'Usage limit reached' }
     }
     if (event.type === 'message') {
         const msg = typeof event.message === 'string' ? event.message : ''
         if (msg === 'Compaction completed' || msg === 'Compaction started') {
-            return { icon: '📦', text: msg === 'Compaction completed' ? 'Conversation compacted' : 'Compacting conversation...' }
+            return { icon: null, text: msg === 'Compaction completed' ? 'Conversation compacted' : 'Compacting conversation...' }
         }
         if (msg === 'Aborted by user') {
-            return { icon: '⏹', text: 'Aborted by user' }
+            return { icon: null, text: 'Aborted by user' }
         }
         return { icon: null, text: msg || 'Message' }
     }
     if (event.type === 'turn-duration') {
         const ms = typeof event.durationMs === 'number' ? event.durationMs : 0
-        return { icon: '⏱️', text: `Turn: ${formatDuration(ms)}` }
+        return { icon: null, text: `Turn: ${formatDuration(ms)}` }
     }
     if (event.type === 'microcompact') {
         const saved = typeof event.tokensSaved === 'number' ? event.tokensSaved : 0
         const formatted = saved >= 1000 ? `${Math.round(saved / 1000)}K` : String(saved)
-        return { icon: '📦', text: `Context compacted (saved ${formatted} tokens)` }
+        return { icon: null, text: `Context compacted (saved ${formatted} tokens)` }
     }
     if (event.type === 'compact') {
-        return { icon: '📦', text: 'Conversation compacted' }
+        return { icon: null, text: 'Conversation compacted' }
     }
     try {
         return { icon: null, text: JSON.stringify(event) }

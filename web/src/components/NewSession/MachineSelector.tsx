@@ -1,3 +1,4 @@
+import { Select } from '@arco-design/web-react'
 import type { Machine } from '@/types/api'
 import { useTranslation } from '@/lib/use-translation'
 
@@ -16,30 +17,36 @@ export function MachineSelector(props: {
 }) {
     const { t } = useTranslation()
 
+    const selectOptions: { value: string; label: string }[] = []
+
+    if (props.isLoading) {
+        selectOptions.push({ value: '', label: t('loading.machines') })
+    } else if (props.machines.length === 0) {
+        selectOptions.push({ value: '', label: t('misc.noMachines') })
+    }
+
+    for (const m of props.machines) {
+        const label = getMachineTitle(m) + (m.metadata?.platform ? ` (${m.metadata.platform})` : '')
+        selectOptions.push({ value: m.id, label })
+    }
+
     return (
         <div className="flex flex-col gap-1.5 px-3 py-3">
             <label className="text-xs font-medium text-[var(--app-hint)]">
                 {t('newSession.machine')}
             </label>
-            <select
+            <Select
                 value={props.machineId ?? ''}
-                onChange={(e) => props.onChange(e.target.value)}
+                onChange={(val) => props.onChange(val)}
                 disabled={props.isDisabled}
-                className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] p-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-link)] disabled:opacity-50"
+                className="w-full"
             >
-                {props.isLoading && (
-                    <option value="">{t('loading.machines')}</option>
-                )}
-                {!props.isLoading && props.machines.length === 0 && (
-                    <option value="">{t('misc.noMachines')}</option>
-                )}
-                {props.machines.map((m) => (
-                    <option key={m.id} value={m.id}>
-                        {getMachineTitle(m)}
-                        {m.metadata?.platform ? ` (${m.metadata.platform})` : ''}
-                    </option>
+                {selectOptions.map((opt) => (
+                    <Select.Option key={opt.value} value={opt.value}>
+                        {opt.label}
+                    </Select.Option>
                 ))}
-            </select>
+            </Select>
         </div>
     )
 }

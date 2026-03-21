@@ -7,6 +7,8 @@ import {
     useState,
     type CSSProperties
 } from 'react'
+import { Menu } from '@arco-design/web-react'
+import { IconEdit, IconDelete, IconRefresh, IconLink } from '@arco-design/web-react/icon'
 import { useTranslation } from '@/lib/use-translation'
 
 type SessionActionMenuProps = {
@@ -21,133 +23,6 @@ type SessionActionMenuProps = {
     anchorPoint: { x: number; y: number }
     menuId?: string
     actionBusy?: boolean
-}
-
-function EditIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-            <path d="m15 5 4 4" />
-        </svg>
-    )
-}
-
-function ArchiveIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <rect width="20" height="5" x="2" y="3" rx="1" />
-            <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
-            <path d="M10 12h4" />
-        </svg>
-    )
-}
-
-function TrashIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <path d="M3 6h18" />
-            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-            <line x1="10" x2="10" y1="11" y2="17" />
-            <line x1="14" x2="14" y1="11" y2="17" />
-        </svg>
-    )
-}
-
-function RefreshIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <path d="M21 2v6h-6" />
-            <path d="M3 22v-6h6" />
-            <path d="M20 11a8 8 0 0 0-14.9-3" />
-            <path d="M4 13a8 8 0 0 0 14.9 3" />
-        </svg>
-    )
-}
-
-function ConnectionIcon(props: { className?: string; active: boolean }) {
-    if (props.active) {
-        return (
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className={props.className}
-            >
-                <path d="M10 13.5 8.5 12a3.5 3.5 0 0 1 0-5l2-2a3.5 3.5 0 0 1 5 5L14 11.5" />
-                <path d="M14 10.5 15.5 12a3.5 3.5 0 0 1 0 5l-2 2a3.5 3.5 0 0 1-5-5L10 12.5" />
-                <path d="m2 22 20-20" />
-            </svg>
-        )
-    }
-
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <path d="M10 13.5 8.5 12a3.5 3.5 0 0 1 0-5l2-2a3.5 3.5 0 0 1 5 5L14 11.5" />
-            <path d="M14 10.5 15.5 12a3.5 3.5 0 0 1 0 5l-2 2a3.5 3.5 0 0 1-5-5L10 12.5" />
-        </svg>
-    )
 }
 
 type MenuPosition = {
@@ -177,31 +52,15 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
     const resolvedMenuId = menuId ?? `session-action-menu-${internalId}`
     const headingId = `${resolvedMenuId}-heading`
 
-    const handleRename = () => {
+    const handleClickMenu = (key: string) => {
         onClose()
-        onRename()
-    }
-
-    const handleArchive = () => {
-        onClose()
-        onArchive()
-    }
-
-    const handleDelete = () => {
-        onClose()
-        onDelete()
-    }
-
-    const handleRefresh = () => {
-        if (!onRefresh) return
-        onClose()
-        onRefresh()
-    }
-
-    const handleConnectionToggle = () => {
-        if (!onConnectionToggle) return
-        onClose()
-        onConnectionToggle()
+        switch (key) {
+            case 'refresh': onRefresh?.(); break
+            case 'connection': onConnectionToggle?.(); break
+            case 'rename': onRename(); break
+            case 'archive': onArchive(); break
+            case 'delete': onDelete(); break
+        }
     }
 
     const updatePosition = useCallback(() => {
@@ -289,10 +148,6 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
         }
         : undefined
 
-    const baseItemClassName =
-        'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)]'
-    const disabledItemClassName = actionBusy ? ' cursor-not-allowed opacity-50' : ''
-
     return (
         <div
             ref={menuRef}
@@ -305,72 +160,55 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
             >
                 {t('session.more')}
             </div>
-            <div
-                id={resolvedMenuId}
-                role="menu"
-                aria-labelledby={headingId}
-                className="flex flex-col gap-1"
+            <Menu
+                mode="pop"
+                onClickMenuItem={handleClickMenu}
+                className="!border-0 !shadow-none !bg-transparent !p-0"
+                style={{ width: '100%' }}
             >
                 {onRefresh ? (
-                    <button
-                        type="button"
-                        role="menuitem"
-                        className={`${baseItemClassName} hover:bg-[var(--app-subtle-bg)]${disabledItemClassName}`}
-                        onClick={handleRefresh}
-                        disabled={actionBusy}
-                    >
-                        <RefreshIcon className="text-[var(--app-hint)]" />
-                        {t('session.chat.refresh')}
-                    </button>
+                    <Menu.Item key="refresh" disabled={actionBusy}>
+                        <div className="flex items-center gap-3">
+                            <IconRefresh className="text-[var(--app-hint)]" style={{ fontSize: 18 }} />
+                            {t('session.chat.refresh')}
+                        </div>
+                    </Menu.Item>
                 ) : null}
 
                 {onConnectionToggle ? (
-                    <button
-                        type="button"
-                        role="menuitem"
-                        className={`${baseItemClassName} hover:bg-[var(--app-subtle-bg)]${disabledItemClassName}`}
-                        onClick={handleConnectionToggle}
-                        disabled={actionBusy}
-                    >
-                        <ConnectionIcon active={sessionActive} className="text-[var(--app-hint)]" />
-                        {sessionActive ? t('session.chat.disconnect') : t('session.chat.connect')}
-                    </button>
+                    <Menu.Item key="connection" disabled={actionBusy}>
+                        <div className="flex items-center gap-3">
+                            <IconLink className="text-[var(--app-hint)]" style={{ fontSize: 18 }} />
+                            {sessionActive ? t('session.chat.disconnect') : t('session.chat.connect')}
+                        </div>
+                    </Menu.Item>
                 ) : null}
 
-                <button
-                    type="button"
-                    role="menuitem"
-                    className={`${baseItemClassName} hover:bg-[var(--app-subtle-bg)]`}
-                    onClick={handleRename}
-                >
-                    <EditIcon className="text-[var(--app-hint)]" />
-                    {t('session.action.rename')}
-                </button>
+                <Menu.Item key="rename">
+                    <div className="flex items-center gap-3">
+                        <IconEdit className="text-[var(--app-hint)]" style={{ fontSize: 18 }} />
+                        {t('session.action.rename')}
+                    </div>
+                </Menu.Item>
 
                 {sessionActive && !onConnectionToggle ? (
-                    <button
-                        type="button"
-                        role="menuitem"
-                        className={`${baseItemClassName} text-red-500 hover:bg-red-500/10`}
-                        onClick={handleArchive}
-                    >
-                        <ConnectionIcon active={sessionActive} className="text-red-500" />
-                        {t('session.chat.disconnect')}
-                    </button>
+                    <Menu.Item key="archive" className="!text-red-500">
+                        <div className="flex items-center gap-3">
+                            <IconLink className="text-red-500" style={{ fontSize: 18 }} />
+                            {t('session.chat.disconnect')}
+                        </div>
+                    </Menu.Item>
                 ) : null}
 
                 {!sessionActive ? (
-                    <button
-                        type="button"
-                        role="menuitem"
-                        className={`${baseItemClassName} text-red-500 hover:bg-red-500/10`}
-                        onClick={handleDelete}
-                    >
-                        <TrashIcon className="text-red-500" />
-                        {t('session.action.delete')}
-                    </button>
+                    <Menu.Item key="delete" className="!text-red-500">
+                        <div className="flex items-center gap-3">
+                            <IconDelete className="text-red-500" style={{ fontSize: 18 }} />
+                            {t('session.action.delete')}
+                        </div>
+                    </Menu.Item>
                 ) : null}
-            </div>
+            </Menu>
         </div>
     )
 }

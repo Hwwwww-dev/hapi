@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { IconRight, IconCommand } from '@arco-design/web-react/icon'
 import { stripAnsiAndControls } from '@/components/assistant-ui/markdown-utils'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -84,22 +85,6 @@ function extractCommandName(text: string): string | null {
     return firstLine && firstLine.length > 0 ? firstLine : null
 }
 
-function DetailsIcon() {
-    return (
-        <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
-            <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-    )
-}
-
-function CliIcon() {
-    return (
-        <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
-            <path d="M3 4.5l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M8.5 10.5h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-    )
-}
 
 export function CliOutputBlock(props: { text: string }) {
     const { t } = useTranslation()
@@ -116,14 +101,14 @@ export function CliOutputBlock(props: { text: string }) {
                                 <div className="flex items-center justify-between gap-3">
                                     <div className="min-w-0 flex items-center gap-2">
                                         <div className="shrink-0 flex h-4 w-4 items-center justify-center text-[var(--app-hint)] leading-none">
-                                            <CliIcon />
+                                            <IconCommand style={{ fontSize: 16 }} />
                                         </div>
                                         <CardTitle className="min-w-0 text-sm font-medium leading-tight break-words">
                                             {commandName ?? t('terminal.commandName')}
                                         </CardTitle>
                                     </div>
                                     <span className="text-[var(--app-hint)]">
-                                        <DetailsIcon />
+                                        <IconRight style={{ fontSize: 16 }} />
                                     </span>
                                 </div>
                             </div>

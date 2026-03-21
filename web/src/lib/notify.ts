@@ -1,6 +1,6 @@
 /**
- * Lightweight imperative notification system (antd message style).
- * Module-level store — works anywhere, no React Context needed.
+ * Lightweight imperative notification system powered by Arco Design Message.
+ * Drop-in replacement — same API surface, zero custom rendering.
  *
  * Usage:
  *   import { notify } from '@/lib/notify'
@@ -9,58 +9,18 @@
  *   notify.info('Syncing...')
  */
 
+import { Message } from '@arco-design/web-react'
+
 export type NotifyVariant = 'success' | 'error' | 'info' | 'warning'
 
-export type NotifyItem = {
-    id: string
-    variant: NotifyVariant
-    message: string
-    duration: number
-    createdAt: number
+function show(method: keyof typeof Message, message: string, duration: number) {
+    const fn = Message[method] as (config: { content: string; duration: number }) => void
+    fn({ content: message, duration })
 }
-
-type Listener = () => void
-
-// ── Store ──────────────────────────────────────────────
-
-let items: NotifyItem[] = []
-const listeners = new Set<Listener>()
-let idCounter = 0
-
-function emit(): void {
-    for (const fn of listeners) fn()
-}
-
-function add(variant: NotifyVariant, message: string, duration = 3000): string {
-    const id = `notify-${++idCounter}-${Date.now()}`
-    items = [...items, { id, variant, message, duration, createdAt: Date.now() }]
-    emit()
-    return id
-}
-
-function remove(id: string): void {
-    const prev = items
-    items = items.filter((n) => n.id !== id)
-    if (items !== prev) emit()
-}
-
-// ── Public API ─────────────────────────────────────────
 
 export const notify = {
-    success: (message: string, duration?: number) => add('success', message, duration),
-    error: (message: string, duration?: number) => add('error', message, duration ?? 5000),
-    info: (message: string, duration?: number) => add('info', message, duration),
-    warning: (message: string, duration?: number) => add('warning', message, duration ?? 4000),
-    remove,
-}
-
-// ── React integration ──────────────────────────────────
-
-export function getNotifyItems(): NotifyItem[] {
-    return items
-}
-
-export function subscribeNotify(listener: Listener): () => void {
-    listeners.add(listener)
-    return () => { listeners.delete(listener) }
+    success: (message: string, duration?: number) => show('success', message, duration ?? 3000),
+    error: (message: string, duration?: number) => show('error', message, duration ?? 5000),
+    info: (message: string, duration?: number) => show('info', message, duration ?? 3000),
+    warning: (message: string, duration?: number) => show('warning', message, duration ?? 4000),
 }

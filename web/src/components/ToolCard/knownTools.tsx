@@ -17,6 +17,8 @@ export type ToolPresentation = {
     title: string
     subtitle: string | null
     minimal: boolean
+    /** When true, inline content is hidden by default and revealed on hover */
+    hoverReveal: boolean
 }
 
 function countLines(text: string): number {
@@ -61,6 +63,7 @@ export const knownTools: Record<string, {
     title: (opts: ToolOpts) => string
     subtitle?: (opts: ToolOpts) => string | null
     minimal?: boolean | ((opts: ToolOpts) => boolean)
+    hoverReveal?: boolean
 }> = {
     Task: {
         icon: () => <RocketIcon className={DEFAULT_ICON_CLASS} />,
@@ -491,7 +494,8 @@ export function getToolPresentation(opts: Omit<ToolOpts, 'metadata'> & { metadat
             icon: <PuzzleIcon className={DEFAULT_ICON_CLASS} />,
             title: formatMCPTitle(resolvedToolName),
             subtitle: null,
-            minimal: true
+            minimal: true,
+            hoverReveal: false
         }
     }
 
@@ -502,7 +506,8 @@ export function getToolPresentation(opts: Omit<ToolOpts, 'metadata'> & { metadat
             icon: known.icon(resolvedOpts),
             title: known.title(resolvedOpts),
             subtitle: known.subtitle ? known.subtitle(resolvedOpts) : null,
-            minimal
+            minimal,
+            hoverReveal: known.hoverReveal ?? false
         }
     }
 
@@ -518,6 +523,7 @@ export function getToolPresentation(opts: Omit<ToolOpts, 'metadata'> & { metadat
         icon: <WrenchIcon className={DEFAULT_ICON_CLASS} />,
         title: resolvedToolName,
         subtitle: subtitle ? truncate(subtitle, 80) : null,
-        minimal: true
+        minimal: true,
+        hoverReveal: false
     }
 }

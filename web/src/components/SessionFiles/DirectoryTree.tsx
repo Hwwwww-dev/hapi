@@ -1,173 +1,59 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Tree } from '@arco-design/web-react'
+import { IconFolder } from '@arco-design/web-react/icon'
+import { useQueryClient } from '@tanstack/react-query'
+import type { TreeDataType } from '@arco-design/web-react/es/Tree/interface'
 import type { ApiClient } from '@/api/client'
+import type { DirectoryEntry } from '@/types/api'
 import { FileIcon } from '@/components/FileIcon'
 import { useSessionDirectory } from '@/hooks/queries/useSessionDirectory'
 import { useTranslation } from '@/lib/use-translation'
+import { queryKeys } from '@/lib/query-keys'
 
-function ChevronIcon(props: { className?: string; collapsed: boolean }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={`${props.className ?? ''} transition-transform duration-200 ${props.collapsed ? '' : 'rotate-90'}`}
-        >
-            <polyline points="9 18 15 12 9 6" />
-        </svg>
-    )
-}
+const folderIcon = <IconFolder className="text-[var(--app-link)]" style={{ fontSize: 16, marginRight: 4 }} />
 
-function FolderIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        </svg>
-    )
-}
+function entriesToTreeData(entries: DirectoryEntry[], parentPath: string): TreeDataType[] {
+    const dirs = entries.filter((e) => e.type === 'directory')
+    const files = entries.filter((e) => e.type === 'file')
 
-function DirectorySkeleton(props: { depth: number; rows?: number }) {
-    const rows = props.rows ?? 4
-    const indent = 12 + props.depth * 14
-
-    return (
-        <div className="animate-pulse">
-            {Array.from({ length: rows }).map((_, index) => (
-                <div
-                    key={`dir-skel-${props.depth}-${index}`}
-                    className="flex items-center gap-3 px-3 py-2"
-                    style={{ paddingLeft: indent }}
-                >
-                    <div className="h-5 w-5 rounded bg-[var(--app-subtle-bg)]" />
-                    <div className="h-3 w-40 rounded bg-[var(--app-subtle-bg)]" />
-                </div>
-            ))}
-        </div>
-    )
-}
-
-function DirectoryErrorRow(props: { depth: number; message: string }) {
-    const indent = 12 + props.depth * 14
-    return (
-        <div
-            className="px-3 py-2 text-xs text-[var(--app-hint)] bg-amber-500/10"
-            style={{ paddingLeft: indent }}
-        >
-            {props.message}
-        </div>
-    )
-}
-
-function DirectoryNode(props: {
-    api: ApiClient | null
-    sessionId: string
-    path: string
-    label: string
-    depth: number
-    onOpenFile: (path: string) => void
-    expanded: Set<string>
-    onToggle: (path: string) => void
-}) {
-    const { t } = useTranslation()
-    const isExpanded = props.expanded.has(props.path)
-    const { entries, error, isLoading } = useSessionDirectory(props.api, props.sessionId, props.path, {
-        enabled: isExpanded
+    const dirNodes: TreeDataType[] = dirs.map((entry) => {
+        const fullPath = parentPath ? `${parentPath}/${entry.name}` : entry.name
+        return {
+            key: fullPath,
+            title: entry.name,
+            icon: folderIcon,
+            isLeaf: false,
+            children: [],
+        }
     })
 
-    const directories = useMemo(() => entries.filter((entry) => entry.type === 'directory'), [entries])
-    const files = useMemo(() => entries.filter((entry) => entry.type === 'file'), [entries])
-    const childDepth = props.depth + 1
+    const fileNodes: TreeDataType[] = files.map((entry) => {
+        const fullPath = parentPath ? `${parentPath}/${entry.name}` : entry.name
+        return {
+            key: fullPath,
+            title: entry.name,
+            icon: <span style={{ marginRight: 4, display: 'inline-flex' }}><FileIcon fileName={entry.name} size={16} /></span>,
+            isLeaf: true,
+        }
+    })
 
-    const indent = 12 + props.depth * 14
-    const childIndent = 12 + childDepth * 14
+    return [...dirNodes, ...fileNodes]
+}
 
-    return (
-        <div>
-            <button
-                type="button"
-                onClick={() => props.onToggle(props.path)}
-                className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-[var(--app-subtle-bg)] transition-colors"
-                style={{ paddingLeft: indent }}
-            >
-                <ChevronIcon collapsed={!isExpanded} className="text-[var(--app-hint)]" />
-                <FolderIcon className="text-[var(--app-link)]" />
-                <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{props.label}</div>
-                </div>
-            </button>
-
-            {isExpanded ? (
-                isLoading ? (
-                    <DirectorySkeleton depth={childDepth} />
-                ) : error ? (
-                    <DirectoryErrorRow depth={childDepth} message={error} />
-                ) : (
-                    <div>
-                        {directories.map((entry) => {
-                            const childPath = props.path ? `${props.path}/${entry.name}` : entry.name
-                            return (
-                                <DirectoryNode
-                                    key={childPath}
-                                    api={props.api}
-                                    sessionId={props.sessionId}
-                                    path={childPath}
-                                    label={entry.name}
-                                    depth={childDepth}
-                                    onOpenFile={props.onOpenFile}
-                                    expanded={props.expanded}
-                                    onToggle={props.onToggle}
-                                />
-                            )
-                        })}
-
-                        {files.map((entry) => {
-                            const filePath = props.path ? `${props.path}/${entry.name}` : entry.name
-                            return (
-                                <button
-                                    key={filePath}
-                                    type="button"
-                                    onClick={() => props.onOpenFile(filePath)}
-                                    className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-[var(--app-subtle-bg)] transition-colors"
-                                    style={{ paddingLeft: childIndent }}
-                                >
-                                    <span className="h-4 w-4" />
-                                    <FileIcon fileName={entry.name} size={22} />
-                                    <div className="min-w-0 flex-1">
-                                        <div className="truncate font-medium">{entry.name}</div>
-                                    </div>
-                                </button>
-                            )
-                        })}
-
-                        {directories.length === 0 && files.length === 0 ? (
-                            <div
-                                className="px-3 py-2 text-sm text-[var(--app-hint)]"
-                                style={{ paddingLeft: childIndent }}
-                            >
-                                {t('git.emptyDirectory')}
-                            </div>
-                        ) : null}
-                    </div>
-                )
-            ) : null}
-        </div>
-    )
+function mergeChildren(
+    treeData: TreeDataType[],
+    parentKey: string,
+    children: TreeDataType[]
+): TreeDataType[] {
+    return treeData.map((node) => {
+        if (node.key === parentKey) {
+            return { ...node, children }
+        }
+        if (node.children && node.children.length > 0) {
+            return { ...node, children: mergeChildren(node.children, parentKey, children) }
+        }
+        return node
+    })
 }
 
 export function DirectoryTree(props: {
@@ -178,40 +64,165 @@ export function DirectoryTree(props: {
     expandedPaths?: string[]
     onExpandedChange?: (paths: string[]) => void
 }) {
-    const [internalExpanded, setInternalExpanded] = useState<Set<string>>(() => new Set(['']))
+    const { t } = useTranslation()
+    const queryClient = useQueryClient()
+    const apiRef = useRef(props.api)
+    apiRef.current = props.api
 
-    const expanded = useMemo(
-        () => props.expandedPaths !== undefined ? new Set(props.expandedPaths) : internalExpanded,
-        [props.expandedPaths, internalExpanded]
+    const { entries: rootEntries, isLoading: rootLoading } = useSessionDirectory(
+        props.api, props.sessionId, '', { enabled: true }
     )
 
-    const handleToggle = useCallback((path: string) => {
-        const next = new Set(expanded)
-        if (next.has(path)) {
-            next.delete(path)
-        } else {
-            next.add(path)
+    const [treeData, setTreeData] = useState<TreeDataType[]>([])
+    const rootSyncedRef = useRef<DirectoryEntry[] | null>(null)
+
+    // Sync root entries into treeData only when rootEntries actually changes
+    useEffect(() => {
+        if (rootLoading || rootEntries.length === 0) return
+        if (rootSyncedRef.current === rootEntries) return
+        rootSyncedRef.current = rootEntries
+
+        const rootChildren = entriesToTreeData(rootEntries, '')
+        setTreeData((prev) => {
+            // Preserve already-loaded deep children from loadMore
+            const existingRoot = prev.find((n) => n.key === '')
+            if (existingRoot?.children && existingRoot.children.length > 0) {
+                const existingMap = new Map<string, TreeDataType>()
+                for (const child of existingRoot.children) {
+                    if (child.key != null) existingMap.set(String(child.key), child)
+                }
+                const merged = rootChildren.map((newChild) => {
+                    const existing = existingMap.get(String(newChild.key))
+                    if (existing?.children && existing.children.length > 0 && !newChild.isLeaf) {
+                        return { ...newChild, children: existing.children }
+                    }
+                    return newChild
+                })
+                return [{ key: '', title: props.rootLabel, icon: folderIcon, children: merged }]
+            }
+            return [{ key: '', title: props.rootLabel, icon: folderIcon, children: rootChildren }]
+        })
+    }, [rootEntries, rootLoading, props.rootLabel])
+
+    // Keep rootLabel in sync without destroying children
+    const prevLabelRef = useRef(props.rootLabel)
+    useEffect(() => {
+        if (prevLabelRef.current !== props.rootLabel) {
+            prevLabelRef.current = props.rootLabel
+            setTreeData((prev) =>
+                prev.map((node) => (node.key === '' ? { ...node, title: props.rootLabel } : node))
+            )
         }
+    }, [props.rootLabel])
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loadMore = useCallback((node: any): Promise<void> => {
+        // Arco Tree passes NodeInstance; extract key from props._key
+        const dirPath = String(node.props?._key ?? node.props?.dataRef?.key ?? node.key ?? '')
+        const api = apiRef.current
+        if (!api) return Promise.resolve()
+
+        return api.listSessionDirectory(props.sessionId, dirPath).then((response) => {
+            if (!response.success || !response.entries) return
+
+            queryClient.setQueryData(
+                queryKeys.sessionDirectory(props.sessionId, dirPath),
+                { entries: response.entries, error: null }
+            )
+
+            const children = entriesToTreeData(response.entries, dirPath)
+            if (children.length === 0) {
+                const emptyNode: TreeDataType = {
+                    key: `${dirPath}/__empty__`,
+                    title: <span className="text-[var(--app-hint)] text-sm">{t('git.emptyDirectory')}</span>,
+                    isLeaf: true,
+                    selectable: false,
+                }
+                setTreeData((prev) => mergeChildren(prev, dirPath, [emptyNode]))
+            } else {
+                setTreeData((prev) => mergeChildren(prev, dirPath, children))
+            }
+        }).catch(() => {
+            // silently fail - user can retry by collapsing/expanding
+        })
+    }, [props.sessionId, queryClient, t])
+
+    const [internalExpanded, setInternalExpanded] = useState<string[]>([''])
+    const expandedKeys = props.expandedPaths ?? internalExpanded
+
+    const handleExpand = useCallback((keys: string[]) => {
         if (props.onExpandedChange) {
-            props.onExpandedChange(Array.from(next))
+            props.onExpandedChange(keys)
         } else {
-            setInternalExpanded(next)
+            setInternalExpanded(keys)
         }
-    }, [expanded, props.onExpandedChange])
+    }, [props.onExpandedChange])
+
+    // Re-populate expanded directories when component remounts with existing expandedKeys
+    const didRestoreRef = useRef(false)
+    useEffect(() => {
+        if (didRestoreRef.current) return
+        if (treeData.length === 0) return
+        const keysToLoad = expandedKeys.filter((k) => k !== '')
+        if (keysToLoad.length === 0) return
+        didRestoreRef.current = true
+
+        // Sort by depth so parents load before children
+        const sorted = [...keysToLoad].sort((a, b) => a.split('/').length - b.split('/').length)
+        let chain = Promise.resolve()
+        for (const key of sorted) {
+            chain = chain.then(() => {
+                const api = apiRef.current
+                if (!api) return
+                return api.listSessionDirectory(props.sessionId, key).then((response) => {
+                    if (!response.success || !response.entries) return
+                    const children = entriesToTreeData(response.entries, key)
+                    setTreeData((prev) => mergeChildren(prev, key, children.length > 0 ? children : [{
+                        key: `${key}/__empty__`,
+                        title: <span className="text-[var(--app-hint)] text-sm">{t('git.emptyDirectory')}</span>,
+                        isLeaf: true,
+                        selectable: false,
+                    }]))
+                }).catch(() => {})
+            })
+        }
+    }, [treeData, expandedKeys, props.sessionId, t])
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleSelect = useCallback((_keys: string[], extra: { node: any }) => {
+        const node = extra.node
+        const key = String(node.props?._key ?? node.props?.dataRef?.key ?? node.key ?? '')
+        const isLeaf = node.props?.isLeaf ?? node.props?.dataRef?.isLeaf ?? false
+        if (isLeaf && key && !key.endsWith('/__empty__')) {
+            props.onOpenFile(key)
+        } else if (!isLeaf && key !== undefined) {
+            // Toggle expand/collapse when clicking folder name
+            const isExpanded = expandedKeys.includes(key)
+            handleExpand(isExpanded ? expandedKeys.filter((k) => k !== key) : [...expandedKeys, key])
+        }
+    }, [props.onOpenFile, expandedKeys, handleExpand])
 
     return (
-        <div className="flex-1 overflow-y-auto border-t border-[var(--app-divider)]">
-            <DirectoryNode
-                api={props.api}
-                sessionId={props.sessionId}
-                path=""
-                label={props.rootLabel}
-                depth={0}
-                onOpenFile={props.onOpenFile}
-                expanded={expanded}
-                onToggle={handleToggle}
+        <div className="flex-1 overflow-y-auto border-t border-[var(--app-divider)] directory-tree-wrapper">
+            <style>{`
+                .directory-tree-wrapper .arco-tree-node { padding: 4px 8px; }
+                .directory-tree-wrapper .arco-tree-node:hover { background: var(--app-subtle-bg); }
+                .directory-tree-wrapper .arco-tree-node-title { color: var(--app-fg); font-weight: 500; }
+                .directory-tree-wrapper .arco-tree-node-switcher { color: var(--app-hint); }
+                .directory-tree-wrapper .arco-tree { background: transparent; }
+                .directory-tree-wrapper .arco-tree-node-selected .arco-tree-node-title { color: var(--app-link); }
+                .directory-tree-wrapper .arco-tree-node-icon { display: inline-flex; align-items: center; vertical-align: middle; }
+                .directory-tree-wrapper .arco-tree-node-title { display: inline-flex; align-items: center; vertical-align: middle; }
+            `}</style>
+            <Tree
+                treeData={treeData}
+                loadMore={loadMore}
+                expandedKeys={expandedKeys}
+                onExpand={handleExpand}
+                onSelect={handleSelect}
+                blockNode
+                showLine
             />
         </div>
     )
 }
-

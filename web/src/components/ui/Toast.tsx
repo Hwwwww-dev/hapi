@@ -1,26 +1,12 @@
 import * as React from 'react'
-import { cva, type VariantProps } from 'class-variance-authority'
+import { IconClose } from '@arco-design/web-react/icon'
 import { cn } from '@/lib/utils'
 
-const toastVariants = cva(
-    'pointer-events-auto w-full max-w-sm rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] text-[var(--app-fg)] shadow-lg',
-    {
-        variants: {
-            variant: {
-                default: 'border-[var(--app-border)] bg-[var(--app-bg)]'
-            }
-        },
-        defaultVariants: {
-            variant: 'default'
-        }
-    }
-)
-
-export type ToastProps = React.HTMLAttributes<HTMLDivElement> &
-    VariantProps<typeof toastVariants> & {
+export type ToastProps = React.HTMLAttributes<HTMLDivElement> & {
     title: string
     body: string
     onClose?: () => void
+    variant?: 'default'
 }
 
 export function Toast({ title, body, onClose, className, variant, ...props }: ToastProps) {
@@ -30,20 +16,27 @@ export function Toast({ title, body, onClose, className, variant, ...props }: To
     }
 
     return (
-        <div className={cn(toastVariants({ variant }), 'animate-fade-in-up', className)} role="status" {...props}>
-            <div className="flex items-start gap-3 p-3">
+        <div
+            className={cn(
+                'pointer-events-auto w-full max-w-sm rounded-xl border border-[var(--app-border)] bg-[var(--app-bg)] text-[var(--app-fg)] shadow-xl backdrop-blur-sm animate-fade-in-up',
+                className
+            )}
+            role="status"
+            {...props}
+        >
+            <div className="flex items-start gap-3 p-3.5">
                 <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold leading-5">{title}</div>
-                    <div className="mt-1 text-xs text-[var(--app-hint)]">{body}</div>
+                    <div className="mt-1 text-xs leading-4 text-[var(--app-hint)]">{body}</div>
                 </div>
                 {onClose ? (
                     <button
                         type="button"
-                        className="text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)]"
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--app-hint)] transition-colors hover:bg-[var(--app-subtle-bg)] hover:text-[var(--app-fg)]"
                         onClick={handleClose}
                         aria-label="Dismiss"
                     >
-                        x
+                        <IconClose style={{ fontSize: 12 }} />
                     </button>
                 ) : null}
             </div>

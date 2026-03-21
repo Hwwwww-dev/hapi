@@ -1,5 +1,7 @@
+import { Alert } from '@arco-design/web-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useTranslation } from '@/lib/use-translation'
+import { cn } from '@/lib/utils'
 
 function getReasonLabel(reason: string, t: (key: string) => string): string {
     if (reason === 'heartbeat-timeout') {
@@ -31,10 +33,18 @@ export function ReconnectingBanner({
     }
 
     return (
-        <div className="fixed top-0 left-0 right-0 bg-amber-500 text-white text-center py-2 text-sm font-medium z-50 flex items-center justify-center gap-2 animate-slide-down-fade">
-            <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-            {t('reconnecting.message')}
-            {reasonLabel ? <span className="opacity-90">({reasonLabel})</span> : null}
-        </div>
+        <Alert
+            type="warning"
+            banner
+            closable={false}
+            content={
+                <div className="flex items-center justify-center gap-2">
+                    <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                    {t('reconnecting.message')}
+                    {reasonLabel ? <span className="opacity-90">({reasonLabel})</span> : null}
+                </div>
+            }
+            className={cn('fixed top-0 left-0 right-0 z-50 animate-slide-down-fade')}
+        />
     )
 }

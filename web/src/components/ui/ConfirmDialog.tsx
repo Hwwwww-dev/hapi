@@ -79,7 +79,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
                             onChange={e => setInputValue(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter' && inputValue === confirmText) void handleConfirm() }}
                             autoFocus
-                            className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)] font-mono"
+                            className="w-full text-sm px-3 py-2 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)] font-mono"
                             placeholder={t('dialog.confirmTextHint', { text: confirmText })}
                         />
                     </div>
