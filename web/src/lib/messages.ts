@@ -71,15 +71,28 @@ export function mergeMessages(existing: DecryptedMessage[], incoming: DecryptedM
         return [...incoming].sort(compareMessages)
     }
     if (incoming.length === 0) {
-        return [...existing].sort(compareMessages)
+        return existing
     }
 
     const byId = new Map<string, DecryptedMessage>()
     for (const msg of existing) {
         byId.set(msg.id, msg)
     }
+
+    // Track whether incoming actually adds or changes anything
+    let hasNewOrChanged = false
     for (const msg of incoming) {
+        const prev = byId.get(msg.id)
+        if (prev !== msg) {
+            hasNewOrChanged = true
+        }
         byId.set(msg.id, msg)
+    }
+
+    // Fast path: if nothing new/changed and counts match, return original array
+    // to preserve referential identity and skip downstream re-renders.
+    if (!hasNewOrChanged && byId.size === existing.length) {
+        return existing
     }
 
     let merged = Array.from(byId.values())

@@ -341,14 +341,17 @@ export async function fetchLatestMessages(api: ApiClient, sessionId: string): Pr
         const response = await api.getMessages(sessionId, { limit: PAGE_SIZE, beforeSeq: null })
         updateState(sessionId, (prev) => {
             if (prev.atBottom) {
-                const merged = mergeMessages(prev.messages, [...prev.pending, ...response.messages])
+                const hasPending = prev.pending.length > 0
+                const merged = hasPending
+                    ? mergeMessages(prev.messages, [...prev.pending, ...response.messages])
+                    : mergeMessages(prev.messages, response.messages)
                 const trimmed = trimVisible(merged, 'append')
                 return buildState(prev, {
                     messages: trimmed,
-                    pending: [],
-                    pendingOverflowCount: 0,
-                    pendingVisibleCount: 0,
-                    pendingOverflowVisibleCount: 0,
+                    pending: hasPending ? [] : prev.pending,
+                    pendingOverflowCount: hasPending ? 0 : prev.pendingOverflowCount,
+                    pendingVisibleCount: hasPending ? 0 : prev.pendingVisibleCount,
+                    pendingOverflowVisibleCount: hasPending ? 0 : prev.pendingOverflowVisibleCount,
                     hasMore: response.page.hasMore,
                     totalMessages: response.page.total ?? null,
                     isLoading: false,
@@ -446,6 +449,10 @@ function applyIncomingMessages(sessionId: string, incoming: DecryptedMessage[]):
             const merged = mergeMessages(prev.messages, incoming)
             const trimmed = trimVisible(merged, 'append')
             const pending = filterPendingAgainstVisible(prev.pending, trimmed)
+            // Skip notify if nothing actually changed (preserves Dialog state etc.)
+            if (trimmed === prev.messages && pending === prev.pending && nextTotal === prev.totalMessages) {
+                return prev
+            }
             return buildState(prev, { messages: trimmed, pending, totalMessages: nextTotal })
         }
         const agentMessages = incoming.filter(msg => !isUserMessage(msg))
@@ -456,7 +463,9 @@ function applyIncomingMessages(sessionId: string, incoming: DecryptedMessage[]):
             const merged = mergeMessages(state.messages, agentMessages)
             const trimmed = trimVisible(merged, 'append')
             const pending = filterPendingAgainstVisible(state.pending, trimmed)
-            state = buildState(state, { messages: trimmed, pending, totalMessages: nextTotal })
+            if (trimmed !== state.messages || pending !== state.pending || nextTotal !== state.totalMessages) {
+                state = buildState(state, { messages: trimmed, pending, totalMessages: nextTotal })
+            }
         }
         if (userMessages.length > 0) {
             const pendingResult = mergeIntoPending(state, userMessages)
