@@ -17,7 +17,8 @@ import { useSession } from '@/hooks/queries/useSession'
 import { useTranslation } from '@/lib/use-translation'
 import { queryKeys } from '@/lib/query-keys'
 import { notify } from '@/lib/notify'
-import { IconLeft, IconSync, IconBranch, IconDownload, IconImport, IconExport, IconStorage } from '@arco-design/web-react/icon'
+import { IconLeft, IconSync, IconBranch, IconTool } from '@arco-design/web-react/icon'
+import { Dropdown, Menu } from '@arco-design/web-react'
 
 const TabPane = Tabs.TabPane
 
@@ -110,8 +111,6 @@ export default function FilesPage() {
         { key: 'directories', label: t('files.tab.files') },
     ]
 
-    const actionBtnClass = 'flex items-center gap-1 px-2 py-1 rounded-md text-xs text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
-
     return (
         <>
         <div className="flex h-full flex-col">
@@ -129,22 +128,45 @@ export default function FilesPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                        <button type="button" onClick={() => setConfirmAction('fetch')} disabled={anyActionLoading} className={actionBtnClass} title={t('git.fetch')}>
-                            {gitActionLoading === 'fetch' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <IconDownload style={{ fontSize: 14 }} />}
-                            <span>{t('git.fetch')}</span>
-                        </button>
-                        <button type="button" onClick={() => setConfirmAction('pull')} disabled={anyActionLoading} className={actionBtnClass} title={t('git.pull')}>
-                            {gitActionLoading === 'pull' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <IconImport style={{ fontSize: 14 }} />}
-                            <span>{t('git.pull')}</span>
-                        </button>
-                        <button type="button" onClick={() => setConfirmAction('push')} disabled={anyActionLoading} className={actionBtnClass} title={t('git.push')}>
-                            {gitActionLoading === 'push' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <IconExport style={{ fontSize: 14 }} />}
-                            <span>{t('git.push')}</span>
-                        </button>
-                        <button type="button" onClick={() => setStashOpen(true)} disabled={anyActionLoading} className={actionBtnClass} title={t('git.stash')}>
-                            <IconStorage style={{ fontSize: 14 }} />
-                            <span>{t('git.stash')}</span>
-                        </button>
+                        <Dropdown
+                            trigger="click"
+                            position="bl"
+                            droplist={
+                                <Menu onClickMenuItem={(key) => {
+                                    if (key === 'fetch' || key === 'pull' || key === 'push') setConfirmAction(key)
+                                    if (key === 'stash') setStashOpen(true)
+                                }}>
+                                    <Menu.Item key="fetch" disabled={anyActionLoading}>
+                                        <span className="flex items-center gap-2 w-24 justify-center">
+                                            {gitActionLoading === 'fetch' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : null}
+                                            {t('git.fetch')}
+                                        </span>
+                                    </Menu.Item>
+                                    <Menu.Item key="pull" disabled={anyActionLoading}>
+                                        <span className="flex items-center gap-2 w-24 justify-center">
+                                            {gitActionLoading === 'pull' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : null}
+                                            {t('git.pull')}
+                                        </span>
+                                    </Menu.Item>
+                                    <Menu.Item key="push" disabled={anyActionLoading}>
+                                        <span className="flex items-center gap-2 w-24 justify-center">
+                                            {gitActionLoading === 'push' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : null}
+                                            {t('git.push')}
+                                        </span>
+                                    </Menu.Item>
+                                    <Menu.Item key="stash" disabled={anyActionLoading}>
+                                    <span className="flex items-center gap-2 w-24 justify-center">
+                                            {gitActionLoading === 'push' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : null}
+                                            {t('git.stash')}
+                                        </span>
+                                    </Menu.Item>
+                                </Menu>
+                            }
+                        >
+                            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]" title={t('files.header.actions')}>
+                                <IconTool style={{ fontSize: 18 }} />
+                            </button>
+                        </Dropdown>
                         <button type="button" onClick={() => void handleRefreshAll()} className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]" title={t('files.header.refresh')}>
                             <IconSync className={refreshing || gitLoading ? 'animate-spin' : ''} style={{ fontSize: 18 }} />
                         </button>
