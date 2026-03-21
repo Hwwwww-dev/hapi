@@ -1,57 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, createEvent, fireEvent, render } from '@testing-library/react'
+
+import { ComposerProvider, type ComposerContextValue } from '@/chat/composer-context'
 
 const sendMock = vi.fn()
 const cancelRunMock = vi.fn()
 const setTextMock = vi.fn()
 const addAttachmentMock = vi.fn()
-
-let mockState = {
-    composer: {
-        text: 'hello',
-        attachments: [] as Array<{ status: { type: string } }>
-    },
-    thread: {
-        isRunning: false,
-        isDisabled: false
-    }
-}
-
-vi.mock('@assistant-ui/react', async () => {
-    const React = await import('react')
-
-    return {
-        useAssistantApi: () => ({
-            composer: () => ({
-                send: sendMock,
-                setText: setTextMock,
-                addAttachment: addAttachmentMock
-            }),
-            thread: () => ({
-                cancelRun: cancelRunMock
-            })
-        }),
-        useAssistantState: (selector: (state: typeof mockState) => unknown) => selector(mockState),
-        ComposerPrimitive: {
-            Root: ({ children, className, onSubmit }: { children: React.ReactNode; className?: string; onSubmit?: (event: React.FormEvent<HTMLFormElement>) => void }) => (
-                <form className={className} onSubmit={onSubmit}>
-                    {children}
-                </form>
-            ),
-            Input: React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
-                function MockComposerInput(props, ref) {
-                    const { maxRows: _maxRows, submitOnEnter: _submitOnEnter, cancelOnEscape: _cancelOnEscape, ...rest } = props as React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
-                        maxRows?: number
-                        submitOnEnter?: boolean
-                        cancelOnEscape?: boolean
-                    }
-                    return <textarea ref={ref} data-testid="composer-input" {...rest} />
-                }
-            ),
-            Attachments: () => null
-        }
-    }
-})
+const removeAttachmentMock = vi.fn()
 
 vi.mock('@/hooks/useActiveWord', () => ({
     useActiveWord: () => null
@@ -106,18 +62,28 @@ vi.mock('@/lib/use-translation', () => ({
 
 import { HappyComposer } from './HappyComposer'
 
+function renderWithComposer(composerText = 'hello') {
+    setTextMock.mockClear()
+
+    const composerValue: ComposerContextValue = {
+        text: composerText,
+        setText: setTextMock,
+        attachments: [],
+        addAttachment: addAttachmentMock,
+        removeAttachment: removeAttachmentMock,
+        send: sendMock,
+        cancelRun: cancelRunMock,
+    }
+
+    return render(
+        <ComposerProvider value={composerValue}>
+            <HappyComposer />
+        </ComposerProvider>
+    )
+}
+
 describe('HappyComposer keyboard behavior', () => {
     beforeEach(() => {
-        mockState = {
-            composer: {
-                text: 'hello',
-                attachments: []
-            },
-            thread: {
-                isRunning: false,
-                isDisabled: false
-            }
-        }
         vi.clearAllMocks()
     })
 
@@ -126,9 +92,9 @@ describe('HappyComposer keyboard behavior', () => {
     })
 
     it('allows Shift+Enter to insert a newline instead of sending', () => {
-        render(<HappyComposer />)
+        renderWithComposer('hello')
 
-        const textarea = screen.getByTestId('composer-input')
+        const textarea = document.querySelector('textarea')!
         const event = createEvent.keyDown(textarea, { key: 'Enter', shiftKey: true })
         fireEvent(textarea, event)
 

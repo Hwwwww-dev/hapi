@@ -64,7 +64,6 @@ body {
 /* Select - match app input styling */
 .arco-select-view {
     border-color: var(--app-border) !important;
-    background: var(--app-subtle-bg) !important;
     border-radius: 8px !important;
 }
 .arco-select-view:hover {
@@ -172,7 +171,12 @@ body {
 /* Input - match app input style */
 .arco-input {
     border-color: var(--app-border) !important;
-    background: var(--app-subtle-bg) !important;
+    border-radius: 8px !important;
+}
+.arco-input-inner-wrapper {
+    border-radius: 8px !important;
+}
+.arco-picker {
     border-radius: 8px !important;
 }
 .arco-input:hover {
@@ -656,6 +660,15 @@ html[data-theme="dark"] .shiki span {
   animation: slide-down-fade 0.2s ease-out;
 }
 
+/* Slide up fade - floating panels */
+@keyframes slide-up-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up-fade {
+  animation: slide-up-fade 0.2s ease-out;
+}
+
 /* Fade in scale - dialogs, sheets */
 @keyframes fade-in-scale {
   from { opacity: 0; transform: scale(0.96); }
@@ -711,6 +724,7 @@ html[data-theme="dark"] .shiki span {
 @media (prefers-reduced-motion: reduce) {
   .animate-session-list-swap,
   .animate-slide-down-fade,
+  .animate-slide-up-fade,
   .animate-fade-in-scale,
   .animate-fade-in-up,
   .animate-drawer-up,
@@ -787,4 +801,14 @@ select {
 }
 .files-tabs .arco-tabs-content {
   display: none;
+}
+
+/* Wavy text: subtle letter bounce */
+@keyframes wavy-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.5px); }
+}
+.wavy-text > span {
+  display: inline-block;
+  animation: wavy-bounce 2s ease-in-out infinite;
 }

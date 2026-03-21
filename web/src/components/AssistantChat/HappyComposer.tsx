@@ -1,5 +1,4 @@
 import { getCodexCollaborationModeOptions, getPermissionModeOptionsForFlavor } from '@hapi/protocol'
-import { ComposerPrimitive, useAssistantApi, useAssistantState } from '@assistant-ui/react'
 import {
     type ChangeEvent as ReactChangeEvent,
     type ClipboardEvent as ReactClipboardEvent,
@@ -12,6 +11,7 @@ import {
     useRef,
     useState
 } from 'react'
+import { useComposerContext } from '@/chat/composer-context'
 import type { AgentState, AttachmentMetadata, CodexCollaborationMode, PermissionMode } from '@/types/api'
 import type { Suggestion } from '@/hooks/useActiveSuggestions'
 import type { ConversationStatus } from '@/realtime/types'
@@ -103,36 +103,26 @@ export function HappyComposer(props: {
     const collaborationMode = rawCollaborationMode ?? 'default'
     const model = rawModel ?? null
 
-    const api = useAssistantApi()
-    const composerText = useAssistantState(({ composer }) => composer.text)
-    const attachments = useAssistantState(({ composer }) => composer.attachments)
-    const threadIsRunning = useAssistantState(({ thread }) => thread.isRunning)
-    const threadIsDisabled = useAssistantState(({ thread }) => thread.isDisabled)
+    const composerCtx = useComposerContext()
+    const composerText = composerCtx.text
+    const attachments = composerCtx.attachments
+    const threadIsRunning = thinking ?? false
 
     const messageQueue = useMessageQueue(
         props.sessionId ?? null,
         {
             sendMessage: props.sendQueued ?? (async () => {}),
-            abort: () => api.thread().cancelRun(),
-            clearComposer: () => api.composer().setText(''),
+            abort: () => composerCtx.cancelRun(),
+            clearComposer: () => composerCtx.setText(''),
         },
         threadIsRunning,
     )
 
-    const controlsDisabled = disabled || (!active && !allowSendWhenInactive) || threadIsDisabled
+    const controlsDisabled = disabled || (!active && !allowSendWhenInactive)
     const trimmed = composerText.trim()
     const hasText = trimmed.length > 0
     const hasAttachments = attachments.length > 0
-    const attachmentsReady = !hasAttachments || attachments.every((attachment) => {
-        if (attachment.status.type === 'complete') {
-            return true
-        }
-        if (attachment.status.type !== 'requires-action') {
-            return false
-        }
-        const path = (attachment as { path?: string }).path
-        return typeof path === 'string' && path.length > 0
-    })
+    const attachmentsReady = !hasAttachments || attachments.every(a => a.status === 'complete')
     const canSend = (hasText || hasAttachments) && attachmentsReady && !controlsDisabled && !threadIsRunning
 
     const [inputState, setInputState] = useState<TextInputState>({
@@ -155,6 +145,17 @@ export function HappyComposer(props: {
             const newPos = composerText.length
             return { text: composerText, selection: { start: newPos, end: newPos } }
         })
+    }, [composerText])
+
+    // Auto-resize textarea
+    useEffect(() => {
+        const el = textareaRef.current
+        if (!el) return
+        el.style.height = 'auto'
+        const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20
+        const minHeight = lineHeight * 2
+        const maxHeight = lineHeight * 5
+        el.style.height = `${Math.max(minHeight, Math.min(el.scrollHeight, maxHeight))}px`
     }, [composerText])
 
     // Track one-time "continue" hint after switching from local to remote.
@@ -212,7 +213,7 @@ export function HappyComposer(props: {
             addSpace
         )
 
-        api.composer().setText(result.text)
+        composerCtx.setText(result.text)
         setInputState({
             text: result.text,
             selection: { start: result.cursorPosition, end: result.cursorPosition }
@@ -230,7 +231,7 @@ export function HappyComposer(props: {
         }, 0)
 
         haptic('light')
-    }, [api, suggestions, inputState, autocompletePrefixes, haptic, agentFlavor])
+    }, [composerCtx, suggestions, inputState, autocompletePrefixes, haptic, agentFlavor])
 
     const abortDisabled = controlsDisabled || isAborting || !threadIsRunning
     const switchDisabled = controlsDisabled || isSwitching || !controlledByUser
@@ -253,24 +254,30 @@ export function HappyComposer(props: {
         if (abortDisabled) return
         haptic('error')
         setIsAborting(true)
-        api.thread().cancelRun()
-    }, [abortDisabled, api, haptic])
+        composerCtx.cancelRun()
+    }, [abortDisabled, composerCtx, haptic])
+
+    const handleSendMessage = useCallback(() => {
+        if (!canSend) return
+        composerCtx.send(trimmed)
+        setShowContinueHint(false)
+    }, [canSend, trimmed, composerCtx])
 
     const handleQueueEdit = useCallback((item: QueuedMessage) => {
         const edited = messageQueue.editInComposer(item.id)
         if (edited) {
-            api.composer().setText(edited.text)
+            composerCtx.setText(edited.text)
         }
         textareaRef.current?.focus()
-    }, [api, messageQueue])
+    }, [composerCtx, messageQueue])
 
     const handleQueueFlush = useCallback(() => {
         if (hasText) {
             messageQueue.enqueue(trimmed)
-            api.composer().setText('')
+            composerCtx.setText('')
         }
         void messageQueue.flush()
-    }, [messageQueue, hasText, trimmed, api])
+    }, [messageQueue, hasText, trimmed, composerCtx])
 
     const handleSwitch = useCallback(async () => {
         if (switchDisabled || !onSwitchToRemote) return
@@ -340,7 +347,7 @@ export function HappyComposer(props: {
                     e.preventDefault()
                     if (hasText) {
                         messageQueue.enqueue(trimmed)
-                        api.composer().setText('')
+                        composerCtx.setText('')
                     }
                     void messageQueue.flush()
                     return
@@ -352,10 +359,17 @@ export function HappyComposer(props: {
                 if (hasText) {
                     e.preventDefault()
                     messageQueue.enqueue(trimmed)
-                    api.composer().setText('')
+                    composerCtx.setText('')
                 }
                 return
             }
+
+            // Normal send (replaces ComposerPrimitive submitOnEnter)
+            if (canSend) {
+                e.preventDefault()
+                handleSendMessage()
+            }
+            return
         }
 
         // Ctrl+J → insert newline at cursor
@@ -367,7 +381,7 @@ export function HappyComposer(props: {
                 const currentText = composerText
                 const before = currentText.slice(0, selectionStart)
                 const after = currentText.slice(selectionEnd)
-                api.composer().setText(before + '\n\n' + after)
+                composerCtx.setText(before + '\n\n' + after)
                 requestAnimationFrame(() => {
                     el.selectionStart = el.selectionEnd = selectionStart + 2
                 })
@@ -399,10 +413,11 @@ export function HappyComposer(props: {
         messageQueue,
         hasText,
         trimmed,
-        composerText,
-        api,
+        composerCtx,
         threadIsRunning,
         handleAbort,
+        handleSendMessage,
+        canSend,
         onPermissionModeChange,
         permissionMode,
         permissionModes,
@@ -423,12 +438,12 @@ export function HappyComposer(props: {
     }, [model, onModelChange, haptic, agentFlavor])
 
     const handleChange = useCallback((e: ReactChangeEvent<HTMLTextAreaElement>) => {
-        const selection = {
-            start: e.target.selectionStart,
-            end: e.target.selectionEnd
-        }
-        setInputState({ text: e.target.value, selection })
-    }, [])
+        composerCtx.setText(e.target.value)
+        setInputState({
+            text: e.target.value,
+            selection: { start: e.target.selectionStart, end: e.target.selectionEnd }
+        })
+    }, [composerCtx])
 
     const handleSelect = useCallback((e: ReactSyntheticEvent<HTMLTextAreaElement>) => {
         const target = e.target as HTMLTextAreaElement
@@ -446,27 +461,21 @@ export function HappyComposer(props: {
 
         e.preventDefault()
 
-        try {
-            for (const file of imageFiles) {
-                await api.composer().addAttachment(file)
-            }
-        } catch (error) {
-            console.error('Error adding pasted image:', error)
+        for (const file of imageFiles) {
+            composerCtx.addAttachment(file)
         }
-    }, [api])
+    }, [composerCtx])
 
     const handleSettingsToggle = useCallback(() => {
         haptic('light')
         setShowSettings(prev => !prev)
     }, [haptic])
 
-    const handleSubmit = useCallback((event?: ReactFormEvent<HTMLFormElement>) => {
-        if (event && !attachmentsReady) {
-            event.preventDefault()
-            return
-        }
-        setShowContinueHint(false)
-    }, [attachmentsReady])
+    const handleFormSubmit = useCallback((event: ReactFormEvent<HTMLFormElement>) => {
+        event.preventDefault()
+        if (!canSend || !attachmentsReady) return
+        handleSendMessage()
+    }, [canSend, attachmentsReady, handleSendMessage])
 
     const handlePermissionChange = useCallback((mode: PermissionMode) => {
         if (!onPermissionModeChange || controlsDisabled) return
@@ -495,10 +504,6 @@ export function HappyComposer(props: {
     const showSettingsButton = Boolean(showCollaborationSettings || showPermissionSettings || showModelSettings)
     const showAbortButton = true
     const voiceEnabled = Boolean(onVoiceToggle)
-
-    const handleSend = useCallback(() => {
-        api.composer().send()
-    }, [api])
 
     const overlays = useMemo(() => {
         if (showSettings && (showCollaborationSettings || showPermissionSettings || showModelSettings)) {
@@ -667,10 +672,11 @@ export function HappyComposer(props: {
     return (
         <div className={`px-3 ${bottomPaddingClass} pt-2 bg-[var(--app-bg)]`}>
             <div className="mx-auto w-full max-w-content">
-                <ComposerPrimitive.Root className="relative" onSubmit={handleSubmit}>
+                <form className="relative" onSubmit={handleFormSubmit}>
                     {overlays}
 
                     <StatusBar
+                        sessionId={props.sessionId}
                         active={active}
                         thinking={thinking}
                         agentState={agentState}
@@ -695,21 +701,22 @@ export function HappyComposer(props: {
                         />
                         {attachments.length > 0 ? (
                             <div className="flex flex-wrap gap-2 px-4 pt-3">
-                                <ComposerPrimitive.Attachments components={{ Attachment: AttachmentItem }} />
+                                {attachments.map(a => (
+                                    <AttachmentItem key={a.id} attachment={a} onRemove={composerCtx.removeAttachment} />
+                                ))}
                             </div>
                         ) : null}
 
                         <div className="flex items-center px-4 py-3">
-                            <ComposerPrimitive.Input
+                            <textarea
                                 ref={textareaRef}
                                 autoFocus={!controlsDisabled && !isTouch}
                                 placeholder={messageQueue.queue.length > 0
                                     ? (isTouch ? t('queue.enqueue') : t('queue.enqueueOrSend'))
                                     : showContinueHint ? t('misc.typeMessage') : t('misc.typeAMessage')}
                                 disabled={controlsDisabled}
-                                maxRows={5}
-                                submitOnEnter={!isTouch}
-                                cancelOnEscape={false}
+                                rows={2}
+                                value={composerText}
                                 onChange={handleChange}
                                 onSelect={handleSelect}
                                 onKeyDown={handleKeyDown}
@@ -739,10 +746,11 @@ export function HappyComposer(props: {
                             voiceMicMuted={voiceMicMuted}
                             onVoiceToggle={onVoiceToggle ?? (() => {})}
                             onVoiceMicToggle={onVoiceMicToggle}
-                            onSend={handleSend}
+                            onAddAttachment={composerCtx.addAttachment}
+                            onSend={handleSendMessage}
                         />
                     </div>
-                </ComposerPrimitive.Root>
+                </form>
             </div>
         </div>
     )

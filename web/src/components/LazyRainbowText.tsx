@@ -137,6 +137,7 @@ export function LazyRainbowText(props: { text: string }) {
         <div ref={ref}>
             <MarkdownRenderer
                 content={text}
+                className="text-[15px]"
                 components={hasSpecialWord && hasBeenVisible ? rainbowComponents : undefined}
             />
         </div>

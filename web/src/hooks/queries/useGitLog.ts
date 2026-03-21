@@ -3,17 +3,20 @@ import type { ApiClient } from '@/api/client'
 import type { CommitEntry } from '@/types/api'
 import { queryKeys } from '@/lib/query-keys'
 
-export function useGitLog(api: ApiClient | null, sessionId: string | null, options?: { limit?: number; skip?: number; branch?: string }) {
+export function useGitLog(api: ApiClient | null, sessionId: string | null, options?: { limit?: number; skip?: number; branch?: string; keyword?: string; since?: string; until?: string }) {
     const resolvedSessionId = sessionId ?? ''
     const limit = options?.limit ?? 50
     const skip = options?.skip ?? 0
     const branch = options?.branch
+    const keyword = options?.keyword
+    const since = options?.since
+    const until = options?.until
 
     const query = useQuery({
-        queryKey: [...queryKeys.gitLog(resolvedSessionId), limit, skip, branch ?? ''],
+        queryKey: [...queryKeys.gitLog(resolvedSessionId), limit, skip, branch ?? '', keyword ?? '', since ?? '', until ?? ''],
         queryFn: async (): Promise<CommitEntry[]> => {
             if (!api || !resolvedSessionId) return []
-            const result = await api.gitLog(resolvedSessionId, limit, skip, branch)
+            const result = await api.gitLog(resolvedSessionId, limit, skip, branch, keyword, since, until)
             if (!result.success || !result.data) return []
             return result.data
         },

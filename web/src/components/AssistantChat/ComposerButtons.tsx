@@ -1,4 +1,4 @@
-import { ComposerPrimitive } from '@assistant-ui/react'
+import { useRef } from 'react'
 import type { ConversationStatus } from '@/realtime/types'
 import { useTranslation } from '@/lib/use-translation'
 import {
@@ -108,23 +108,45 @@ export function ComposerButtons(props: {
     voiceStatus: ConversationStatus
     voiceMicMuted?: boolean
     onVoiceToggle: () => void
+    onAddAttachment: (file: File) => void
     onVoiceMicToggle?: () => void
     onSend: () => void
 }) {
+    const fileInputRef = useRef<HTMLInputElement>(null)
     const { t } = useTranslation()
     const isVoiceConnected = props.voiceStatus === 'connected'
 
     return (
         <div className="flex items-center justify-between px-2 pb-2">
             <div className="flex items-center gap-1">
-                <ComposerPrimitive.AddAttachment
-                    aria-label={t('composer.attach')}
-                    title={t('composer.attach')}
-                    disabled={props.controlsDisabled}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-[var(--app-fg)] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                    <IconAttachment style={iconSize18} />
-                </ComposerPrimitive.AddAttachment>
+                <>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="*/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                            const files = e.target.files
+                            if (files) {
+                                for (const file of files) {
+                                    props.onAddAttachment(file)
+                                }
+                            }
+                            e.target.value = ''
+                        }}
+                    />
+                    <button
+                        type="button"
+                        aria-label={t('composer.attach')}
+                        title={t('composer.attach')}
+                        disabled={props.controlsDisabled}
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-[var(--app-fg)] disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => fileInputRef.current?.click()}
+                    >
+                        <IconAttachment style={iconSize18} />
+                    </button>
+                </>
 
                 {props.showSettingsButton ? (
                     <button

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Select } from '@arco-design/web-react'
+import { Select, Input } from '@arco-design/web-react'
 import type { ApiClient } from '@/api/client'
 import { useGitBranches } from '@/hooks/queries/useGitBranches'
 import { useGitRemotes } from '@/hooks/queries/useGitRemotes'
@@ -208,13 +208,13 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
     return (
         <div className="flex flex-col h-full relative">
             {/* Search */}
-            <div className="px-3 pt-3 pb-2">
-                <input
-                    type="text"
-                    placeholder={t('git.searchBranches')}
+            <div className="px-3 pt-2 pb-1.5">
+                <Input.Search
                     value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full text-sm px-3 py-2 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
+                    onChange={(val: string) => setSearchQuery(val)}
+                    placeholder={t('git.searchBranches')}
+                    allowClear
+                    size="small"
                 />
             </div>
 
@@ -236,7 +236,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                             <button
                                 type="button"
                                 onClick={() => setLocalExpanded(v => !v)}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                             >
                                 <span>{localExpanded ? '▼' : '▶'}</span>
                                 <span>{t('git.localBranches', { n: filteredLocal.length })}</span>
@@ -265,7 +265,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                         </div>
                         {/* Remote section - grouped by remote */}
                         <div>
-                            <div className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[var(--app-hint)]">
+                            <div className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-[var(--app-hint)]">
                                 <button type="button" onClick={() => setRemoteExpanded(v => !v)} className="flex items-center gap-2 hover:text-[var(--app-fg)] transition-colors">
                                     <span>{remoteExpanded ? '▼' : '▶'}</span>
                                     <span>{t('git.remoteBranches', { n: filteredRemote.length })}</span>
@@ -281,7 +281,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                             </div>
                             {remoteExpanded && remoteGroups.map(([remoteName, branches]) => (
                                 <div key={remoteName}>
-                                    <div className="flex items-center gap-2 px-5 py-1.5 text-[10px] font-semibold text-[var(--app-hint)] uppercase tracking-wider bg-[var(--app-subtle-bg)]/50">
+                                    <div className="flex items-center gap-2 px-5 py-1 text-[10px] font-semibold text-[var(--app-hint)] uppercase tracking-wider bg-[var(--app-subtle-bg)]/50">
                                         <span>{remoteName}</span>
                                         <span className="text-[var(--app-hint)]/60">({branches.length})</span>
                                         <button
@@ -322,7 +322,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                             <button
                                 type="button"
                                 onClick={() => setRemotesExpanded(v => !v)}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                             >
                                 <span>{remotesExpanded ? '▼' : '▶'}</span>
                                 <span>{t('git.remotes', { n: remotes.length })}</span>
@@ -330,14 +330,14 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                             {remotesExpanded && (
                                 <div>
                                     {remotes.map(remote => (
-                                        <div key={remote.name} className="flex items-center gap-2 px-3 py-2 text-sm min-h-[44px]">
+                                        <div key={remote.name} className="flex items-center gap-2 px-3 py-1.5 text-sm">
                                             {editingRemote === remote.name ? (
                                                 <div className="flex-1 flex items-center gap-2">
                                                     <span className="font-semibold text-[var(--app-fg)] shrink-0">{remote.name}</span>
-                                                    <input
-                                                        type="text"
+                                                    <Input
+                                                        size="small"
                                                         value={editRemoteUrl}
-                                                        onChange={e => setEditRemoteUrl(e.target.value)}
+                                                        onChange={(val: string) => setEditRemoteUrl(val)}
                                                         onKeyDown={async e => {
                                                             if (e.key === 'Enter') {
                                                                 const res = await api.gitRemoteSetUrl(sessionId, remote.name, editRemoteUrl)
@@ -347,7 +347,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                                             if (e.key === 'Escape') setEditingRemote(null)
                                                         }}
                                                         autoFocus
-                                                        className="flex-1 text-xs px-2 py-1 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)]"
+                                                        className="flex-1"
                                                     />
                                                 </div>
                                             ) : (
@@ -364,22 +364,22 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                     ))}
                                     {addRemoteOpen ? (
                                         <div className="px-3 py-2 flex flex-col gap-2">
-                                            <input type="text" placeholder={t('git.remoteName')} value={newRemoteName} onChange={e => setNewRemoteName(e.target.value)} autoFocus className="w-full text-sm px-3 py-2 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]" />
-                                            <input type="text" placeholder={t('git.remoteUrl')} value={newRemoteUrl} onChange={e => setNewRemoteUrl(e.target.value)} onKeyDown={async e => {
+                                            <Input placeholder={t('git.remoteName')} value={newRemoteName} onChange={(val: string) => setNewRemoteName(val)} autoFocus size="small" />
+                                            <Input placeholder={t('git.remoteUrl')} value={newRemoteUrl} onChange={(val: string) => setNewRemoteUrl(val)} onKeyDown={async e => {
                                                 if (e.key === 'Enter' && newRemoteName.trim() && newRemoteUrl.trim()) {
                                                     const res = await api.gitRemoteAdd(sessionId, newRemoteName.trim(), newRemoteUrl.trim())
                                                     if (res.success) { notify.success(t('notify.git.remoteAddOk')); setAddRemoteOpen(false); setNewRemoteName(''); setNewRemoteUrl(''); refetchRemotes() }
                                                     else notify.error(res.stderr ?? res.error ?? 'Failed')
                                                 }
-                                            }} className="w-full text-sm px-3 py-2 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]" />
+                                            }} size="small" />
                                             <div className="flex gap-2">
                                                 <button type="button" onClick={async () => {
                                                     if (!newRemoteName.trim() || !newRemoteUrl.trim()) return
                                                     const res = await api.gitRemoteAdd(sessionId, newRemoteName.trim(), newRemoteUrl.trim())
                                                     if (res.success) { notify.success(t('notify.git.remoteAddOk')); setAddRemoteOpen(false); setNewRemoteName(''); setNewRemoteUrl(''); refetchRemotes() }
                                                     else notify.error(res.stderr ?? res.error ?? 'Failed')
-                                                }} disabled={!newRemoteName.trim() || !newRemoteUrl.trim()} className="flex-1 min-h-[36px] text-xs font-medium rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50">{t('git.addRemote')}</button>
-                                                <button type="button" onClick={() => { setAddRemoteOpen(false); setNewRemoteName(''); setNewRemoteUrl('') }} className="px-3 min-h-[36px] text-xs rounded-md border border-[var(--app-border)] text-[var(--app-hint)]">{t('button.cancel')}</button>
+                                                }} disabled={!newRemoteName.trim() || !newRemoteUrl.trim()} className="flex-1 text-xs py-1.5 font-medium rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50">{t('git.addRemote')}</button>
+                                                <button type="button" onClick={() => { setAddRemoteOpen(false); setNewRemoteName(''); setNewRemoteUrl('') }} className="px-3 text-xs py-1.5 rounded-md border border-[var(--app-border)] text-[var(--app-hint)]">{t('button.cancel')}</button>
                                             </div>
                                         </div>
                                     ) : (
@@ -395,19 +395,24 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
             {/* Fixed bottom: New Branch */}
             <div className="absolute bottom-0 left-0 right-0 border-t border-[var(--app-divider)] bg-[var(--app-bg)]">
                 {showCreateInput ? (
-                    <div className="px-3 py-3 flex flex-col gap-2">
-                        <input
-                            type="text"
+                    <div className="px-3 py-2 flex flex-col gap-2">
+                        <span className="text-xs font-medium text-[var(--app-fg)]">{t('git.newBranch')}</span>
+                        <Input
                             placeholder={t('git.branchName')}
                             value={newBranchName}
-                            onChange={e => setNewBranchName(e.target.value)}
+                            onChange={(val: string) => setNewBranchName(val)}
                             onKeyDown={e => e.key === 'Enter' && handleCreateBranch()}
                             autoFocus
-                            className="w-full text-sm px-3 py-2 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
+                            size="small"
                         />
                         <Select
                             value={newBranchFrom}
                             onChange={(val: string) => setNewBranchFrom(val)}
+                            showSearch
+                            filterOption={(inputValue, option) => {
+                                const label = (option?.props as { children?: React.ReactNode })?.children
+                                return String(label ?? '').toLowerCase().includes(inputValue.toLowerCase())
+                            }}
                             className="w-full"
                             getPopupContainer={(node) => node.parentElement ?? document.body}
                         >
@@ -437,14 +442,14 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                 type="button"
                                 onClick={() => void handleCreateBranch()}
                                 disabled={!newBranchName.trim() || actionLoading === 'create'}
-                                className="flex-1 min-h-[44px] text-sm font-medium rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50 transition-opacity"
+                                className="flex-1 text-xs py-1.5 font-medium rounded-lg bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50 transition-opacity"
                             >
                                 {actionLoading === 'create' ? t('git.creating') : t('git.create')}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => { setShowCreateInput(false); setNewBranchName(''); setNewBranchFrom(''); setError(null) }}
-                                className="px-4 min-h-[44px] text-sm rounded-md border border-[var(--app-border)] text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
+                                className="px-3 text-xs py-1.5 rounded-lg border border-[var(--app-border)] text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                             >
                                 {t('button.cancel')}
                             </button>
@@ -454,7 +459,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                     <button
                         type="button"
                         onClick={() => setShowCreateInput(true)}
-                        className="w-full min-h-[44px] text-sm text-[var(--app-link)] hover:bg-[var(--app-subtle-bg)] transition-colors"
+                        className="w-full py-2 text-xs text-[var(--app-link)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                     >
                         {t('git.newBranch')}
                     </button>
@@ -634,7 +639,7 @@ function BranchRow({ branch, loading, isRenaming, renameValue, remoteBranches, u
         <div className="relative">
             <div
                 onClick={isRenaming ? undefined : onClick}
-                className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left transition-colors min-h-[44px]
+                className={`w-full flex items-center gap-2 px-3 py-1 text-sm text-left transition-colors
                     ${isClickable && !isRenaming ? 'hover:bg-[var(--app-subtle-bg)] cursor-pointer' : 'cursor-default'}
                     ${branch.isCurrent ? 'bg-[var(--app-link)]/10 text-[var(--app-link)] font-semibold' : 'text-[var(--app-fg)]'}
                     ${branch.isRemote ? 'text-[var(--app-hint)]' : ''}
@@ -653,7 +658,7 @@ function BranchRow({ branch, loading, isRenaming, renameValue, remoteBranches, u
                         onKeyDown={e => { if (e.key === 'Enter') onRenameSubmit(); if (e.key === 'Escape') onRenameCancel() }}
                         onBlur={onRenameCancel}
                         autoFocus
-                        className="flex-1 text-sm px-2 py-0.5 rounded-md border border-[var(--app-link)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none"
+                        className="flex-1 text-sm px-2 py-0.5 rounded-md border border-[var(--app-link)] text-[var(--app-fg)] outline-none"
                         onClick={e => e.stopPropagation()}
                     />
                 ) : (

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { IconPlus, IconBulb, IconRight, IconFolder, IconRefresh } from '@arco-design/web-react/icon'
 import { getExplicitSessionTitle, getSessionListFallbackTitle, type SessionSummary } from '@/types/api'
 import type { ApiClient } from '@/api/client'
@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { SESSION_AGENT_TABS, type SessionAgentTab, formatFlavorName } from '@/lib/agentFlavorUtils'
 import { getSessionModelLabel } from '@/lib/sessionModelLabel'
 import { useTranslation } from '@/lib/use-translation'
+import { setSessionVibing, useSessionVibing } from '@/lib/vibing-store'
 import type { SessionGroupState } from '@/hooks/queries/useSessions'
 
 type SessionWithChildren = {
@@ -169,6 +170,12 @@ const SessionItem = memo(function SessionItem(props: {
     const hasActiveChild = props.nativeChildren.some(c => c.active)
     const [childrenExpanded, setChildrenExpanded] = useState(() => hasActiveChild)
 
+    // Sync thinking → vibing store & read back the message
+    useEffect(() => {
+        setSessionVibing(s.id, s.thinking)
+    }, [s.id, s.thinking])
+    const vibingMessage = useSessionVibing(s.id)
+
     const handleDeleted = useCallback(() => {
         // Optimistic: remove from list immediately
         props.removeSession?.(s.id)
@@ -240,9 +247,13 @@ const SessionItem = memo(function SessionItem(props: {
                             <SessionSourceBadge source={s.metadata?.source} className="shrink-0" />
                         </div>
                         <div className="flex flex-wrap items-center justify-end gap-1.5">
-                            {s.thinking ? (
-                                <span className="rounded-full bg-[var(--app-status-thinking-bg)] px-2 py-0.5 text-[var(--app-status-thinking-text)] animate-pulse">
-                                    {t('session.item.thinking')}
+                            {s.thinking && vibingMessage ? (
+                                <span className="rounded-full bg-[var(--app-status-thinking-bg)] px-2 py-0.5 text-[var(--app-status-thinking-text)]">
+                                    <span className="wavy-text">
+                                        {[...vibingMessage].map((ch, i) => (
+                                            <span key={i} style={{ display: 'inline-block', animationDelay: `${i * 0.06}s` }}>{ch === ' ' ? '\u00A0' : ch}</span>
+                                        ))}
+                                    </span>
                                 </span>
                             ) : null}
                             {(() => {

@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { AssistantRuntimeProvider } from '@assistant-ui/react'
 import type { ApiClient } from '@/api/client'
 import type { AttachmentMetadata, CodexCollaborationMode, DecryptedMessage, PermissionMode, Session } from '@/types/api'
 import { isSidechainMessage } from '@/lib/messages'
@@ -9,11 +8,12 @@ import type { Suggestion } from '@/hooks/useActiveSuggestions'
 import { normalizeDecryptedMessage } from '@/chat/normalize'
 import { reduceChatBlocks } from '@/chat/reducer'
 import { reconcileChatBlocks } from '@/chat/reconcile'
+import { ChatProvider } from '@/chat/chat-context'
+import { ComposerProvider, type ComposerContextValue } from '@/chat/composer-context'
+import { useAttachmentManager } from '@/lib/useAttachmentManager'
 import { HappyComposer } from '@/components/AssistantChat/HappyComposer'
 import { HappyThread } from '@/components/AssistantChat/HappyThread'
 import type { HappyThreadHandle } from '@/components/AssistantChat/HappyThread'
-import { useHappyRuntime } from '@/lib/assistant-runtime'
-import { createAttachmentAdapter } from '@/lib/attachmentAdapter'
 import { SessionHeader } from '@/components/SessionHeader'
 import { TeamPanel } from '@/components/TeamPanel'
 import { usePlatform } from '@/hooks/usePlatform'
@@ -56,6 +56,7 @@ export const SessionChat = memo(function SessionChat(props: {
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
     const [atBottom, setAtBottom] = useState(true)
+    const blocksSnapshotRef = useRef(0)
     const threadRef = useRef<HappyThreadHandle>(null)
     const [statusActionPending, setStatusActionPending] = useState<'resume' | 'disconnect' | 'refresh' | null>(null)
     const agentFlavor = props.session.metadata?.flavor ?? null
@@ -277,11 +278,17 @@ export const SessionChat = memo(function SessionChat(props: {
     }, [props.onSend])
 
     const handleAtBottomChange = useCallback((value: boolean) => {
+        if (!value && blocksSnapshotRef.current === 0) {
+            blocksSnapshotRef.current = reconciled.blocks.length
+        } else if (value) {
+            blocksSnapshotRef.current = 0
+        }
         setAtBottom(value)
         props.onAtBottomChange(value)
-    }, [props.onAtBottomChange])
+    }, [props.onAtBottomChange, reconciled.blocks.length])
 
     const handleScrollToBottom = useCallback(() => {
+        blocksSnapshotRef.current = 0
         threadRef.current?.scrollToBottom()
     }, [])
 
@@ -326,22 +333,34 @@ export const SessionChat = memo(function SessionChat(props: {
         void handleDisconnect()
     }, [handleDisconnect, handleResume, sessionInactive])
 
-    const attachmentAdapter = useMemo(() => {
-        if (!props.session.active) {
-            return undefined
-        }
-        return createAttachmentAdapter(props.api, props.session.id)
-    }, [props.api, props.session.id, props.session.active])
+    // Attachment manager (replaces createAttachmentAdapter)
+    const attachmentMgr = useAttachmentManager(props.api, props.session.id, props.session.active)
 
-    const runtime = useHappyRuntime({
-        session: props.session,
-        blocks: reconciled.blocks,
-        isSending: props.isSending,
-        onSendMessage: handleSend,
-        onAbort: handleAbort,
-        attachmentAdapter,
-        allowSendWhenInactive: true
-    })
+    // Composer text state
+    const [composerText, setComposerText] = useState('')
+
+    // Reset composer text on session change
+    useEffect(() => {
+        setComposerText('')
+    }, [props.session.id])
+
+    const composerCtxValue: ComposerContextValue = useMemo(() => ({
+        text: composerText,
+        setText: setComposerText,
+        attachments: attachmentMgr.attachments,
+        addAttachment: attachmentMgr.addAttachment,
+        removeAttachment: attachmentMgr.removeAttachment,
+        send: (text: string) => {
+            const metadata = attachmentMgr.toMetadata()
+            handleSend(text, metadata.length > 0 ? metadata : undefined)
+            attachmentMgr.clear()
+            setComposerText('')
+        },
+        cancelRun: handleAbort,
+    }), [composerText, attachmentMgr, handleSend, handleAbort])
+
+    const isRunning = props.session.thinking
+    const isDisabled = props.isSending || !props.session.active
 
     return (
         <div className="flex h-full flex-col">
@@ -361,7 +380,8 @@ export const SessionChat = memo(function SessionChat(props: {
                 <TeamPanel teamState={props.session.teamState} />
             )}
 
-            <AssistantRuntimeProvider runtime={runtime}>
+            <ChatProvider blocks={reconciled.blocks} isRunning={isRunning} isDisabled={isDisabled}>
+            <ComposerProvider value={composerCtxValue}>
                 <div className="relative flex min-h-0 flex-1 flex-col">
                     {sessionInactive ? (
                         <div className="absolute top-0 left-0 right-0 z-20 flex justify-center pointer-events-none">
@@ -395,7 +415,7 @@ export const SessionChat = memo(function SessionChat(props: {
 
                     {!isSubagent && (
                     <div className="relative shrink-0">
-                    <ScrollToBottomButton visible={!atBottom} onClick={handleScrollToBottom} />
+                    <ScrollToBottomButton visible={!atBottom} count={(blocksSnapshotRef.current > 0 ? Math.max(0, reconciled.blocks.length - blocksSnapshotRef.current) : 0) + props.pendingCount} onClick={handleScrollToBottom} />
                     <HappyComposer
                         disabled={props.isSending}
                         permissionMode={props.session.permissionMode}
@@ -430,7 +450,8 @@ export const SessionChat = memo(function SessionChat(props: {
                     </div>
                     )}
                 </div>
-            </AssistantRuntimeProvider>
+            </ComposerProvider>
+            </ChatProvider>
 
             {/* Voice session component - renders nothing but initializes ElevenLabs */}
             {voice && (

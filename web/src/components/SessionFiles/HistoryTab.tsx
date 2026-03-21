@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Select, Timeline } from '@arco-design/web-react'
+import { Select, Timeline, Input, DatePicker } from '@arco-design/web-react'
 import type { ApiClient } from '@/api/client'
 import type { CommitEntry } from '@/types/api'
 import { useGitLog } from '@/hooks/queries/useGitLog'
@@ -24,8 +24,42 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
     const [skip, setSkip] = useState(0)
     const [hasMore, setHasMore] = useState(true)
     const [selectedBranch, setSelectedBranch] = useState<string | undefined>(undefined)
+
+    // Search / filter (debounced for backend queries)
+    const [commitSearchInput, setCommitSearchInput] = useState('')
+    const [tagSearchInput, setTagSearchInput] = useState('')
+    const [debouncedCommitKeyword, setDebouncedCommitKeyword] = useState('')
+    const [debouncedTagKeyword, setDebouncedTagKeyword] = useState('')
+    const [dateSince, setDateSince] = useState('')
+    const [dateUntil, setDateUntil] = useState('')
+
+    // Debounce keyword inputs
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedCommitKeyword(commitSearchInput.trim()), 300)
+        return () => clearTimeout(timer)
+    }, [commitSearchInput])
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedTagKeyword(tagSearchInput.trim()), 300)
+        return () => clearTimeout(timer)
+    }, [tagSearchInput])
+
+    // Reset pagination when search/date filters change
+    useEffect(() => {
+        setAllCommits([])
+        setSkip(0)
+        setHasMore(true)
+    }, [debouncedCommitKeyword, dateSince, dateUntil])
+
     const { local: localBranches, remote: remoteBranches } = useGitBranches(api, sessionId, currentBranch)
-    const { commits, isLoading } = useGitLog(api, sessionId, { limit: 50, skip, branch: selectedBranch })
+    const { commits, isLoading } = useGitLog(api, sessionId, {
+        limit: 50,
+        skip,
+        branch: selectedBranch,
+        keyword: debouncedCommitKeyword || undefined,
+        since: dateSince || undefined,
+        until: dateUntil || undefined,
+    })
     const scrollRef = useRef<HTMLDivElement>(null)
     const [uncommitTarget, setUncommitTarget] = useState<CommitEntry | null>(null)
     const [uncommitLoading, setUncommitLoading] = useState(false)
@@ -51,9 +85,10 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
 
     // Tags view
     const [viewMode, setViewMode] = useState<'commits' | 'tags'>('commits')
-    const { tags, isLoading: tagsLoading, refetch: refetchTags } = useGitTags(api, sessionId)
+    const { tags, isLoading: tagsLoading, refetch: refetchTags } = useGitTags(api, sessionId, debouncedTagKeyword || undefined)
     const [deleteTagTarget, setDeleteTagTarget] = useState<string | null>(null)
     const [deleteTagLoading, setDeleteTagLoading] = useState(false)
+
 
     const handleBranchChange = useCallback((branch: string) => {
         const value = branch === '' ? undefined : branch
@@ -218,6 +253,37 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                 </div>
             )}
             {viewMode === 'commits' && (
+                <div className="px-3 py-1.5 border-b border-[var(--app-divider)] shrink-0 grid grid-cols-1 sm:grid-cols-10 gap-1.5">
+                    <div className="sm:col-span-4">
+                        <Input.Search
+                            value={commitSearchInput}
+                            onChange={(val: string) => setCommitSearchInput(val)}
+                            placeholder={t('git.searchCommits')}
+                            allowClear
+                            size="small"
+                        />
+                    </div>
+                    <div className="sm:col-span-6">
+                        <DatePicker.RangePicker
+                            size="small"
+                            className="w-full"
+                            placeholder={[t('git.dateSince'), t('git.dateUntil')]}
+                            onChange={(_dateStrings, dates) => {
+                                if (dates && dates[0] && dates[1]) {
+                                    setDateSince(dates[0].format('YYYY-MM-DD'))
+                                    setDateUntil(dates[1].format('YYYY-MM-DD'))
+                                } else {
+                                    setDateSince('')
+                                    setDateUntil('')
+                                }
+                            }}
+                            allowClear
+                            getPopupContainer={(node) => node.parentElement ?? document.body}
+                        />
+                    </div>
+                </div>
+            )}
+            {viewMode === 'commits' && (
                 <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
                     {allCommits.length > 0 && (
                         <Timeline className="px-4 pt-3 pb-1">
@@ -256,6 +322,17 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                     {!isLoading && allCommits.length === 0 && (
                         <div className="text-center text-sm text-[var(--app-hint)] py-8">{t('git.noCommitHistory')}</div>
                     )}
+                </div>
+            )}
+            {viewMode === 'tags' && (
+                <div className="px-3 py-2 border-b border-[var(--app-divider)] shrink-0">
+                    <Input.Search
+                        value={tagSearchInput}
+                        onChange={(val: string) => setTagSearchInput(val)}
+                        placeholder={t('git.searchTags')}
+                        allowClear
+                        size="small"
+                    />
                 </div>
             )}
             {viewMode === 'tags' && (
@@ -333,13 +410,15 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                     <div className="bg-[var(--app-bg)] rounded-xl border border-[var(--app-border)] p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
                         <h3 className="text-base font-semibold text-[var(--app-fg)] mb-2">{t('dialog.git.resetHard.title')}</h3>
                         <p className="text-sm text-[var(--app-hint)] mb-4">{t('dialog.git.resetHard.description', { short: resetHardTarget.short })}</p>
-                        <input
-                            type="text"
+                        <Input
                             value={resetHardInput}
-                            onChange={e => setResetHardInput(e.target.value)}
+                            onChange={(val: string) => setResetHardInput(val)}
                             placeholder={t('dialog.git.resetHard.inputPlaceholder')}
                             autoFocus
-                            className="w-full text-sm px-3 py-2 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-red-500 mb-4"
+                            size="small"
+                            className="mb-4"
+                            style={{ borderColor: 'var(--app-border)' }}
+                            status={resetHardInput && resetHardInput !== 'RESET' ? 'error' : undefined}
                         />
                         <div className="flex gap-2 justify-end">
                             <button type="button" onClick={() => { setResetHardTarget(null); setResetHardInput('') }} className="px-4 py-2 text-sm rounded-md border border-[var(--app-border)] text-[var(--app-hint)]">{t('button.cancel')}</button>
@@ -354,8 +433,8 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                     <div className="bg-[var(--app-bg)] rounded-xl border border-[var(--app-border)] p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
                         <h3 className="text-base font-semibold text-[var(--app-fg)] mb-2">{t('dialog.git.createTag.title')}</h3>
                         <p className="text-xs text-[var(--app-hint)] mb-3 font-mono">{createTagTarget.short}: {createTagTarget.subject}</p>
-                        <input type="text" value={tagName} onChange={e => setTagName(e.target.value)} placeholder={t('git.tagName')} autoFocus className="w-full text-sm px-3 py-2 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)] mb-2" />
-                        <input type="text" value={tagMessage} onChange={e => setTagMessage(e.target.value)} placeholder={t('git.tagMessage')} className="w-full text-sm px-3 py-2 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)] mb-4" />
+                        <Input value={tagName} onChange={(val: string) => setTagName(val)} placeholder={t('git.tagName')} autoFocus size="small" className="mb-2" />
+                        <Input value={tagMessage} onChange={(val: string) => setTagMessage(val)} placeholder={t('git.tagMessage')} size="small" className="mb-4" />
                         <div className="flex gap-2 justify-end">
                             <button type="button" onClick={() => { setCreateTagTarget(null); setTagName(''); setTagMessage('') }} className="px-4 py-2 text-sm rounded-md border border-[var(--app-border)] text-[var(--app-hint)]">{t('button.cancel')}</button>
                             <button type="button" onClick={handleCreateTag} disabled={!tagName.trim() || createTagLoading} className="px-4 py-2 text-sm rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50">{createTagLoading ? t('dialog.git.deleteTag.confirming') : t('git.createTag')}</button>

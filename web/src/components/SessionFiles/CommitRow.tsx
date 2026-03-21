@@ -222,7 +222,7 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                             value={branchName}
                             onChange={e => setBranchName(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') void handleCreateBranch(); if (e.key === 'Escape') setShowBranchForm(false) }}
-                            className="w-full text-xs px-2 py-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
+                            className="w-full text-xs px-2 py-1.5 rounded-md border border-[var(--app-border)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
                         />
                         <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-[var(--app-hint)]">
                             <input
@@ -238,14 +238,14 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                                 type="button"
                                 onClick={() => void handleCreateBranch()}
                                 disabled={!branchName.trim() || branchLoading}
-                                className="flex-1 min-h-[32px] text-xs font-medium rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50 transition-opacity"
+                                className="flex-1 min-h-[26px] text-xs font-medium rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50 transition-opacity"
                             >
                                 {branchLoading ? t('git.creating') : t('git.create')}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setShowBranchForm(false)}
-                                className="px-3 min-h-[32px] text-xs rounded-md border border-[var(--app-border)] text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
+                                className="px-3 min-h-[26px] text-xs rounded-md border border-[var(--app-border)] text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                             >
                                 {t('button.cancel')}
                             </button>

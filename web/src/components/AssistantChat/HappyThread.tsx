@@ -1,30 +1,12 @@
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, forwardRef } from 'react'
-import { ThreadPrimitive } from '@assistant-ui/react'
 import type { ApiClient } from '@/api/client'
 import type { SessionMetadataSummary } from '@/types/api'
+import { useChatContext } from '@/chat/chat-context'
+import { renderBlock } from '@/chat/render-block'
 import { HappyChatProvider } from '@/components/AssistantChat/context'
-import { HappyAssistantMessage } from '@/components/AssistantChat/messages/AssistantMessage'
-import { HappyUserMessage } from '@/components/AssistantChat/messages/UserMessage'
-import { HappySystemMessage } from '@/components/AssistantChat/messages/SystemMessage'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/Spinner'
 import { useTranslation } from '@/lib/use-translation'
-
-function NewMessagesIndicator(props: { count: number; onClick: () => void }) {
-    const { t } = useTranslation()
-    if (props.count === 0) {
-        return null
-    }
-
-    return (
-        <button
-            onClick={props.onClick}
-            className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-[var(--app-button)] text-[var(--app-button-text)] px-3 py-1.5 rounded-full text-sm font-medium shadow-lg animate-bounce-in z-10"
-        >
-            {t('misc.newMessage', { n: props.count })} &#8595;
-        </button>
-    )
-}
 
 function MessageSkeleton() {
     const { t } = useTranslation()
@@ -48,12 +30,6 @@ function MessageSkeleton() {
         </div>
     )
 }
-
-const THREAD_MESSAGE_COMPONENTS = {
-    UserMessage: HappyUserMessage,
-    AssistantMessage: HappyAssistantMessage,
-    SystemMessage: HappySystemMessage
-} as const
 
 export interface HappyThreadHandle {
     scrollToBottom: () => void
@@ -80,6 +56,7 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
     forceScrollToken: number
 }>(function HappyThread(props, ref) {
     const { t } = useTranslation()
+    const { blocks, isRunning } = useChatContext()
     const viewportRef = useRef<HTMLDivElement | null>(null)
     const topSentinelRef = useRef<HTMLDivElement | null>(null)
     const loadLockRef = useRef(false)
@@ -297,6 +274,45 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
 
     const showSkeleton = props.isLoadingMessages && props.rawMessagesCount === 0 && props.pendingCount === 0
 
+    // Scroll to bottom on first meaningful content render (before paint)
+    const hasScrolledInitially = useRef(false)
+    useLayoutEffect(() => {
+        if (showSkeleton || blocks.length === 0) {
+            hasScrolledInitially.current = false
+            return
+        }
+        if (!hasScrolledInitially.current) {
+            hasScrolledInitially.current = true
+            const viewport = viewportRef.current
+            if (viewport) {
+                viewport.scrollTop = viewport.scrollHeight
+            }
+        }
+    }, [showSkeleton, blocks.length])
+
+    // Auto-scroll to bottom when content height changes (new blocks OR streaming text)
+    const contentRef = useRef<HTMLDivElement | null>(null)
+    useEffect(() => {
+        const content = contentRef.current
+        const viewport = viewportRef.current
+        if (!content || !viewport) return
+
+        let rafId: number | null = null
+        const ro = new ResizeObserver(() => {
+            if (!autoScrollEnabledRef.current) return
+            if (rafId !== null) return
+            rafId = requestAnimationFrame(() => {
+                rafId = null
+                viewport.scrollTop = viewport.scrollHeight
+            })
+        })
+        ro.observe(content)
+        return () => {
+            ro.disconnect()
+            if (rafId !== null) cancelAnimationFrame(rafId)
+        }
+    }, [showSkeleton]) // Re-run when skeleton ↔ content transitions
+
     const chatContextValue = useMemo(() => ({
         api: props.api,
         sessionId: props.sessionId,
@@ -308,64 +324,65 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
 
     return (
         <HappyChatProvider value={chatContextValue}>
-            <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col relative">
-                <ThreadPrimitive.Viewport asChild autoScroll={autoScrollEnabled}>
-                    <div ref={viewportRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-                        <div className="mx-auto w-full max-w-content min-w-0 p-3">
-                            <div ref={topSentinelRef} className="h-px w-full" aria-hidden="true" />
-                            {showSkeleton ? (
-                                <MessageSkeleton />
-                            ) : (
-                                <>
-                                    {props.messagesWarning ? (
-                                        <div className="mb-3 rounded-md bg-amber-500/10 p-2 text-xs">
-                                            {props.messagesWarning}
-                                        </div>
-                                    ) : null}
-
-                                    {props.hasMoreMessages && !props.isLoadingMessages ? (
-                                        <div className={`py-1 mb-2${props.disabled ? ' mt-8' : ''}`}>
-                                            <div className="mx-auto w-fit">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={handleLoadMore}
-                                                    disabled={props.isLoadingMoreMessages || props.isLoadingMessages}
-                                                    aria-busy={props.isLoadingMoreMessages}
-                                                    className="gap-1.5 text-xs opacity-80 hover:opacity-100"
-                                                >
-                                                    {props.isLoadingMoreMessages ? (
-                                                        <>
-                                                            <Spinner size="sm" label={null} className="text-current" />
-                                                            {t('misc.loading')}
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <span aria-hidden="true">↑</span>
-                                                            {t('misc.loadOlder')}
-                                                        </>
-                                                    )}
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ) : null}
-
-                                    {import.meta.env.DEV && props.normalizedMessagesCount === 0 && props.rawMessagesCount > 0 ? (
-                                        <div className="mb-2 rounded-md bg-amber-500/10 p-2 text-xs">
-                                            Message normalization returned 0 items for {props.rawMessagesCount} messages (see `web/src/chat/normalize.ts`).
-                                        </div>
-                                    ) : null}
-
-                                    <div className="flex flex-col gap-3">
-                                        <ThreadPrimitive.Messages components={THREAD_MESSAGE_COMPONENTS} />
+            <div className="flex min-h-0 flex-1 flex-col relative">
+                <div ref={viewportRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+                    <div className="mx-auto w-full max-w-content min-w-0 p-3">
+                        <div ref={topSentinelRef} className="h-px w-full" aria-hidden="true" />
+                        {showSkeleton ? (
+                            <MessageSkeleton />
+                        ) : (
+                            <>
+                                {props.messagesWarning ? (
+                                    <div className="mb-3 rounded-md bg-amber-500/10 p-2 text-xs">
+                                        {props.messagesWarning}
                                     </div>
-                                </>
-                            )}
-                        </div>
+                                ) : null}
+
+                                {props.hasMoreMessages && !props.isLoadingMessages ? (
+                                    <div className={`py-1 mb-2${props.disabled ? ' mt-8' : ''}`}>
+                                        <div className="mx-auto w-fit">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleLoadMore}
+                                                disabled={props.isLoadingMoreMessages || props.isLoadingMessages}
+                                                aria-busy={props.isLoadingMoreMessages}
+                                                className="gap-1.5 text-xs opacity-80 hover:opacity-100"
+                                            >
+                                                {props.isLoadingMoreMessages ? (
+                                                    <>
+                                                        <Spinner size="sm" label={null} className="text-current" />
+                                                        {t('misc.loading')}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span aria-hidden="true">↑</span>
+                                                        {t('misc.loadOlder')}
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {import.meta.env.DEV && props.normalizedMessagesCount === 0 && props.rawMessagesCount > 0 ? (
+                                    <div className="mb-2 rounded-md bg-amber-500/10 p-2 text-xs">
+                                        Message normalization returned 0 items for {props.rawMessagesCount} messages (see `web/src/chat/normalize.ts`).
+                                    </div>
+                                ) : null}
+
+                                <div ref={contentRef} className="flex flex-col gap-3">
+                                    {blocks.map((block, index) => (
+                                        <div key={block.id}>
+                                            {renderBlock(block, index === blocks.length - 1, isRunning)}
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
                     </div>
-                </ThreadPrimitive.Viewport>
-                <NewMessagesIndicator count={props.pendingCount} onClick={scrollToBottom} />
-            </ThreadPrimitive.Root>
+                </div>
+            </div>
         </HappyChatProvider>
     )
 })
