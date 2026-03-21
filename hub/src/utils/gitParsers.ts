@@ -186,9 +186,9 @@ export function parseShowStat(nameStatusStdout: string, numstatStdout: string): 
 
 const BRANCH_HEAD_REGEX = /^# branch\.head (.+)$/
 const BRANCH_AB_REGEX = /^# branch\.ab \+(\d+) -(\d+)$/
-const ORDINARY_REGEX = /^1 (.)(.) \S+ \S+ \S+ \S+ \S+ (.+)$/
-const RENAME_REGEX = /^2 (.)(.) \S+ \S+ \S+ \S+ \S+ \S+ (.+)$/
-const UNMERGED_REGEX = /^u (.)(.) \S+ \S+ \S+ \S+ \S+ (.+)$/
+const ORDINARY_REGEX = /^1 (.)(.) \S+ \S+ \S+ \S+ \S+ \S+ (.+)$/
+const RENAME_REGEX = /^2 (.)(.) \S+ \S+ \S+ \S+ \S+ \S+ \S+ (.+)$/
+const UNMERGED_REGEX = /^u (.)(.) \S+ \S+ \S+ \S+ \S+ \S+ \S+ \S+ (.+)$/
 const UNTRACKED_REGEX = /^\? (.+)$/
 const NUMSTAT_REGEX = /^(\d+|-)\t(\d+|-)\t(.+)$/
 
