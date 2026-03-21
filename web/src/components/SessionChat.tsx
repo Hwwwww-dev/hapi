@@ -260,7 +260,7 @@ export const SessionChat = memo(function SessionChat(props: {
 
     const handleViewFiles = useCallback(() => {
         navigate({
-            to: '/sessions/$sessionId/files',
+            to: '/sessions/$sessionId/vcs',
             params: { sessionId: props.session.id }
         })
     }, [navigate, props.session.id])

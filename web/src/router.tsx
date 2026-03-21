@@ -429,10 +429,10 @@ const sessionDetailRoute = createRoute({
 
 const sessionFilesRoute = createRoute({
     getParentRoute: () => sessionDetailRoute,
-    path: 'files',
-    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'history' | 'branches' | 'directories' } => {
+    path: 'vcs',
+    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'commits' | 'tags' | 'branches' | 'directories' } => {
         const tabValue = typeof search.tab === 'string' ? search.tab : undefined
-        const validTabs = ['changes', 'history', 'branches', 'directories'] as const
+        const validTabs = ['changes', 'commits', 'tags', 'branches', 'directories'] as const
         const tab = validTabs.find(t => t === tabValue)
 
         return tab ? { tab } : {}
@@ -450,7 +450,7 @@ type SessionFileSearch = {
     path: string
     staged?: boolean
     hash?: string
-    tab?: 'changes' | 'history' | 'branches' | 'directories'
+    tab?: 'changes' | 'commits' | 'tags' | 'branches' | 'directories'
 }
 
 const sessionFileRoute = createRoute({
@@ -471,11 +471,13 @@ const sessionFileRoute = createRoute({
             ? 'directories'
             : tabValue === 'changes'
                 ? 'changes'
-                : tabValue === 'history'
-                    ? 'history'
-                    : tabValue === 'branches'
-                        ? 'branches'
-                        : undefined
+                : tabValue === 'commits'
+                    ? 'commits'
+                    : tabValue === 'tags'
+                        ? 'tags'
+                        : tabValue === 'branches'
+                            ? 'branches'
+                            : undefined
 
         const result: SessionFileSearch = { path }
         if (staged !== undefined) result.staged = staged

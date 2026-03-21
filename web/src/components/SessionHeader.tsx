@@ -11,7 +11,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { getSessionModelLabel } from '@/lib/sessionModelLabel'
 import { useTranslation } from '@/lib/use-translation'
 import { notify } from '@/lib/notify'
-import { IconFile, IconMoreVertical, IconLeft } from '@arco-design/web-react/icon'
+import { IconBranch, IconMoreVertical, IconLeft } from '@arco-design/web-react/icon'
 
 function getSessionTitle(session: Session): string {
     return getExplicitSessionTitle(session) ?? getSessionPathFallbackTitle(session)
@@ -129,7 +129,7 @@ export function SessionHeader(props: {
                             className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
                             title={t('session.title')}
                         >
-                            <IconFile style={{ fontSize: 18 }} />
+                            <IconBranch style={{ fontSize: 18 }} />
                         </button>
                     ) : null}
 

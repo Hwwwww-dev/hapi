@@ -10,7 +10,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { notify } from '@/lib/notify'
 import { CommitRow } from './CommitRow'
 
-type HistoryTabProps = {
+type CommitsTabProps = {
     api: ApiClient
     sessionId: string
     ahead: number
@@ -18,7 +18,7 @@ type HistoryTabProps = {
     onRefresh: () => void
 }
 
-export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: HistoryTabProps) {
+export function CommitsTab({ api, sessionId, ahead, currentBranch, onRefresh }: CommitsTabProps) {
     const { t } = useTranslation()
     const [allCommits, setAllCommits] = useState<CommitEntry[]>([])
     const [skip, setSkip] = useState(0)
@@ -27,9 +27,7 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
 
     // Search / filter (debounced for backend queries)
     const [commitSearchInput, setCommitSearchInput] = useState('')
-    const [tagSearchInput, setTagSearchInput] = useState('')
     const [debouncedCommitKeyword, setDebouncedCommitKeyword] = useState('')
-    const [debouncedTagKeyword, setDebouncedTagKeyword] = useState('')
     const [dateSince, setDateSince] = useState('')
     const [dateUntil, setDateUntil] = useState('')
 
@@ -38,11 +36,6 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
         const timer = setTimeout(() => setDebouncedCommitKeyword(commitSearchInput.trim()), 300)
         return () => clearTimeout(timer)
     }, [commitSearchInput])
-
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedTagKeyword(tagSearchInput.trim()), 300)
-        return () => clearTimeout(timer)
-    }, [tagSearchInput])
 
     // Reset pagination when search/date filters change
     useEffect(() => {
@@ -83,12 +76,8 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
     const [tagMessage, setTagMessage] = useState('')
     const [createTagLoading, setCreateTagLoading] = useState(false)
 
-    // Tags view
-    const [viewMode, setViewMode] = useState<'commits' | 'tags'>('commits')
-    const { tags, isLoading: tagsLoading, refetch: refetchTags } = useGitTags(api, sessionId, debouncedTagKeyword || undefined)
-    const [deleteTagTarget, setDeleteTagTarget] = useState<string | null>(null)
-    const [deleteTagLoading, setDeleteTagLoading] = useState(false)
-
+    // Tags (only for refetchTags after create tag)
+    const { refetch: refetchTags } = useGitTags(api, sessionId, undefined)
 
     const handleBranchChange = useCallback((branch: string) => {
         const value = branch === '' ? undefined : branch
@@ -187,41 +176,10 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
         }
     }, [api, sessionId, createTagTarget, tagName, tagMessage, t])
 
-    const handleDeleteTag = useCallback(async () => {
-        if (!deleteTagTarget) return
-        setDeleteTagLoading(true)
-        const res = await api.gitTagDelete(sessionId, deleteTagTarget)
-        setDeleteTagLoading(false)
-        if (res.success) {
-            setDeleteTagTarget(null)
-            notify.success(t('notify.git.tagDeleteOk'))
-            refetchTags()
-        } else {
-            notify.error(res.stderr ?? res.error ?? 'Delete tag failed')
-        }
-    }, [api, sessionId, deleteTagTarget, t, refetchTags])
-
     return (
         <div className="flex flex-col h-full">
-            {/* Tab switcher */}
-            <div className="flex border-b border-[var(--app-divider)] shrink-0">
-                <button
-                    type="button"
-                    onClick={() => setViewMode('commits')}
-                    className={`flex-1 py-2 text-xs font-medium transition-colors ${viewMode === 'commits' ? 'text-[var(--app-link)] border-b-2 border-[var(--app-link)]' : 'text-[var(--app-hint)] hover:text-[var(--app-fg)]'}`}
-                >
-                    Commits
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setViewMode('tags')}
-                    className={`flex-1 py-2 text-xs font-medium transition-colors ${viewMode === 'tags' ? 'text-[var(--app-link)] border-b-2 border-[var(--app-link)]' : 'text-[var(--app-hint)] hover:text-[var(--app-fg)]'}`}
-                >
-                    {t('git.tags', { n: tags.length })}
-                </button>
-            </div>
             {/* Branch selector */}
-            {viewMode === 'commits' && (localBranches.length > 0 || remoteBranches.length > 0) && (
+            {(localBranches.length > 0 || remoteBranches.length > 0) && (
                 <div className="px-3 py-2 border-b border-[var(--app-divider)] shrink-0">
                     <Select
                         value={selectedBranch ?? ''}
@@ -252,124 +210,74 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                     </Select>
                 </div>
             )}
-            {viewMode === 'commits' && (
-                <div className="px-3 py-1.5 border-b border-[var(--app-divider)] shrink-0 grid grid-cols-1 sm:grid-cols-10 gap-1.5">
-                    <div className="sm:col-span-4">
-                        <Input.Search
-                            value={commitSearchInput}
-                            onChange={(val: string) => setCommitSearchInput(val)}
-                            placeholder={t('git.searchCommits')}
-                            allowClear
-                            size="small"
-                        />
-                    </div>
-                    <div className="sm:col-span-6">
-                        <DatePicker.RangePicker
-                            size="small"
-                            className="w-full"
-                            placeholder={[t('git.dateSince'), t('git.dateUntil')]}
-                            onChange={(_dateStrings, dates) => {
-                                if (dates && dates[0] && dates[1]) {
-                                    setDateSince(dates[0].format('YYYY-MM-DD'))
-                                    setDateUntil(dates[1].format('YYYY-MM-DD'))
-                                } else {
-                                    setDateSince('')
-                                    setDateUntil('')
-                                }
-                            }}
-                            allowClear
-                            getPopupContainer={(node) => node.parentElement ?? document.body}
-                        />
-                    </div>
-                </div>
-            )}
-            {viewMode === 'commits' && (
-                <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
-                    {allCommits.length > 0 && (
-                        <Timeline className="px-4 pt-3 pb-1">
-                            {allCommits.map((commit, index) => {
-                                const isLocal_ = !selectedBranch && index < ahead
-                                return (
-                                    <Timeline.Item
-                                        key={commit.hash}
-                                        dotColor={isLocal_ ? 'var(--app-status-pending-border)' : 'var(--app-link)'}
-                                    >
-                                        <CommitRow
-                                            commit={commit}
-                                            api={api}
-                                            sessionId={sessionId}
-                                            isLocal={isLocal_}
-                                            onUncommit={selectedBranch ? undefined : () => setUncommitTarget(commit)}
-                                            onCherryPick={() => setCherryPickTarget(commit)}
-                                            onResetMixed={selectedBranch ? undefined : () => setResetMixedTarget(commit)}
-                                            onResetHard={selectedBranch ? undefined : () => setResetHardTarget(commit)}
-                                            onCreateTag={() => setCreateTagTarget(commit)}
-                                            onBranchCreated={() => { setSkip(0); setAllCommits([]); onRefresh() }}
-                                        />
-                                    </Timeline.Item>
-                                )
-                            })}
-                        </Timeline>
-                    )}
-                    {isLoading && (
-                        <div className="flex justify-center py-4">
-                            <span className="w-5 h-5 border-2 border-[var(--app-link)] border-t-transparent rounded-full animate-spin" />
-                        </div>
-                    )}
-                    {!hasMore && allCommits.length > 0 && (
-                        <div className="text-center text-xs text-[var(--app-hint)] py-4">{t('git.noMoreCommits')}</div>
-                    )}
-                    {!isLoading && allCommits.length === 0 && (
-                        <div className="text-center text-sm text-[var(--app-hint)] py-8">{t('git.noCommitHistory')}</div>
-                    )}
-                </div>
-            )}
-            {viewMode === 'tags' && (
-                <div className="px-3 py-2 border-b border-[var(--app-divider)] shrink-0">
+            <div className="px-3 py-1.5 border-b border-[var(--app-divider)] shrink-0 grid grid-cols-1 sm:grid-cols-10 gap-1.5">
+                <div className="sm:col-span-4">
                     <Input.Search
-                        value={tagSearchInput}
-                        onChange={(val: string) => setTagSearchInput(val)}
-                        placeholder={t('git.searchTags')}
+                        value={commitSearchInput}
+                        onChange={(val: string) => setCommitSearchInput(val)}
+                        placeholder={t('git.searchCommits')}
                         allowClear
                         size="small"
                     />
                 </div>
-            )}
-            {viewMode === 'tags' && (
-                <div className="flex-1 overflow-y-auto">
-                    {tagsLoading ? (
-                        <div className="flex justify-center py-4">
-                            <span className="w-5 h-5 border-2 border-[var(--app-link)] border-t-transparent rounded-full animate-spin" />
-                        </div>
-                    ) : tags.length === 0 ? (
-                        <div className="text-center text-sm text-[var(--app-hint)] py-8">{t('git.noTags')}</div>
-                    ) : (
-                        <Timeline className="px-4 pt-3 pb-1">
-                            {tags.map(tag => (
-                                <Timeline.Item key={tag.name} dotColor="var(--app-badge-success-text)">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex-1 min-w-0">
-                                            <div className="text-sm text-[var(--app-fg)] font-medium truncate">{tag.name}</div>
-                                            <div className="text-xs text-[var(--app-hint)] mt-0.5 flex items-center gap-1">
-                                                {tag.author && <><span>{tag.author}</span><span>·</span></>}
-                                                <span className="font-mono">{tag.short}</span>
-                                                {tag.subject && <><span>·</span><span className="truncate">{tag.subject}</span></>}
-                                            </div>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setDeleteTagTarget(tag.name)}
-                                            className="shrink-0 text-xs text-red-500 hover:bg-[var(--app-subtle-bg)] px-2 py-1 rounded-md transition-colors"
-                                        >
-                                            {t('git.deleteTag')}
-                                        </button>
-                                    </div>
-                                </Timeline.Item>
-                            ))}
-                        </Timeline>
-                    )}
+                <div className="sm:col-span-6">
+                    <DatePicker.RangePicker
+                        size="small"
+                        className="w-full"
+                        placeholder={[t('git.dateSince'), t('git.dateUntil')]}
+                        onChange={(_dateStrings, dates) => {
+                            if (dates && dates[0] && dates[1]) {
+                                setDateSince(dates[0].format('YYYY-MM-DD'))
+                                setDateUntil(dates[1].format('YYYY-MM-DD'))
+                            } else {
+                                setDateSince('')
+                                setDateUntil('')
+                            }
+                        }}
+                        allowClear
+                        getPopupContainer={(node) => node.parentElement ?? document.body}
+                    />
                 </div>
-            )}
+            </div>
+            <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
+                {allCommits.length > 0 && (
+                    <Timeline className="px-4 pt-3 pb-1">
+                        {allCommits.map((commit, index) => {
+                            const isLocal_ = !selectedBranch && index < ahead
+                            return (
+                                <Timeline.Item
+                                    key={commit.hash}
+                                    dotColor={isLocal_ ? 'var(--app-status-pending-border)' : 'var(--app-link)'}
+                                >
+                                    <CommitRow
+                                        commit={commit}
+                                        api={api}
+                                        sessionId={sessionId}
+                                        isLocal={isLocal_}
+                                        onUncommit={selectedBranch ? undefined : () => setUncommitTarget(commit)}
+                                        onCherryPick={() => setCherryPickTarget(commit)}
+                                        onResetMixed={selectedBranch ? undefined : () => setResetMixedTarget(commit)}
+                                        onResetHard={selectedBranch ? undefined : () => setResetHardTarget(commit)}
+                                        onCreateTag={() => setCreateTagTarget(commit)}
+                                        onBranchCreated={() => { setSkip(0); setAllCommits([]); onRefresh() }}
+                                    />
+                                </Timeline.Item>
+                            )
+                        })}
+                    </Timeline>
+                )}
+                {isLoading && (
+                    <div className="flex justify-center py-4">
+                        <span className="w-5 h-5 border-2 border-[var(--app-link)] border-t-transparent rounded-full animate-spin" />
+                    </div>
+                )}
+                {!hasMore && allCommits.length > 0 && (
+                    <div className="text-center text-xs text-[var(--app-hint)] py-4">{t('git.noMoreCommits')}</div>
+                )}
+                {!isLoading && allCommits.length === 0 && (
+                    <div className="text-center text-sm text-[var(--app-hint)] py-8">{t('git.noCommitHistory')}</div>
+                )}
+            </div>
             <ConfirmDialog
                 isOpen={uncommitTarget !== null}
                 onClose={() => setUncommitTarget(null)}
@@ -442,18 +350,6 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                     </div>
                 </div>
             )}
-            {/* Delete tag confirm */}
-            <ConfirmDialog
-                isOpen={deleteTagTarget !== null}
-                onClose={() => setDeleteTagTarget(null)}
-                title={t('dialog.git.deleteTag.title')}
-                description={t('dialog.git.deleteTag.description', { name: deleteTagTarget ?? '' })}
-                confirmLabel={t('dialog.git.deleteTag.confirm')}
-                confirmingLabel={t('dialog.git.deleteTag.confirming')}
-                onConfirm={handleDeleteTag}
-                isPending={deleteTagLoading}
-                destructive
-            />
         </div>
     )
 }

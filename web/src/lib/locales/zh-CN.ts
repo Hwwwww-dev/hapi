@@ -397,10 +397,11 @@ export default {
 
   // SessionFiles - tabs & header
   'files.tab.changes': '变更',
-  'files.tab.history': '历史',
+  'files.tab.commits': '提交',
+  'files.tab.tags': '标签',
   'files.tab.branches': '分支',
   'files.tab.files': '文件',
-  'files.header.git': 'Git',
+  'files.header.git': 'VCS',
   'files.header.refresh': '刷新',
   'files.header.refreshed': '已刷新',
   'files.header.detached': '游离',

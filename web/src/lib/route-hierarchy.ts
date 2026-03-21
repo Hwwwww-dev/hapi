@@ -20,11 +20,11 @@ export function getLogicalParent(pathname: string): string | null {
 
     // Single file view → files list
     if (pathname.match(/^\/sessions\/[^/]+\/file$/)) {
-        return pathname.replace(/\/file$/, '/files')
+        return pathname.replace(/\/file$/, '/vcs')
     }
 
     // Sub-pages (files, terminal) → session detail
-    if (pathname.match(/^\/sessions\/[^/]+\/(files|terminal)$/)) {
+    if (pathname.match(/^\/sessions\/[^/]+\/(vcs|terminal)$/)) {
         return pathname.replace(/\/[^/]+$/, '')
     }
 

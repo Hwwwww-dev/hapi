@@ -395,10 +395,11 @@ export default {
 
   // SessionFiles - tabs & header
   'files.tab.changes': 'Changes',
-  'files.tab.history': 'History',
+  'files.tab.commits': 'Commits',
+  'files.tab.tags': 'Tags',
   'files.tab.branches': 'Branches',
   'files.tab.files': 'Files',
-  'files.header.git': 'Git',
+  'files.header.git': 'VCS',
   'files.header.refresh': 'Refresh',
   'files.header.refreshed': 'Refreshed',
   'files.header.detached': 'detached',
