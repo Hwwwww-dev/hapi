@@ -257,7 +257,7 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                         {commit.body && (
                             <Collapse bordered={false} className="commit-body-collapse mb-3 ml-1 rounded-md border border-[var(--app-divider)]">
                                 <Collapse.Item name="body" header={<span className="text-xs text-[var(--app-hint)]">{t('git.expandCommitBody')}</span>}>
-                                    <div className="text-sm font-medium text-[var(--app-fg)] mb-2">{commit.subject}</div>
+                                    <div className="text-base font-semibold text-[var(--app-fg)] mb-2">{commit.subject}</div>
                                     <SimpleMarkdown content={commit.body} className="prose prose-sm dark:prose-invert max-w-none break-words text-[var(--app-secondary-fg)]" />
                                 </Collapse.Item>
                             </Collapse>
