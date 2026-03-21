@@ -1,10 +1,38 @@
 import type { ToolViewComponent, ToolViewProps } from '@/components/ToolCard/views/_all'
+import { type ReactNode, useCallback } from 'react'
 import { isObject, safeStringify } from '@hapi/protocol'
 import { CodeBlock } from '@/components/CodeBlock'
 import { MarkdownRenderer } from '@/components/MarkdownRenderer'
 import { ChecklistList, extractTodoChecklist } from '@/components/ToolCard/checklist'
 import { canonicalizeToolName } from '@/lib/toolNames'
 import { basename, resolveDisplayPath } from '@/utils/path'
+import { Collapse } from '@arco-design/web-react'
+import { CopyIcon, CheckIcon } from '@/components/icons'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
+
+const CollapseItem = Collapse.Item
+
+/** Wrapper that adds a hover copy button at top-right corner for text content */
+function CopyableContent({ text, children }: { text: string; children: ReactNode }) {
+    const { copied, copy } = useCopyToClipboard()
+    const handleCopy = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation()
+        copy(text)
+    }, [text, copy])
+    return (
+        <div className="group/copy relative">
+            {children}
+            <button
+                type="button"
+                onClick={handleCopy}
+                className="absolute right-1.5 top-1.5 rounded-md p-1 text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] hover:text-[var(--app-fg)] transition-colors"
+                title="Copy"
+            >
+                {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
+            </button>
+        </div>
+    )
+}
 
 // Detect language from file extension
 function detectLanguage(filePath: string | null): string {
@@ -150,14 +178,26 @@ function renderText(text: string, opts: { mode: 'markdown' | 'code' | 'auto'; la
     }
 
     if (opts.mode === 'markdown') {
-        return <MarkdownRenderer content={text} />
+        return <CopyableContent text={text}><MarkdownRenderer content={text} /></CopyableContent>
     }
 
     if (looksLikeHtml(text) || looksLikeJson(text)) {
         return <CodeBlock code={text} language={looksLikeJson(text) ? 'json' : 'html'} />
     }
 
-    return <MarkdownRenderer content={text} />
+    // Text with markdown syntax → markdown renderer
+    if (text.includes('```') || text.includes('**') || text.includes('##') || /^\s*[-*]\s/m.test(text) || /^\s*\d+\.\s/m.test(text)) {
+        return <CopyableContent text={text}><MarkdownRenderer content={text} /></CopyableContent>
+    }
+
+    // Plain text → unified monospace pre-formatted style
+    return (
+        <CopyableContent text={text}>
+            <div className="text-sm text-[var(--app-fg)] font-mono whitespace-pre-wrap break-words">
+                {text}
+            </div>
+        </CopyableContent>
+    )
 }
 
 function placeholderForState(state: ToolViewProps['block']['tool']['state']): string {
@@ -166,20 +206,9 @@ function placeholderForState(state: ToolViewProps['block']['tool']['state']): st
     return '(no output)'
 }
 
-function RawJsonDevOnly(props: { value: unknown }) {
-    if (!import.meta.env.DEV) return null
-    if (props.value === null || props.value === undefined) return null
-
-    return (
-        <details className="mt-3">
-            <summary className="cursor-pointer text-xs font-medium text-[var(--app-hint)]">
-                Raw JSON
-            </summary>
-            <div className="mt-2">
-                <CodeBlock code={safeStringify(props.value)} language="json" />
-            </div>
-        </details>
-    )
+/** Raw JSON is now rendered at ToolCard Dialog level, not inside individual result views */
+function RawJsonDevOnly(_props: { value: unknown }) {
+    return null
 }
 
 function extractStdoutStderr(result: unknown): { stdout: string | null; stderr: string | null } | null {
@@ -218,18 +247,6 @@ function extractReadFileContent(result: unknown): { filePath: string | null; con
             : null
 
     return { filePath, content }
-}
-
-function extractLineList(text: string): string[] {
-    return text
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0)
-}
-
-function isProbablyMarkdownList(text: string): boolean {
-    const trimmed = text.trimStart()
-    return trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('1. ')
 }
 
 const AskUserQuestionResultView: ToolViewComponent = (props: ToolViewProps) => {
@@ -319,55 +336,6 @@ const MarkdownResultView: ToolViewComponent = (props: ToolViewProps) => {
     )
 }
 
-const LineListResultView: ToolViewComponent = (props: ToolViewProps) => {
-    const result = props.block.tool.result
-
-    if (result === undefined || result === null) {
-        return <div className="text-sm text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
-    }
-
-    const text = extractTextFromResult(result)
-    if (!text) {
-        return (
-            <>
-                <div className="text-sm text-[var(--app-hint)]">(no output)</div>
-                <RawJsonDevOnly value={result} />
-            </>
-        )
-    }
-
-    if (isProbablyMarkdownList(text)) {
-        return (
-            <>
-                <MarkdownRenderer content={text} />
-                <RawJsonDevOnly value={result} />
-            </>
-        )
-    }
-
-    const lines = extractLineList(text)
-    if (lines.length === 0) {
-        return (
-            <>
-                <div className="text-sm text-[var(--app-hint)]">(no output)</div>
-                <RawJsonDevOnly value={result} />
-            </>
-        )
-    }
-
-    return (
-        <>
-            <div className="flex flex-col gap-1">
-                {lines.map((line) => (
-                    <div key={line} className="text-sm font-mono text-[var(--app-fg)] break-all">
-                        {line}
-                    </div>
-                ))}
-            </div>
-            <RawJsonDevOnly value={result} />
-        </>
-    )
-}
 
 // File type icon based on extension
 function fileIcon(name: string): string {
@@ -417,14 +385,13 @@ const GrepResultView: ToolViewComponent = (props: ToolViewProps) => {
     if (!allParsed) {
         // Fallback to plain list
         return (
-            <>
+            <CopyableContent text={text}>
                 <div className="flex flex-col gap-0.5">
                     {lines.map((line, i) => (
                         <div key={i} className="font-mono text-xs text-[var(--app-fg)] break-all">{line}</div>
                     ))}
                 </div>
-                <RawJsonDevOnly value={result} />
-            </>
+            </CopyableContent>
         )
     }
 
@@ -437,7 +404,7 @@ const GrepResultView: ToolViewComponent = (props: ToolViewProps) => {
     }
 
     return (
-        <>
+        <CopyableContent text={text}>
             <div className="flex flex-col gap-2">
                 {Array.from(groups.entries()).map(([file, matches]) => (
                     <div key={file} className="rounded-md border border-[var(--app-divider)] overflow-hidden">
@@ -459,8 +426,7 @@ const GrepResultView: ToolViewComponent = (props: ToolViewProps) => {
                     </div>
                 ))}
             </div>
-            <RawJsonDevOnly value={result} />
-        </>
+        </CopyableContent>
     )
 }
 
@@ -484,7 +450,7 @@ const GlobResultView: ToolViewComponent = (props: ToolViewProps) => {
     const lines = text.split('\n').filter(l => l.trim().length > 0)
 
     return (
-        <>
+        <CopyableContent text={text}>
             <div className="flex flex-col gap-0.5">
                 {lines.map((line, i) => {
                     const name = line.split('/').pop() ?? line
@@ -496,8 +462,7 @@ const GlobResultView: ToolViewComponent = (props: ToolViewProps) => {
                     )
                 })}
             </div>
-            <RawJsonDevOnly value={result} />
-        </>
+        </CopyableContent>
     )
 }
 
@@ -800,13 +765,15 @@ const TaskResultView: ToolViewComponent = (props: ToolViewProps) => {
 
     const text = extractTextFromResult(result)
     if (text) {
-        const { usage, cleanText } = parseAgentMeta(text)
+        const { cleanText } = parseAgentMeta(text)
         return (
             <div className="flex flex-col gap-2">
                 {cleanText && (
-                    <div className="rounded-lg border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] p-3">
-                        <MarkdownRenderer content={cleanText} />
-                    </div>
+                    <CopyableContent text={cleanText}>
+                        <div className="rounded-lg border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] p-3">
+                            <MarkdownRenderer content={cleanText} />
+                        </div>
+                    </CopyableContent>
                 )}
                 <RawJsonDevOnly value={result} />
             </div>
@@ -834,17 +801,18 @@ const SkillResultView: ToolViewComponent = (props: ToolViewProps) => {
     }
 
     return (
-        <details open={text.length <= 300} className="rounded-lg border border-[var(--app-divider)]">
-            <summary className="cursor-pointer select-none px-3 py-2 text-xs text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]">
-                <span className="inline-flex items-center gap-1.5">
-                    <span>▸</span>
-                    <span>Skill output{text.length > 300 ? ` (${Math.round(text.length / 100) / 10}K chars)` : ''}</span>
-                </span>
-            </summary>
-            <div className="border-t border-[var(--app-divider)] p-3">
-                <MarkdownRenderer content={text} />
-            </div>
-        </details>
+        <CopyableContent text={text}>
+            <Collapse bordered={false} defaultActiveKey={text.length <= 300 ? ['skill-output'] : []} className="toolcard-collapse rounded-lg border border-[var(--app-divider)]">
+                <CollapseItem
+                    name="skill-output"
+                    header={<span className="text-xs text-[var(--app-hint)]">Skill output{text.length > 300 ? ` (${Math.round(text.length / 100) / 10}K chars)` : ''}</span>}
+                >
+                <div className="p-3">
+                    <MarkdownRenderer content={text} />
+                </div>
+            </CollapseItem>
+        </Collapse>
+        </CopyableContent>
     )
 }
 

@@ -85,13 +85,13 @@ export const DialogContent = React.forwardRef<HTMLDivElement, React.HTMLAttribut
                 unmountOnExit
                 alignCenter
                 className={cn(
-                    'w-[calc(100vw-24px)] max-w-lg rounded-xl bg-[var(--app-secondary-bg)] p-4 shadow-2xl animate-fade-in-scale',
+                    'max-w-lg rounded-xl bg-[var(--app-secondary-bg)] p-4 shadow-2xl animate-fade-in-scale',
                     className
                 )}
-                style={{ padding: 0 }}
+                style={{ padding: 0, width: 'calc(100vw - 32px)' }}
                 {...(props as Record<string, unknown>)}
             >
-                <div ref={ref}>{children}</div>
+                <div ref={ref} className="max-h-[80vh] overflow-y-auto">{children}</div>
             </Modal>
         )
     }

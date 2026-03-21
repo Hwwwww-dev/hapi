@@ -217,14 +217,15 @@ function buildState(
     }
 }
 
-function trimVisible(messages: DecryptedMessage[], mode: 'append' | 'prepend'): DecryptedMessage[] {
-    if (messages.length <= VISIBLE_WINDOW_SIZE) {
+function trimVisible(messages: DecryptedMessage[], mode: 'append' | 'prepend', currentSize = 0): DecryptedMessage[] {
+    const effectiveSize = Math.max(currentSize, VISIBLE_WINDOW_SIZE)
+    if (messages.length <= effectiveSize) {
         return messages
     }
     if (mode === 'prepend') {
-        return messages.slice(0, VISIBLE_WINDOW_SIZE)
+        return messages.slice(0, effectiveSize)
     }
-    return messages.slice(messages.length - VISIBLE_WINDOW_SIZE)
+    return messages.slice(messages.length - effectiveSize)
 }
 
 function trimPending(
@@ -447,7 +448,7 @@ function applyIncomingMessages(sessionId: string, incoming: DecryptedMessage[]):
 
         if (prev.atBottom) {
             const merged = mergeMessages(prev.messages, incoming)
-            const trimmed = trimVisible(merged, 'append')
+            const trimmed = trimVisible(merged, 'append', prev.messages.length)
             const pending = filterPendingAgainstVisible(prev.pending, trimmed)
             // Skip notify if nothing actually changed (preserves Dialog state etc.)
             if (trimmed === prev.messages && pending === prev.pending && nextTotal === prev.totalMessages) {
@@ -461,7 +462,7 @@ function applyIncomingMessages(sessionId: string, incoming: DecryptedMessage[]):
         let state = prev
         if (agentMessages.length > 0) {
             const merged = mergeMessages(state.messages, agentMessages)
-            const trimmed = trimVisible(merged, 'append')
+            const trimmed = trimVisible(merged, 'append', state.messages.length)
             const pending = filterPendingAgainstVisible(state.pending, trimmed)
             if (trimmed !== state.messages || pending !== state.pending || nextTotal !== state.totalMessages) {
                 state = buildState(state, { messages: trimmed, pending, totalMessages: nextTotal })
@@ -490,7 +491,7 @@ export function flushPendingMessages(sessionId: string): boolean {
     const needsRefresh = current.pendingOverflowVisibleCount > 0
     updateState(sessionId, (prev) => {
         const merged = mergeMessages(prev.messages, prev.pending)
-        const trimmed = trimVisible(merged, 'append')
+        const trimmed = trimVisible(merged, 'append', prev.messages.length)
         return buildState(prev, {
             messages: trimmed,
             pending: [],
@@ -515,7 +516,7 @@ export function setAtBottom(sessionId: string, atBottom: boolean): void {
 export function appendOptimisticMessage(sessionId: string, message: DecryptedMessage): void {
     updateState(sessionId, (prev) => {
         const merged = mergeMessages(prev.messages, [message])
-        const trimmed = trimVisible(merged, 'append')
+        const trimmed = trimVisible(merged, 'append', prev.messages.length)
         const pending = filterPendingAgainstVisible(prev.pending, trimmed)
         return buildState(prev, { messages: trimmed, pending, atBottom: true })
     })

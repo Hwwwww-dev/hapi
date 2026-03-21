@@ -15,6 +15,7 @@ export function OfflineBanner() {
         <Alert
             type="warning"
             banner
+            showIcon={false}
             closable={false}
             content={t('offline.message')}
             className={cn('fixed top-0 left-0 right-0 z-50 animate-slide-down-fade')}

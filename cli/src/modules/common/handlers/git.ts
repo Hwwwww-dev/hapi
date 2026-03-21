@@ -215,7 +215,7 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
         const limit = Math.min(Math.max(data.limit ?? 50, 1), 500)
-        const args = ['log', '--format=%H%x00%h%x00%an%x00%ae%x00%at%x00%s', '-n', String(limit)]
+        const args = ['log', '--format=%H%x00%h%x00%an%x00%ae%x00%at%x00%s%x00%b%x1e', '-n', String(limit)]
         if (data.skip && data.skip > 0) args.push('--skip=' + String(data.skip))
         if (data.branch) args.push(data.branch)
         return await queuedGitCommand(args, resolved.cwd, data.timeout)
@@ -290,6 +290,13 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         if (resolved.error) return rpcError(resolved.error)
         if (!data.hash || typeof data.hash !== 'string') return rpcError('commit hash is required')
         return await queuedGitCommand(['diff-tree', '--no-commit-id', '-r', '-m', '--name-status', data.hash], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; hash: string; timeout?: number }, GitCommandResponse>('git-show-numstat', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.hash || typeof data.hash !== 'string') return rpcError('commit hash is required')
+        return await queuedGitCommand(['diff-tree', '--no-commit-id', '-r', '-m', '--numstat', data.hash], resolved.cwd, data.timeout)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; hash: string; filePath: string; timeout?: number }, GitCommandResponse>('git-show-file', async (data) => {

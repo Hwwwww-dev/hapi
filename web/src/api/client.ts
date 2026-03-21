@@ -2,12 +2,17 @@ import type {
     AttachmentMetadata,
     AuthResponse,
     CodexCollaborationMode,
+    CommitEntry,
     DeleteUploadResponse,
+    GitBranchEntry,
+    GitCommandResponse,
+    GitRemoteEntry,
+    GitStatusFiles,
+    GitTagEntry,
     ListDirectoryResponse,
     CreateMachineDirectoryResponse,
     FileReadResponse,
     FileSearchResponse,
-    GitCommandResponse,
     MachinePathsExistsResponse,
     MachinesResponse,
     MessagesResponse,
@@ -15,14 +20,18 @@ import type {
     PushSubscriptionPayload,
     PushUnsubscribePayload,
     PushVapidPublicKeyResponse,
+    ShowStatEntry,
     SlashCommandsResponse,
     SkillsResponse,
     SpawnResponse,
+    StashEntry,
     UploadFileResponse,
     VisibilityPayload,
     SessionResponse,
     SessionsResponse
 } from '@/types/api'
+
+type GitParsedResponse<T> = { success: boolean; data?: T; error?: string }
 
 type ApiClientOptions = {
     baseUrl?: string
@@ -257,8 +266,8 @@ export class ApiClient {
         return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-diff-file?${params.toString()}`)
     }
 
-    async getGitBranches(sessionId: string): Promise<GitCommandResponse> {
-        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-branches`)
+    async getGitBranches(sessionId: string): Promise<GitParsedResponse<GitBranchEntry[]>> {
+        return await this.request<GitParsedResponse<GitBranchEntry[]>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-branches`)
     }
 
     async gitCheckout(sessionId: string, branch: string): Promise<GitCommandResponse> {
@@ -333,17 +342,17 @@ export class ApiClient {
         })
     }
 
-    async gitLog(sessionId: string, limit?: number, skip?: number, branch?: string): Promise<GitCommandResponse> {
+    async gitLog(sessionId: string, limit?: number, skip?: number, branch?: string): Promise<GitParsedResponse<CommitEntry[]>> {
         const params = new URLSearchParams()
         if (limit !== undefined) params.set('limit', String(limit))
         if (skip !== undefined) params.set('skip', String(skip))
         if (branch) params.set('branch', branch)
         const qs = params.toString()
-        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-log${qs ? `?${qs}` : ''}`)
+        return await this.request<GitParsedResponse<CommitEntry[]>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-log${qs ? `?${qs}` : ''}`)
     }
 
-    async gitShowStat(sessionId: string, hash: string): Promise<GitCommandResponse> {
-        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-show-stat?hash=${encodeURIComponent(hash)}`)
+    async gitShowStat(sessionId: string, hash: string): Promise<GitParsedResponse<ShowStatEntry[]>> {
+        return await this.request<GitParsedResponse<ShowStatEntry[]>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-show-stat?hash=${encodeURIComponent(hash)}`)
     }
 
     async gitShowFile(sessionId: string, hash: string, filePath: string): Promise<GitCommandResponse> {
@@ -386,8 +395,8 @@ export class ApiClient {
         })
     }
 
-    async gitRemoteList(sessionId: string): Promise<GitCommandResponse> {
-        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-remote-list`)
+    async gitRemoteList(sessionId: string): Promise<GitParsedResponse<GitRemoteEntry[]>> {
+        return await this.request<GitParsedResponse<GitRemoteEntry[]>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-remote-list`)
     }
 
     async gitRemoteAdd(sessionId: string, name: string, url: string): Promise<GitCommandResponse> {
@@ -427,8 +436,12 @@ export class ApiClient {
         })
     }
 
-    async gitStashList(sessionId: string): Promise<GitCommandResponse> {
-        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-stash-list`)
+    async gitStashList(sessionId: string): Promise<GitParsedResponse<StashEntry[]>> {
+        return await this.request<GitParsedResponse<StashEntry[]>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-stash-list`)
+    }
+
+    async getGitStatusFiles(sessionId: string): Promise<GitParsedResponse<GitStatusFiles>> {
+        return await this.request<GitParsedResponse<GitStatusFiles>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-status-files`)
     }
 
     async gitMerge(sessionId: string, branch: string): Promise<GitCommandResponse> {
@@ -447,8 +460,8 @@ export class ApiClient {
         })
     }
 
-    async gitRemoteBranches(sessionId: string): Promise<GitCommandResponse> {
-        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-remote-branches`)
+    async gitRemoteBranches(sessionId: string): Promise<GitParsedResponse<GitBranchEntry[]>> {
+        return await this.request<GitParsedResponse<GitBranchEntry[]>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-remote-branches`)
     }
 
     async gitCherryPick(sessionId: string, hash: string): Promise<GitCommandResponse> {
@@ -475,8 +488,8 @@ export class ApiClient {
         })
     }
 
-    async gitTagList(sessionId: string): Promise<GitCommandResponse> {
-        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-tag-list`)
+    async gitTagList(sessionId: string): Promise<GitParsedResponse<GitTagEntry[]>> {
+        return await this.request<GitParsedResponse<GitTagEntry[]>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-tag-list`)
     }
 
     async gitTagCreate(sessionId: string, name: string, message?: string, ref?: string): Promise<GitCommandResponse> {

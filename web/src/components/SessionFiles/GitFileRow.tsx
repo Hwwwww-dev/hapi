@@ -8,8 +8,8 @@ function LineChanges({ added, removed }: { added: number; removed: number }) {
     if (!added && !removed) return null
     return (
         <span className="flex items-center gap-1 text-[11px] font-mono">
-            {added ? <span className="text-[var(--app-diff-added-text)]">+{added}</span> : null}
-            {removed ? <span className="text-[var(--app-diff-removed-text)]">-{removed}</span> : null}
+            {added ? <span className="text-green-500">+{added}</span> : null}
+            {removed ? <span className="text-red-500">-{removed}</span> : null}
         </span>
     )
 }
@@ -87,7 +87,7 @@ export function GitFileRow({ file, onOpen, actions, showCheckbox, checked, onTog
             <button
                 type="button"
                 onClick={() => onOpen(file.fullPath, file.isStaged)}
-                className="flex min-w-0 flex-1 items-center gap-3 text-left hover:bg-[var(--app-subtle-bg)] transition-colors rounded-md"
+                className="flex min-w-0 flex-1 items-center gap-3 text-left hover:bg-[var(--app-subtle-bg)] transition-colors rounded-md px-2 py-1.5"
             >
                 <FileIcon fileName={file.fileName} size={22} />
                 <div className="min-w-0 flex-1">

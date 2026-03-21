@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { SyncEngine } from '../../sync/syncEngine'
+import { parseGitLog, parseTagList, parseBranchList, parseRemoteList, parseStashList, parseShowStat, buildGitStatusFiles } from '../../utils/gitParsers'
 import type { WebAppEnv } from '../middleware/auth'
 import { requireSessionFromParam, requireSyncEngine } from './guards'
 
@@ -247,7 +248,8 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         const sessionPath = sessionResult.session.metadata?.path
         if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
         const result = await runRpc(() => engine.getGitBranches(sessionResult.sessionId, sessionPath))
-        return c.json(result)
+        if (!result.success) return c.json({ success: false, error: result.error ?? 'Unknown error' })
+        return c.json({ success: true, data: parseBranchList(result.stdout ?? '', false) })
     })
 
     app.post('/sessions/:id/git-checkout', async (c) => {
@@ -351,7 +353,8 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         const parsed = gitLogSchema.safeParse(c.req.query())
         if (!parsed.success) return c.json({ error: 'Invalid query' }, 400)
         const result = await runRpc(() => engine.gitLog(sessionResult.sessionId, { cwd: sessionPath, limit: parsed.data.limit, skip: parsed.data.skip, branch: parsed.data.branch }))
-        return c.json(result)
+        if (!result.success) return c.json({ success: false, error: result.error ?? 'Unknown error' })
+        return c.json({ success: true, data: parseGitLog(result.stdout ?? '') })
     })
 
     app.get('/sessions/:id/git-show-stat', async (c) => {
@@ -363,8 +366,12 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
         const hash = c.req.query('hash')
         if (!hash) return c.json({ error: 'hash is required' }, 400)
-        const result = await runRpc(() => engine.gitShowStat(sessionResult.sessionId, { cwd: sessionPath, hash }))
-        return c.json(result)
+        const [nameStatusResult, numstatResult] = await Promise.all([
+            runRpc(() => engine.gitShowStat(sessionResult.sessionId, { cwd: sessionPath, hash })),
+            runRpc(() => engine.gitShowNumstat(sessionResult.sessionId, { cwd: sessionPath, hash })),
+        ])
+        if (!nameStatusResult.success) return c.json({ success: false, error: nameStatusResult.error ?? 'Unknown error' })
+        return c.json({ success: true, data: parseShowStat(nameStatusResult.stdout ?? '', numstatResult.success ? (numstatResult.stdout ?? '') : '') })
     })
 
     app.get('/sessions/:id/git-show-file', async (c) => {
@@ -470,7 +477,8 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         const sessionPath = sessionResult.session.metadata?.path
         if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
         const result = await runRpc(() => engine.gitStashList(sessionResult.sessionId, { cwd: sessionPath }))
-        return c.json(result)
+        if (!result.success) return c.json({ success: false, error: result.error ?? 'Unknown error' })
+        return c.json({ success: true, data: parseStashList(result.stdout ?? '') })
     })
 
     app.post('/sessions/:id/git-merge', async (c) => {
@@ -507,7 +515,8 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         const sessionPath = sessionResult.session.metadata?.path
         if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
         const result = await runRpc(() => engine.gitRemoteBranches(sessionResult.sessionId, { cwd: sessionPath }))
-        return c.json(result)
+        if (!result.success) return c.json({ success: false, error: result.error ?? 'Unknown error' })
+        return c.json({ success: true, data: parseBranchList(result.stdout ?? '', true) })
     })
 
     app.post('/sessions/:id/git-clean-file', async (c) => {
@@ -557,7 +566,8 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         const sessionPath = sessionResult.session.metadata?.path
         if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
         const result = await runRpc(() => engine.gitRemoteList(sessionResult.sessionId, { cwd: sessionPath }))
-        return c.json(result)
+        if (!result.success) return c.json({ success: false, error: result.error ?? 'Unknown error' })
+        return c.json({ success: true, data: parseRemoteList(result.stdout ?? '') })
     })
 
     app.post('/sessions/:id/git-remote-add', async (c) => {
@@ -644,7 +654,8 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         const sessionPath = sessionResult.session.metadata?.path
         if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
         const result = await runRpc(() => engine.gitTagList(sessionResult.sessionId, { cwd: sessionPath }))
-        return c.json(result)
+        if (!result.success) return c.json({ success: false, error: result.error ?? 'Unknown error' })
+        return c.json({ success: true, data: parseTagList(result.stdout ?? '') })
     })
 
     app.post('/sessions/:id/git-tag-create', async (c) => {
@@ -671,6 +682,30 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         if (!body.success) return c.json({ error: 'Invalid request' }, 400)
         const result = await runRpc(() => engine.gitTagDelete(sessionResult.sessionId, { cwd: sessionPath, ...body.data }))
         return c.json(result)
+    })
+
+    app.get('/sessions/:id/git-status-files', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+
+        const [statusResult, unstagedResult, stagedResult] = await Promise.all([
+            runRpc(() => engine.getGitStatus(sessionResult.sessionId, sessionPath)),
+            runRpc(() => engine.getGitDiffNumstat(sessionResult.sessionId, { cwd: sessionPath, staged: false })),
+            runRpc(() => engine.getGitDiffNumstat(sessionResult.sessionId, { cwd: sessionPath, staged: true }))
+        ])
+
+        if (!statusResult.success) return c.json({ success: false, error: statusResult.error ?? 'Unknown error' })
+
+        const data = buildGitStatusFiles(
+            statusResult.stdout ?? '',
+            unstagedResult.success ? (unstagedResult.stdout ?? '') : '',
+            stagedResult.success ? (stagedResult.stdout ?? '') : ''
+        )
+        return c.json({ success: true, data })
     })
 
     return app

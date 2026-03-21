@@ -975,6 +975,10 @@ export class SyncEngine {
         return await this.rpcGateway.gitShowStat(sessionId, options)
     }
 
+    async gitShowNumstat(sessionId: string, options: { cwd?: string; hash: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitShowNumstat(sessionId, options)
+    }
+
     async gitShowFile(sessionId: string, options: { cwd?: string; hash: string; filePath: string }): Promise<RpcCommandResponse> {
         return await this.rpcGateway.gitShowFile(sessionId, options)
     }

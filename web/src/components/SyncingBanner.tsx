@@ -17,6 +17,7 @@ export function SyncingBanner({ isSyncing }: { isSyncing: boolean }) {
         <Alert
             type="info"
             banner
+            showIcon={false}
             closable={false}
             content={
                 <div className="flex items-center justify-center gap-2">

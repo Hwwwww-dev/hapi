@@ -8,6 +8,8 @@ import { ChangesTab } from '@/components/SessionFiles/ChangesTab'
 import { HistoryTab } from '@/components/SessionFiles/HistoryTab'
 import { BranchesTab } from '@/components/SessionFiles/BranchesTab'
 import { FileViewDialog } from '@/components/SessionFiles/FileViewDialog'
+import { StashSheet } from '@/components/SessionFiles/StashSheet'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useAppContext } from '@/lib/app-context'
 import { useAppGoBack } from '@/hooks/useAppGoBack'
 import { useGitStatusFiles } from '@/hooks/queries/useGitStatusFiles'
@@ -15,7 +17,7 @@ import { useSession } from '@/hooks/queries/useSession'
 import { useTranslation } from '@/lib/use-translation'
 import { queryKeys } from '@/lib/query-keys'
 import { notify } from '@/lib/notify'
-import { IconLeft, IconSync, IconBranch } from '@arco-design/web-react/icon'
+import { IconLeft, IconSync, IconBranch, IconDownload, IconImport, IconExport, IconStorage } from '@arco-design/web-react/icon'
 
 const TabPane = Tabs.TabPane
 
@@ -39,6 +41,12 @@ export default function FilesPage() {
     const { status: gitStatus, isLoading: gitLoading } = useGitStatusFiles(api, sessionId)
     const [refreshing, setRefreshing] = useState(false)
 
+    // Git action state (fetch / pull / push / stash)
+    const [gitActionLoading, setGitActionLoading] = useState<'fetch' | 'pull' | 'push' | null>(null)
+    const [confirmAction, setConfirmAction] = useState<'fetch' | 'pull' | 'push' | null>(null)
+    const [stashOpen, setStashOpen] = useState(false)
+    const anyActionLoading = gitActionLoading !== null
+
     const handleRefreshAll = useCallback(async () => {
         setRefreshing(true)
         try {
@@ -53,6 +61,21 @@ export default function FilesPage() {
             setRefreshing(false)
         }
     }, [queryClient, sessionId, t])
+
+    const runGitAction = useCallback(async (action: 'fetch' | 'pull' | 'push', fn: () => Promise<{ success: boolean; error?: string; stderr?: string }>) => {
+        setGitActionLoading(action)
+        const res = await fn()
+        setGitActionLoading(null)
+        if (!res.success) {
+            const msg = res.stderr ?? res.error ?? `${action} failed`
+            notify.error(msg)
+            return
+        }
+        setConfirmAction(null)
+        void handleRefreshAll()
+        const labels: Record<string, string> = { fetch: t('notify.git.fetchOk'), pull: t('notify.git.pullOk'), push: t('notify.git.pushOk') }
+        notify.success(labels[action] ?? `${action} completed`)
+    }, [handleRefreshAll, t])
 
     const rawBranch = gitStatus?.branch ?? ''
     const branchLabel = rawBranch.startsWith('HEAD:')
@@ -87,13 +110,15 @@ export default function FilesPage() {
         { key: 'directories', label: t('files.tab.files') },
     ]
 
+    const actionBtnClass = 'flex items-center gap-1 px-2 py-1 rounded-md text-xs text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
+
     return (
         <>
         <div className="flex h-full flex-col">
             {/* Header */}
             <div className="bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
                 <div className="mx-auto w-full max-w-content flex items-center gap-2 p-3 border-b border-[var(--app-border)]">
-                    <button type="button" onClick={goBack} className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]">
+                    <button type="button" onClick={goBack} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]">
                         <IconLeft style={{ fontSize: 20 }} />
                     </button>
                     <div className="min-w-0 flex-1">
@@ -103,9 +128,27 @@ export default function FilesPage() {
                             <span className="truncate">{branchLabel}</span>
                         </div>
                     </div>
-                    <button type="button" onClick={() => void handleRefreshAll()} className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]" title={t('files.header.refresh')}>
-                        <IconSync className={refreshing ? 'animate-spin' : ''} style={{ fontSize: 18 }} />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                        <button type="button" onClick={() => setConfirmAction('fetch')} disabled={anyActionLoading} className={actionBtnClass} title={t('git.fetch')}>
+                            {gitActionLoading === 'fetch' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <IconDownload style={{ fontSize: 14 }} />}
+                            <span>{t('git.fetch')}</span>
+                        </button>
+                        <button type="button" onClick={() => setConfirmAction('pull')} disabled={anyActionLoading} className={actionBtnClass} title={t('git.pull')}>
+                            {gitActionLoading === 'pull' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <IconImport style={{ fontSize: 14 }} />}
+                            <span>{t('git.pull')}</span>
+                        </button>
+                        <button type="button" onClick={() => setConfirmAction('push')} disabled={anyActionLoading} className={actionBtnClass} title={t('git.push')}>
+                            {gitActionLoading === 'push' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <IconExport style={{ fontSize: 14 }} />}
+                            <span>{t('git.push')}</span>
+                        </button>
+                        <button type="button" onClick={() => setStashOpen(true)} disabled={anyActionLoading} className={actionBtnClass} title={t('git.stash')}>
+                            <IconStorage style={{ fontSize: 14 }} />
+                            <span>{t('git.stash')}</span>
+                        </button>
+                        <button type="button" onClick={() => void handleRefreshAll()} className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]" title={t('files.header.refresh')}>
+                            <IconSync className={refreshing || gitLoading ? 'animate-spin' : ''} style={{ fontSize: 18 }} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -147,6 +190,38 @@ export default function FilesPage() {
                 onClose={() => setDialogFile(null)}
             />
         )}
+        <StashSheet api={api} sessionId={sessionId} open={stashOpen} onClose={() => setStashOpen(false)} onStashChanged={() => void handleRefreshAll()} />
+        {/* Git action confirm dialogs */}
+        <ConfirmDialog
+            isOpen={confirmAction === 'fetch'}
+            onClose={() => setConfirmAction(null)}
+            title={t('dialog.git.fetch.title')}
+            description={t('dialog.git.fetch.description')}
+            confirmLabel={t('dialog.git.fetch.confirm')}
+            confirmingLabel={t('dialog.git.fetch.confirming')}
+            onConfirm={async () => { await runGitAction('fetch', () => api.gitFetch(sessionId)) }}
+            isPending={gitActionLoading === 'fetch'}
+        />
+        <ConfirmDialog
+            isOpen={confirmAction === 'pull'}
+            onClose={() => setConfirmAction(null)}
+            title={t('dialog.git.pull.title')}
+            description={t('dialog.git.pull.description')}
+            confirmLabel={t('dialog.git.pull.confirm')}
+            confirmingLabel={t('dialog.git.pull.confirming')}
+            onConfirm={async () => { await runGitAction('pull', () => api.gitPull(sessionId)) }}
+            isPending={gitActionLoading === 'pull'}
+        />
+        <ConfirmDialog
+            isOpen={confirmAction === 'push'}
+            onClose={() => setConfirmAction(null)}
+            title={t('dialog.git.push.title')}
+            description={t('dialog.git.push.description')}
+            confirmLabel={t('dialog.git.push.confirm')}
+            confirmingLabel={t('dialog.git.push.confirming')}
+            onConfirm={async () => { await runGitAction('push', () => api.gitPush(sessionId, 'origin', 'HEAD')) }}
+            isPending={gitActionLoading === 'push'}
+        />
         </>
     )
 }

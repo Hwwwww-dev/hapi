@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ApiClient } from '@/api/client'
 import type { GitBranchEntry } from '@/types/api'
-import { parseBranchList } from '@/lib/gitParsers'
 import { queryKeys } from '@/lib/query-keys'
 
 export function useGitBranches(api: ApiClient | null, sessionId: string | null, currentBranch: string | null) {
@@ -16,12 +15,8 @@ export function useGitBranches(api: ApiClient | null, sessionId: string | null, 
                 api.getGitBranches(resolvedSessionId),
                 api.gitRemoteBranches(resolvedSessionId)
             ])
-            const local = localResult.success && localResult.stdout
-                ? parseBranchList(localResult.stdout, false, null)
-                : []
-            const remote = remoteResult.success && remoteResult.stdout
-                ? parseBranchList(remoteResult.stdout, true, null)
-                : []
+            const local = localResult.success && localResult.data ? localResult.data : []
+            const remote = remoteResult.success && remoteResult.data ? remoteResult.data : []
             return { local, remote }
         },
         enabled: !!api && !!resolvedSessionId

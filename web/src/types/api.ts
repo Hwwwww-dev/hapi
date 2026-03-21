@@ -187,6 +187,7 @@ export type CommitEntry = {
     email: string
     date: number
     subject: string
+    body: string
 }
 
 export type GitBranchEntry = {
@@ -213,6 +214,14 @@ export type GitTagEntry = {
     date: number
     subject: string
     author: string
+}
+
+export type ShowStatEntry = {
+    status: string
+    path: string
+    oldPath?: string
+    additions: number
+    deletions: number
 }
 
 export type SlashCommand = {
