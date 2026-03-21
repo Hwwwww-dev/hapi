@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { IconUserGroup, IconDown } from '@arco-design/web-react/icon'
 import type { TeamState } from '@hapi/protocol/types'
 
 function memberStatusDot(status?: string): string {
@@ -38,12 +39,7 @@ export function TeamPanel(props: { teamState: TeamState }) {
                 onClick={() => setExpanded(!expanded)}
                 className="flex w-full items-center gap-2 rounded-md bg-[var(--app-subtle-bg)] px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-subtle-bg-hover)]"
             >
-                <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
+                <IconUserGroup className="shrink-0" style={{ fontSize: 14 }} />
                 <span className="font-medium text-[var(--app-fg)]">
                     Team: {teamState.teamName}
                 </span>
@@ -52,17 +48,10 @@ export function TeamPanel(props: { teamState: TeamState }) {
                     {activeMembers > 0 ? ` (${activeMembers} active)` : ''}
                     {tasks.length > 0 ? ` \u00b7 ${completedTasks}/{tasks.length} tasks` : ''}
                 </span>
-                <svg
-                    className={`ml-auto h-3 w-3 shrink-0 text-[var(--app-hint)] transition-transform ${expanded ? 'rotate-180' : ''}`}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                >
-                    <path d="m6 9 6 6 6-6" />
-                </svg>
+                <IconDown
+                    className={`ml-auto shrink-0 text-[var(--app-hint)] transition-transform ${expanded ? 'rotate-180' : ''}`}
+                    style={{ fontSize: 12 }}
+                />
             </button>
 
             {expanded && (

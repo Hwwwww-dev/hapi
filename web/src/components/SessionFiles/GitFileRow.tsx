@@ -87,7 +87,7 @@ export function GitFileRow({ file, onOpen, actions, showCheckbox, checked, onTog
             <button
                 type="button"
                 onClick={() => onOpen(file.fullPath, file.isStaged)}
-                className="flex min-w-0 flex-1 items-center gap-3 text-left hover:bg-[var(--app-subtle-bg)] transition-colors rounded"
+                className="flex min-w-0 flex-1 items-center gap-3 text-left hover:bg-[var(--app-subtle-bg)] transition-colors rounded-md"
             >
                 <FileIcon fileName={file.fileName} size={22} />
                 <div className="min-w-0 flex-1">

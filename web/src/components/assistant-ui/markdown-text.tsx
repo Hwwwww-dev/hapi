@@ -7,6 +7,7 @@ import {
 } from '@assistant-ui/react-markdown'
 import { useMessagePart } from '@assistant-ui/react'
 import remarkGfm from 'remark-gfm'
+import { Image as ArcoImage } from '@arco-design/web-react'
 import { cn } from '@/lib/utils'
 import { SyntaxHighlighter } from '@/components/assistant-ui/shiki-highlighter'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
@@ -189,7 +190,17 @@ function Em(props: ComponentPropsWithoutRef<'em'>) {
 }
 
 function Image(props: ComponentPropsWithoutRef<'img'>) {
-    return <img {...props} className={cn('aui-md-img max-w-full rounded', props.className)} />
+    return (
+        <ArcoImage
+            {...props}
+            src={props.src}
+            alt={props.alt}
+            className={cn('aui-md-img max-w-full rounded-lg', props.className)}
+            preview={true}
+            loader={true}
+            style={{ maxWidth: '100%' }}
+        />
+    )
 }
 
 export const defaultComponents = memoizeMarkdownComponents({

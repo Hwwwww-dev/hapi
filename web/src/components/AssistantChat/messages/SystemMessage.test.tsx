@@ -11,7 +11,7 @@ vi.mock('@/chat/presentation', () => ({
     isPillEvent: (event: { type: string; message?: string }) => event.type === 'message' && event.message === 'Aborted by user',
     getEventPresentation: (event: { type: string; message?: string }) => {
         if (event.type === 'message' && event.message === 'Aborted by user') {
-            return { icon: '⏹', text: 'Aborted by user' }
+            return { icon: null, text: 'Aborted by user' }
         }
         return { icon: null, text: event.message ?? event.type }
     }

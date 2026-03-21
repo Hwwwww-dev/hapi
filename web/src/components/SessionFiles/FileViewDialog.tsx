@@ -78,7 +78,7 @@ function FileContentSkeleton() {
             <span className="sr-only">Loading file…</span>
             <div className="animate-pulse space-y-2 rounded-md border border-[var(--app-border)] bg-[var(--app-code-bg)] p-3">
                 {Array.from({ length: 12 }).map((_, index) => (
-                    <div key={`file-skeleton-${index}`} className={`h-3 ${widths[index % widths.length]} rounded bg-[var(--app-subtle-bg)]`} />
+                    <div key={`file-skeleton-${index}`} className={`h-3 ${widths[index % widths.length]} rounded-md bg-[var(--app-subtle-bg)]`} />
                 ))}
             </div>
         </div>
@@ -171,7 +171,7 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
                 <button
                     type="button"
                     onClick={() => copyPath(filePath)}
-                    className="shrink-0 rounded p-1 text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] hover:text-[var(--app-fg)] transition-colors"
+                    className="shrink-0 rounded-md p-1 text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] hover:text-[var(--app-fg)] transition-colors"
                     title={t('git.copyPath')}
                 >
                     {pathCopied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
@@ -182,11 +182,11 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
             {diffContent ? (
                 <div className="shrink-0 px-3 py-2 flex items-center gap-2 border-b border-[var(--app-divider)]">
                     <button type="button" onClick={() => setDisplayMode('diff')}
-                        className={`rounded px-3 py-1 text-xs font-semibold ${effectiveMode === 'diff' ? 'bg-[var(--app-button)] text-[var(--app-button-text)] opacity-80' : 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)]'}`}>
+                        className={`rounded-md px-3 py-1 text-xs font-semibold ${effectiveMode === 'diff' ? 'bg-[var(--app-button)] text-[var(--app-button-text)] opacity-80' : 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)]'}`}>
                         {t('git.diff')}
                     </button>
                     <button type="button" onClick={() => setDisplayMode('file')}
-                        className={`rounded px-3 py-1 text-xs font-semibold ${effectiveMode === 'file' ? 'bg-[var(--app-button)] text-[var(--app-button-text)] opacity-80' : 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)]'}`}>
+                        className={`rounded-md px-3 py-1 text-xs font-semibold ${effectiveMode === 'file' ? 'bg-[var(--app-button)] text-[var(--app-button-text)] opacity-80' : 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)]'}`}>
                         {t('git.file')}
                     </button>
                 </div>
@@ -214,7 +214,7 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
                         <div className="relative">
                             {canCopyContent ? (
                                 <button type="button" onClick={() => copyContent(decodedContent)}
-                                    className="absolute right-2 top-2 z-10 rounded p-1 text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] hover:text-[var(--app-fg)] transition-colors"
+                                    className="absolute right-2 top-2 z-10 rounded-md p-1 text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] hover:text-[var(--app-fg)] transition-colors"
                                     title={t('git.copyContent')}>
                                     {contentCopied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
                                 </button>

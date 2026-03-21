@@ -193,20 +193,16 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
 
     return (
         <>
-            <div className="relative border-b border-[var(--app-divider)] last:border-0">
+            <div className="relative">
                 <button
                     type="button"
                     onClick={() => void handleToggle()}
-                    className="w-full flex items-start gap-3 py-2 px-4 text-left hover:bg-[var(--app-subtle-bg)] transition-colors"
+                    className="w-full flex items-start gap-2 py-0.5 pr-8 text-left hover:bg-[var(--app-subtle-bg)] transition-colors"
                 >
-                    <div className="flex flex-col items-center pt-1.5 shrink-0">
-                        <div className="w-2 h-2 rounded-full bg-[var(--app-link)]" />
-                        <div className="w-px flex-1 min-h-[16px] bg-[var(--app-border)]" />
-                    </div>
-                    <div className="flex-1 min-w-0 pb-2">
+                    <div className="flex-1 min-w-0">
                         <div className="text-sm text-[var(--app-fg)] truncate flex items-center gap-1.5">
-                            {isLocal && <span className="shrink-0 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-amber-500/15 text-amber-600">{t('git.local')}</span>}
-                            {!isLocal && <span className="shrink-0 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-emerald-500/15 text-emerald-600">{t('git.remote')}</span>}
+                            {isLocal && <span className="shrink-0 inline-flex items-center rounded-md px-1 py-0.5 text-[10px] font-semibold leading-none bg-amber-500/15 text-amber-600">{t('git.local')}</span>}
+                            {!isLocal && <span className="shrink-0 inline-flex items-center rounded-md px-1 py-0.5 text-[10px] font-semibold leading-none bg-emerald-500/15 text-emerald-600">{t('git.remote')}</span>}
                             <span className="truncate">{commit.subject}</span>
                             {loading && <span className="shrink-0 w-3.5 h-3.5 border border-[var(--app-link)] border-t-transparent rounded-full animate-spin inline-block" />}
                         </div>
@@ -219,7 +215,7 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                         </div>
                     </div>
                 </button>
-                <div className="absolute right-2 top-2">
+                <div className="absolute right-0 top-0">
                     <CommitActionMenu
                         isLocal={isLocal}
                         onUncommit={onUncommit}
@@ -231,7 +227,7 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                     />
                 </div>
                 {showBranchForm && (
-                    <div className="pl-9 pr-4 pb-3 pt-1 flex flex-col gap-2" onClick={e => e.stopPropagation()}>
+                    <div className="pr-4 pb-3 pt-1 flex flex-col gap-2" onClick={e => e.stopPropagation()}>
                         <input
                             ref={branchInputRef}
                             type="text"
@@ -239,14 +235,14 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                             value={branchName}
                             onChange={e => setBranchName(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') void handleCreateBranch(); if (e.key === 'Escape') setShowBranchForm(false) }}
-                            className="w-full text-xs px-2 py-1.5 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
+                            className="w-full text-xs px-2 py-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
                         />
                         <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-[var(--app-hint)]">
                             <input
                                 type="checkbox"
                                 checked={checkoutAfterCreate}
                                 onChange={e => setCheckoutAfterCreate(e.target.checked)}
-                                className="rounded"
+                                className="rounded-md"
                             />
                             {t('git.checkoutAfterCreate')}
                         </label>
@@ -255,14 +251,14 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                                 type="button"
                                 onClick={() => void handleCreateBranch()}
                                 disabled={!branchName.trim() || branchLoading}
-                                className="flex-1 min-h-[32px] text-xs font-medium rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50 transition-opacity"
+                                className="flex-1 min-h-[32px] text-xs font-medium rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50 transition-opacity"
                             >
                                 {branchLoading ? t('git.creating') : t('git.create')}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setShowBranchForm(false)}
-                                className="px-3 min-h-[32px] text-xs rounded border border-[var(--app-border)] text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
+                                className="px-3 min-h-[32px] text-xs rounded-md border border-[var(--app-border)] text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                             >
                                 {t('button.cancel')}
                             </button>
@@ -270,7 +266,7 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                     </div>
                 )}
                 {expanded && loaded && (
-                    <div className="pl-9 pr-4 pb-3">
+                    <div className="pr-4 pb-3">
                         {files.length === 0
                             ? <div className="text-xs text-[var(--app-hint)]">{t('git.noChangedFiles')}</div>
                             : files.map(f => (

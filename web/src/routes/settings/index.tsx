@@ -6,6 +6,7 @@ import { getFontScaleOptions, useFontScale, type FontScale } from '@/hooks/useFo
 import { getTerminalFontSizeOptions, useTerminalFontSize, type TerminalFontSize } from '@/hooks/useTerminalFontSize'
 import { useAppearance, getAppearanceOptions, type AppearancePreference } from '@/hooks/useTheme'
 import { PROTOCOL_VERSION } from '@hapi/protocol'
+import { IconLeft, IconCheck, IconDown } from '@arco-design/web-react/icon'
 
 const locales: { value: Locale; nativeLabel: string }[] = [
     { value: 'en', nativeLabel: 'English' },
@@ -13,63 +14,6 @@ const locales: { value: Locale; nativeLabel: string }[] = [
 ]
 
 const voiceLanguages = getElevenLabsSupportedLanguages()
-
-function BackIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <polyline points="15 18 9 12 15 6" />
-        </svg>
-    )
-}
-
-function CheckIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <polyline points="20 6 9 17 4 12" />
-        </svg>
-    )
-}
-
-function ChevronDownIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <polyline points="6 9 12 15 18 9" />
-        </svg>
-    )
-}
 
 export default function SettingsPage() {
     const { t, locale, setLocale } = useTranslation()
@@ -185,7 +129,7 @@ export default function SettingsPage() {
                         onClick={goBack}
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
                     >
-                        <BackIcon />
+                        <IconLeft style={{ fontSize: 20 }} />
                     </button>
                     <div className="flex-1 font-semibold">{t('settings.title')}</div>
                 </div>
@@ -209,7 +153,7 @@ export default function SettingsPage() {
                                 <span className="text-[var(--app-fg)]">{t('settings.language.label')}</span>
                                 <span className="flex items-center gap-1 text-[var(--app-hint)]">
                                     <span>{currentLocale?.nativeLabel}</span>
-                                    <ChevronDownIcon className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                                    <IconDown className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} style={{ fontSize: 16 }} />
                                 </span>
                             </button>
 
@@ -237,7 +181,7 @@ export default function SettingsPage() {
                                                 <span>{loc.nativeLabel}</span>
                                                 {isSelected && (
                                                     <span className="ml-2 text-[var(--app-link)]">
-                                                        <CheckIcon />
+                                                        <IconCheck style={{ fontSize: 18 }} />
                                                     </span>
                                                 )}
                                             </button>
@@ -264,7 +208,7 @@ export default function SettingsPage() {
                                 <span className="text-[var(--app-fg)]">{t('settings.display.appearance')}</span>
                                 <span className="flex items-center gap-1 text-[var(--app-hint)]">
                                     <span>{t(currentAppearanceLabel)}</span>
-                                    <ChevronDownIcon className={`transition-transform ${isAppearanceOpen ? 'rotate-180' : ''}`} />
+                                    <IconDown className={`transition-transform ${isAppearanceOpen ? 'rotate-180' : ''}`} style={{ fontSize: 16 }} />
                                 </span>
                             </button>
 
@@ -292,7 +236,7 @@ export default function SettingsPage() {
                                                 <span>{t(opt.labelKey)}</span>
                                                 {isSelected && (
                                                     <span className="ml-2 text-[var(--app-link)]">
-                                                        <CheckIcon />
+                                                        <IconCheck style={{ fontSize: 18 }} />
                                                     </span>
                                                 )}
                                             </button>
@@ -312,7 +256,7 @@ export default function SettingsPage() {
                                 <span className="text-[var(--app-fg)]">{t('settings.display.fontSize')}</span>
                                 <span className="flex items-center gap-1 text-[var(--app-hint)]">
                                     <span>{currentFontScaleLabel}</span>
-                                    <ChevronDownIcon className={`transition-transform ${isFontOpen ? 'rotate-180' : ''}`} />
+                                    <IconDown className={`transition-transform ${isFontOpen ? 'rotate-180' : ''}`} style={{ fontSize: 16 }} />
                                 </span>
                             </button>
 
@@ -340,7 +284,7 @@ export default function SettingsPage() {
                                                 <span>{opt.label}</span>
                                                 {isSelected && (
                                                     <span className="ml-2 text-[var(--app-link)]">
-                                                        <CheckIcon />
+                                                        <IconCheck style={{ fontSize: 18 }} />
                                                     </span>
                                                 )}
                                             </button>
@@ -360,7 +304,7 @@ export default function SettingsPage() {
                                 <span className="text-[var(--app-fg)]">{t('settings.display.terminalFontSize')}</span>
                                 <span className="flex items-center gap-1 text-[var(--app-hint)]">
                                     <span>{currentTerminalFontSizeLabel}</span>
-                                    <ChevronDownIcon className={`transition-transform ${isTerminalFontOpen ? 'rotate-180' : ''}`} />
+                                    <IconDown className={`transition-transform ${isTerminalFontOpen ? 'rotate-180' : ''}`} style={{ fontSize: 16 }} />
                                 </span>
                             </button>
 
@@ -388,7 +332,7 @@ export default function SettingsPage() {
                                                 <span>{opt.label}</span>
                                                 {isSelected && (
                                                     <span className="ml-2 text-[var(--app-link)]">
-                                                        <CheckIcon />
+                                                        <IconCheck style={{ fontSize: 18 }} />
                                                     </span>
                                                 )}
                                             </button>
@@ -421,7 +365,7 @@ export default function SettingsPage() {
                                                 : getLanguageDisplayName(currentVoiceLanguage)
                                             : t('settings.voice.autoDetect')}
                                     </span>
-                                    <ChevronDownIcon className={`transition-transform ${isVoiceOpen ? 'rotate-180' : ''}`} />
+                                    <IconDown className={`transition-transform ${isVoiceOpen ? 'rotate-180' : ''}`} style={{ fontSize: 16 }} />
                                 </span>
                             </button>
 
@@ -452,7 +396,7 @@ export default function SettingsPage() {
                                                 <span>{displayName}</span>
                                                 {isSelected && (
                                                     <span className="ml-2 text-[var(--app-link)]">
-                                                        <CheckIcon />
+                                                        <IconCheck style={{ fontSize: 18 }} />
                                                     </span>
                                                 )}
                                             </button>

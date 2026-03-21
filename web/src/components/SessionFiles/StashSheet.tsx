@@ -72,14 +72,14 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
                     value={stashMessage}
                     onChange={e => setStashMessage(e.target.value)}
                     placeholder={t('git.stashOptionalMsg')}
-                    className="text-xs border border-[var(--app-border)] rounded p-2 bg-[var(--app-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] focus:outline-none focus:border-[var(--app-link)]"
+                    className="text-xs border border-[var(--app-border)] rounded-md p-2 bg-[var(--app-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] focus:outline-none focus:border-[var(--app-link)]"
                 />
                 {error && <div className="text-xs text-red-500">{error}</div>}
                 <button
                     type="button"
                     onClick={handleStash}
                     disabled={actionLoading}
-                    className="min-h-[44px] text-sm px-3 rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-40 hover:opacity-90 transition-opacity"
+                    className="min-h-[44px] text-sm px-3 rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-40 hover:opacity-90 transition-opacity"
                 >
                     {actionLoading ? t('git.stashWorking') : t('git.stashChanges')}
                 </button>
@@ -103,7 +103,7 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
                                 type="button"
                                 onClick={() => handlePop(entry.index)}
                                 disabled={actionLoading}
-                                className="min-h-[44px] min-w-[44px] text-xs px-3 rounded border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40 transition-colors shrink-0"
+                                className="min-h-[44px] min-w-[44px] text-xs px-3 rounded-md border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40 transition-colors shrink-0"
                             >
                                 {t('git.stashPop')}
                             </button>

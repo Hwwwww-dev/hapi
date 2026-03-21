@@ -3,17 +3,21 @@
 
 @custom-variant dark (&:is([data-theme="dark"] *));
 
-/* ── Arco Design theme bridge: map --app-* → Arco --color-* ──
-   Must be on `body` because Arco declares its variables on `body`,
-   and nearest-scope wins over inherited `:root` values. ── */
+/* ── Arco Design theme bridge ──
+   Sync app tokens → Arco tokens on `body` (Arco declares on body,
+   nearest-scope wins over inherited :root). ── */
 body {
     --color-bg-1: var(--app-bg);
     --color-bg-2: var(--app-secondary-bg);
+    --color-bg-3: var(--app-secondary-bg);
     --color-text-1: var(--app-fg);
+    --color-text-2: var(--app-fg);
     --color-text-3: var(--app-hint);
     --color-border-1: var(--app-border);
+    --color-border-2: var(--app-border);
+    --color-fill-1: var(--app-subtle-bg);
     --color-fill-2: var(--app-secondary-bg);
-    --color-primary-6: var(--app-button);
+    --color-fill-3: var(--app-subtle-bg);
 }
 
 /* ── Arco component style overrides for app theme consistency ── */
@@ -113,6 +117,51 @@ body {
     background: var(--app-bg) !important;
 }
 
+/* Collapse - compact git changes panel */
+.changes-collapse.arco-collapse {
+    border: none !important;
+    background: transparent !important;
+}
+.changes-collapse .arco-collapse-item {
+    border-bottom: 1px solid var(--app-divider) !important;
+}
+.changes-collapse .arco-collapse-item:last-child {
+    border-bottom: none !important;
+}
+.changes-collapse .arco-collapse-item-header {
+    padding: 6px 12px !important;
+    background: transparent !important;
+    line-height: 1.4 !important;
+    gap: 8px !important;
+}
+.changes-collapse .arco-collapse-item-header:hover {
+    background: var(--app-subtle-bg) !important;
+}
+.changes-collapse .arco-collapse-item-header-title {
+    font-size: 12px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+.changes-collapse .arco-collapse-item-header-extra {
+    font-size: 10px !important;
+    flex-shrink: 0 !important;
+    margin-left: auto !important;
+}
+.changes-collapse .arco-collapse-item-content {
+    padding: 0 !important;
+    background: transparent !important;
+}
+.changes-collapse .arco-collapse-item-content-box {
+    padding: 0 !important;
+}
+.changes-collapse .arco-collapse-item-expand-icon {
+    font-size: 10px !important;
+    color: var(--app-hint) !important;
+}
+
 /* Input - match app input style */
 .arco-input {
     border-color: var(--app-border) !important;
@@ -127,92 +176,138 @@ body {
     border-color: var(--app-link) !important;
 }
 
+/* Message (notify) - match app theme */
+.arco-message-wrapper .arco-message {
+    border: 1px solid var(--app-border);
+    border-radius: 10px;
+    background: var(--app-bg);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    color: var(--app-fg);
+}
+[data-theme="dark"] .arco-message-wrapper .arco-message {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
 :root {
-    --app-bg: var(--tg-theme-bg-color, #ffffff);
-    --app-fg: var(--tg-theme-text-color, #111827);
-    --app-hint: var(--tg-theme-hint-color, #6b7280);
-    --app-link: var(--tg-theme-link-color, #111827);
-    --app-button: var(--tg-theme-button-color, #111827);
+    --app-bg: var(--tg-theme-bg-color, var(--color-bg-1, #ffffff));
+    --app-fg: var(--tg-theme-text-color, var(--color-text-1, #1d2129));
+    --app-hint: var(--tg-theme-hint-color, var(--color-text-3, #86909c));
+    --app-link: var(--tg-theme-link-color, rgb(var(--arcoblue-6, 22,93,255)));
+    --app-button: var(--tg-theme-button-color, rgb(var(--arcoblue-6, 22,93,255)));
     --app-button-text: var(--tg-theme-button-text-color, #ffffff);
-    --app-banner-bg: var(--tg-theme-button-color, #111827);
+    --app-banner-bg: var(--tg-theme-button-color, rgb(var(--arcoblue-6, 22,93,255)));
     --app-banner-text: var(--tg-theme-button-text-color, #ffffff);
-    --app-secondary-bg: var(--tg-theme-secondary-bg-color, #f3f4f6);
+    --app-secondary-bg: var(--tg-theme-secondary-bg-color, var(--color-fill-2, #f2f3f5));
 
-    /* Theme-aware colors (light mode defaults) */
-    --app-border: rgba(0, 0, 0, 0.1);
-    --app-divider: rgba(0, 0, 0, 0.08);
-    --app-subtle-bg: rgba(0, 0, 0, 0.05);
-    --app-code-bg: #f6f8fa;
-    --app-inline-code-bg: rgba(0, 0, 0, 0.08);
+    /* Theme-aware colors (light mode defaults) — Arco neutral palette */
+    --app-border: var(--color-border-2, rgba(0, 0, 0, 0.1));
+    --app-divider: var(--color-border-1, rgba(0, 0, 0, 0.08));
+    --app-subtle-bg: var(--color-fill-1, rgba(0, 0, 0, 0.04));
+    --app-code-bg: var(--color-fill-2, #f2f3f5);
+    --app-inline-code-bg: var(--color-fill-2, rgba(0, 0, 0, 0.06));
 
-    /* Diff colors (light) - from hapi-app */
+    /* Diff colors (light) */
     --app-diff-added-bg: #e6ffed;
-    --app-diff-added-text: #24292e;
+    --app-diff-added-text: #1d2129;
     --app-diff-removed-bg: #ffeef0;
-    --app-diff-removed-text: #24292e;
+    --app-diff-removed-text: #1d2129;
 
-    /* Git status colors (light) */
-    --app-git-staged-color: #34C759;
-    --app-git-unstaged-color: #FF9500;
-    --app-git-deleted-color: #FF3B30;
-    --app-git-renamed-color: #2563eb;
-    --app-git-untracked-color: #8E8E93;
+    /* Git status colors (light) — with hardcoded fallbacks */
+    --app-git-staged-color: rgb(var(--green-6, 0,180,42));
+    --app-git-unstaged-color: rgb(var(--orange-6, 255,125,0));
+    --app-git-deleted-color: rgb(var(--red-6, 245,63,63));
+    --app-git-renamed-color: rgb(var(--arcoblue-6, 22,93,255));
+    --app-git-untracked-color: var(--color-text-3, #86909c);
 
-    /* Badge colors (light) */
-    --app-badge-warning-bg: rgba(245, 158, 11, 0.2);
-    --app-badge-warning-text: #b45309;
-    --app-badge-warning-border: rgba(245, 158, 11, 0.3);
-    --app-badge-success-bg: rgba(34, 197, 94, 0.2);
-    --app-badge-success-text: #15803d;
-    --app-badge-success-border: rgba(34, 197, 94, 0.3);
-    --app-badge-error-bg: rgba(239, 68, 68, 0.18);
-    --app-badge-error-text: #b91c1c;
-    --app-badge-error-border: rgba(239, 68, 68, 0.3);
+    /* Badge colors (light) — with hardcoded fallbacks */
+    --app-badge-warning-bg: rgb(var(--orange-1, 255,247,232));
+    --app-badge-warning-text: rgb(var(--orange-6, 255,125,0));
+    --app-badge-warning-border: rgb(var(--orange-3, 255,211,130));
+    --app-badge-success-bg: rgb(var(--green-1, 232,255,234));
+    --app-badge-success-text: rgb(var(--green-6, 0,180,42));
+    --app-badge-success-border: rgb(var(--green-3, 123,225,136));
+    --app-badge-error-bg: rgb(var(--red-1, 255,236,232));
+    --app-badge-error-text: rgb(var(--red-6, 245,63,63));
+    --app-badge-error-border: rgb(var(--red-3, 251,172,163));
+
+    /* Session status colors — active sessions (emerald, matches pre-Arco Tailwind palette) */
+    --app-status-active-bg: #ecfdf5;
+    --app-status-active-bg-hover: #d1fae5;
+    --app-status-active-border: #a7f3d0;
+    --app-status-active-border-sel: #34d399;
+
+    --app-status-thinking-bg: #e8f3ff;
+    --app-status-thinking-bg-hover: #cedfff;
+    --app-status-thinking-border: #afc4ff;
+    --app-status-thinking-border-sel: #4080ff;
+    --app-status-thinking-text: #165dff;
+
+    --app-status-pending-bg: #fff7e8;
+    --app-status-pending-bg-hover: #ffe4ba;
+    --app-status-pending-border: #ffd382;
+    --app-status-pending-border-sel: #ffa300;
 
     --app-font-scale: 1;
 }
 
 [data-theme="dark"] {
-    /* Primary colors - override fallbacks for non-Telegram browsers */
-    --app-bg: var(--tg-theme-bg-color, #1c1c1e);
-    --app-fg: var(--tg-theme-text-color, #ffffff);
-    --app-hint: var(--tg-theme-hint-color, #8e8e93);
-    --app-link: var(--tg-theme-link-color, #ffffff);
-    --app-button: var(--tg-theme-button-color, #ffffff);
-    --app-button-text: var(--tg-theme-button-text-color, #111827);
-    --app-banner-bg: var(--tg-theme-button-color, #3A3A3C);
+    /* Primary colors — Arco dark mode with hardcoded fallbacks */
+    --app-bg: var(--tg-theme-bg-color, var(--color-bg-1, #17171a));
+    --app-fg: var(--tg-theme-text-color, var(--color-text-1, #f6f6f6));
+    --app-hint: var(--tg-theme-hint-color, var(--color-text-3, #86909c));
+    --app-link: var(--tg-theme-link-color, rgb(var(--arcoblue-6, 60,126,255)));
+    --app-button: var(--tg-theme-button-color, rgb(var(--arcoblue-6, 60,126,255)));
+    --app-button-text: var(--tg-theme-button-text-color, #ffffff);
+    --app-banner-bg: var(--tg-theme-button-color, rgb(var(--arcoblue-6, 60,126,255)));
     --app-banner-text: var(--tg-theme-button-text-color, #ffffff);
-    --app-secondary-bg: var(--tg-theme-secondary-bg-color, #2C2C2E);
+    --app-secondary-bg: var(--tg-theme-secondary-bg-color, var(--color-fill-2, #232324));
 
-    --app-border: rgba(255, 255, 255, 0.1);
-    --app-divider: rgba(255, 255, 255, 0.08);
-    --app-subtle-bg: rgba(255, 255, 255, 0.05);
-    --app-code-bg: #282c34;
-    --app-inline-code-bg: rgba(255, 255, 255, 0.1);
+    --app-border: var(--color-border-2, rgba(255, 255, 255, 0.1));
+    --app-divider: var(--color-border-1, rgba(255, 255, 255, 0.08));
+    --app-subtle-bg: var(--color-fill-1, rgba(255, 255, 255, 0.04));
+    --app-code-bg: var(--color-fill-2, #232324);
+    --app-inline-code-bg: var(--color-fill-2, rgba(255, 255, 255, 0.08));
 
-    /* Diff colors (dark) - from hapi-app */
+    /* Diff colors (dark) */
     --app-diff-added-bg: #0d2e1f;
     --app-diff-added-text: #c9d1d9;
     --app-diff-removed-bg: #3f1b23;
     --app-diff-removed-text: #c9d1d9;
 
-    /* Git status colors (dark) */
-    --app-git-staged-color: #4ade80;
-    --app-git-unstaged-color: #f59e0b;
-    --app-git-deleted-color: #f87171;
-    --app-git-renamed-color: #60a5fa;
-    --app-git-untracked-color: #9ca3af;
+    /* Git status colors (dark) — with hardcoded fallbacks */
+    --app-git-staged-color: rgb(var(--green-6, 39,195,75));
+    --app-git-unstaged-color: rgb(var(--orange-6, 255,138,36));
+    --app-git-deleted-color: rgb(var(--red-6, 249,95,91));
+    --app-git-renamed-color: rgb(var(--arcoblue-6, 60,126,255));
+    --app-git-untracked-color: var(--color-text-3, #86909c);
 
-    /* Badge colors (dark) */
-    --app-badge-warning-bg: rgba(251, 191, 36, 0.2);
-    --app-badge-warning-text: #fbbf24;
-    --app-badge-warning-border: rgba(251, 191, 36, 0.3);
-    --app-badge-success-bg: rgba(74, 222, 128, 0.2);
-    --app-badge-success-text: #4ade80;
-    --app-badge-success-border: rgba(74, 222, 128, 0.3);
-    --app-badge-error-bg: rgba(248, 113, 113, 0.2);
-    --app-badge-error-text: #fca5a5;
-    --app-badge-error-border: rgba(248, 113, 113, 0.35);
+    /* Session status colors — active sessions (emerald dark, matches pre-Arco Tailwind palette) */
+    --app-status-active-bg: rgba(6,78,59,0.3);
+    --app-status-active-bg-hover: rgba(6,78,59,0.5);
+    --app-status-active-border: #065f46;
+    --app-status-active-border-sel: #34d399;
+
+    --app-status-thinking-bg: #0e1f3d;
+    --app-status-thinking-bg-hover: #152d52;
+    --app-status-thinking-border: #1e3f6e;
+    --app-status-thinking-border-sel: #3c7eff;
+    --app-status-thinking-text: #5b9aff;
+
+    --app-status-pending-bg: #3d2800;
+    --app-status-pending-bg-hover: #523600;
+    --app-status-pending-border: #774e00;
+    --app-status-pending-border-sel: #b87800;
+
+    /* Badge colors (dark) — with hardcoded fallbacks */
+    --app-badge-warning-bg: rgb(var(--orange-1, 77,52,0));
+    --app-badge-warning-text: rgb(var(--orange-6, 255,138,36));
+    --app-badge-warning-border: rgb(var(--orange-3, 119,78,0));
+    --app-badge-success-bg: rgb(var(--green-1, 0,77,28));
+    --app-badge-success-text: rgb(var(--green-6, 39,195,75));
+    --app-badge-success-border: rgb(var(--green-3, 0,119,42));
+    --app-badge-error-bg: rgb(var(--red-1, 77,0,10));
+    --app-badge-error-text: rgb(var(--red-6, 249,95,91));
+    --app-badge-error-border: rgb(var(--red-3, 119,8,19));
 }
 
 html {
@@ -586,4 +681,25 @@ select {
 .tsqd-open-btn-container {
   bottom: 50% !important;
   transform: translateY(50%);
+}
+
+/* Files page Arco Tabs overrides */
+.files-tabs .arco-tabs-header {
+  border-bottom: none;
+  padding: 0;
+}
+.files-tabs .arco-tabs-header-nav-line .arco-tabs-header-ink {
+  background-color: var(--app-link);
+}
+.files-tabs .arco-tabs-header-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--app-hint);
+}
+.files-tabs .arco-tabs-header-title-active,
+.files-tabs .arco-tabs-header-title:hover {
+  color: var(--app-fg);
+}
+.files-tabs .arco-tabs-content {
+  display: none;
 }

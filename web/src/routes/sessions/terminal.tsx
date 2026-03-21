@@ -18,23 +18,7 @@ import {
     DialogHeader,
     DialogTitle
 } from '@/components/ui/dialog'
-function BackIcon() {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <polyline points="15 18 9 12 15 6" />
-        </svg>
-    )
-}
+import { IconLeft } from '@arco-design/web-react/icon'
 
 function ConnectionIndicator(props: { status: 'idle' | 'connecting' | 'connected' | 'error' }) {
     const isConnected = props.status === 'connected'
@@ -416,7 +400,7 @@ export default function TerminalPage() {
                         onClick={goBack}
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
                     >
-                        <BackIcon />
+                        <IconLeft style={{ fontSize: 20 }} />
                     </button>
                     <div className="min-w-0 flex-1">
                         <div className="truncate font-semibold">Terminal</div>

@@ -22,6 +22,15 @@ import { canonicalizeToolName } from '@/lib/toolNames'
 import { getInputString, getInputStringAny, truncate } from '@/lib/toolInputUtils'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/use-translation'
+import {
+    IconCheckCircleFill,
+    IconCloseCircleFill,
+    IconLock,
+    IconLoading,
+    IconRight,
+    IconCheck,
+    IconClose,
+} from '@arco-design/web-react/icon'
 
 const ELAPSED_INTERVAL_MS = 1000
 
@@ -65,15 +74,15 @@ function formatTaskChildLabel(child: ToolCallBlock, metadata: SessionMetadataSum
 
 function TaskStateIcon(props: { state: ToolCallBlock['tool']['state'] }) {
     if (props.state === 'completed') {
-        return <span className="text-emerald-600">✓</span>
+        return <IconCheck className="text-emerald-600" style={{ fontSize: 12 }} />
     }
     if (props.state === 'error') {
-        return <span className="text-red-600">✕</span>
+        return <IconClose className="text-red-600" style={{ fontSize: 12 }} />
     }
     if (props.state === 'pending') {
-        return <span className="text-amber-600">🔐</span>
+        return <IconLock className="text-amber-600" style={{ fontSize: 12 }} />
     }
-    return <span className="text-amber-600 animate-pulse">●</span>
+    return <IconLoading className="text-amber-600 animate-spin" style={{ fontSize: 12 }} />
 }
 
 function getTaskSummaryChildren(block: ToolCallBlock): {
@@ -121,7 +130,7 @@ function renderTaskSummary(block: ToolCallBlock, metadata: SessionMetadataSummar
                     const isError = child.tool.state === 'error'
                     const isActive = child.tool.state === 'running'
                     return (
-                        <div key={child.id} className={`flex items-center gap-2 rounded px-2 py-1 ${isActive ? 'bg-amber-50 dark:bg-amber-950/20' : isError ? 'bg-red-50 dark:bg-red-950/20' : 'bg-[var(--app-secondary-bg)]'}`}>
+                        <div key={child.id} className={`flex items-center gap-2 rounded-md px-2 py-1 ${isActive ? 'bg-amber-50 dark:bg-amber-950/20' : isError ? 'bg-red-50 dark:bg-red-950/20' : 'bg-[var(--app-secondary-bg)]'}`}>
                             <span className="shrink-0 w-3 text-center text-[10px]">
                                 <TaskStateIcon state={child.tool.state} />
                             </span>
@@ -284,35 +293,15 @@ function renderToolInput(block: ToolCallBlock): ReactNode {
 
 function StatusIcon(props: { state: ToolCallBlock['tool']['state'] }) {
     if (props.state === 'completed') {
-        return (
-            <svg className="h-3 w-3" viewBox="0 0 16 16" fill="none">
-                <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M5.2 8.3l1.8 1.8 3.8-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-        )
+        return <IconCheckCircleFill style={{ fontSize: 14 }} />
     }
     if (props.state === 'error') {
-        return (
-            <svg className="h-3 w-3" viewBox="0 0 16 16" fill="none">
-                <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-        )
+        return <IconCloseCircleFill style={{ fontSize: 14 }} />
     }
     if (props.state === 'pending') {
-        return (
-            <svg className="h-3 w-3" viewBox="0 0 16 16" fill="none">
-                <rect x="4.5" y="7" width="7" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M6 7V5.8a2 2 0 0 1 4 0V7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-        )
+        return <IconLock style={{ fontSize: 14 }} />
     }
-    return (
-        <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" opacity="0.25" />
-            <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" opacity="0.75" />
-        </svg>
-    )
+    return <IconLoading className="animate-spin" style={{ fontSize: 14 }} />
 }
 
 function statusColorClass(state: ToolCallBlock['tool']['state']): string {
@@ -323,11 +312,7 @@ function statusColorClass(state: ToolCallBlock['tool']['state']): string {
 }
 
 function DetailsIcon() {
-    return (
-        <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
-            <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-    )
+    return <IconRight style={{ fontSize: 16 }} />
 }
 
 /**
@@ -345,7 +330,7 @@ function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metad
                     const isActive = block.tool.state === 'running'
                     const label = formatTaskChildLabel(block, metadata)
                     return (
-                        <div key={block.id} className={`flex items-start gap-2 rounded px-2 py-1.5 ${isActive ? 'bg-amber-50 dark:bg-amber-950/20' : isError ? 'bg-red-50 dark:bg-red-950/20' : 'bg-[var(--app-secondary-bg)]'}`}>
+                        <div key={block.id} className={`flex items-start gap-2 rounded-md px-2 py-1.5 ${isActive ? 'bg-amber-50 dark:bg-amber-950/20' : isError ? 'bg-red-50 dark:bg-red-950/20' : 'bg-[var(--app-secondary-bg)]'}`}>
                             <span className="shrink-0 w-3 text-center text-[10px] mt-0.5">
                                 <TaskStateIcon state={block.tool.state} />
                             </span>
@@ -393,7 +378,7 @@ function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metad
 
                 if (block.kind === 'user-text') {
                     return (
-                        <div key={block.id} className="px-2 py-1 rounded bg-[var(--app-secondary-bg)]">
+                        <div key={block.id} className="px-2 py-1 rounded-md bg-[var(--app-secondary-bg)]">
                             <div className="text-[10px] text-[var(--app-hint)] mb-0.5">User</div>
                             <div className="text-xs text-[var(--app-fg)]">{block.text}</div>
                         </div>
@@ -492,7 +477,7 @@ function ToolCardInner(props: ToolCardProps) {
                 <div className="flex items-center gap-2 shrink-0">
                     <ElapsedView from={runningFrom} active={props.block.tool.state === 'running'} />
                     {isMinimalWithResult ? (
-                        <span className="rounded bg-[var(--app-secondary-bg)] px-1 py-0.5 text-[10px] text-[var(--app-hint)]">···</span>
+                        <span className="rounded-md bg-[var(--app-secondary-bg)] px-1 py-0.5 text-[10px] text-[var(--app-hint)]">···</span>
                     ) : null}
                     <span className={stateColor}>
                         <StatusIcon state={props.block.tool.state} />
@@ -513,7 +498,7 @@ function ToolCardInner(props: ToolCardProps) {
     )
 
     return (
-        <Card className="overflow-hidden shadow-sm">
+        <Card className={cn('overflow-hidden shadow-sm', presentation.hoverReveal && 'group/card')}>
             <CardHeader className="p-3 space-y-0">
                 <Dialog>
                     <DialogTrigger asChild>
@@ -552,7 +537,7 @@ function ToolCardInner(props: ToolCardProps) {
                                     </div>
                                     {isTaskOrAgent && props.block.children.length > 0 ? (
                                         <details className="group">
-                                            <summary className="flex cursor-pointer list-none items-center gap-2 rounded border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-2.5 py-1.5 text-xs text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] select-none">
+                                            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-2.5 py-1.5 text-xs text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] select-none">
                                                 <span className="transition-transform group-open:rotate-90">▶</span>
                                                 <span className="flex-1">{t('tool.taskSteps')} ({props.block.children.length})</span>
                                             </summary>
@@ -566,7 +551,7 @@ function ToolCardInner(props: ToolCardProps) {
                                             <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">{t('tool.result')}</div>
                                             {presentation.minimal ? (
                                                 <details className="group" open>
-                                                    <summary className="flex cursor-pointer list-none items-center gap-2 rounded border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-2.5 py-1.5 text-xs text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] select-none">
+                                                    <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-2.5 py-1.5 text-xs text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] select-none">
                                                         <span className="transition-transform group-open:rotate-90">▶</span>
                                                         <span className="flex-1">{t('tool.result')}</span>
                                                     </summary>
@@ -587,7 +572,7 @@ function ToolCardInner(props: ToolCardProps) {
             </CardHeader>
 
             {hasBody ? (
-                <CardContent className="px-3 pb-3 pt-0 pl-[34px]">
+                <CardContent className={cn('px-3 pb-3 pt-0 pl-[34px]', presentation.hoverReveal && 'hidden group-hover/card:block')}>
                     {taskSummary ? (
                         <div className="mt-2">
                             {taskSummary}
@@ -596,7 +581,7 @@ function ToolCardInner(props: ToolCardProps) {
 
                     {showTaskResult ? (
                         <details className="group mt-3">
-                            <summary className="flex cursor-pointer list-none items-center gap-2 rounded border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-2.5 py-1.5 text-xs text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] select-none">
+                            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-2.5 py-1.5 text-xs text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] select-none">
                                 <span className="transition-transform group-open:rotate-90">▶</span>
                                 <span className="flex-1">{t('tool.result')}</span>
                             </summary>

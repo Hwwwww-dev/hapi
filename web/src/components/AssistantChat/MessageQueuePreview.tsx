@@ -1,3 +1,4 @@
+import { IconClose } from '@arco-design/web-react/icon'
 import type { QueuedMessage } from '@/hooks/useMessageQueue'
 
 function truncate(text: string, max = 80): string {
@@ -52,15 +53,13 @@ export function MessageQueuePreview(props: {
                         <button
                             type="button"
                             aria-label="remove"
-                            className="mt-0.5 shrink-0 rounded p-0.5 text-[var(--app-hint)] opacity-0 group-hover:opacity-100 hover:text-[var(--app-fg)] hover:bg-[var(--app-hover)] cursor-pointer transition-opacity"
+                            className="mt-0.5 shrink-0 rounded-md p-0.5 text-[var(--app-hint)] opacity-0 group-hover:opacity-100 hover:text-[var(--app-fg)] hover:bg-[var(--app-hover)] cursor-pointer transition-opacity"
                             onClick={(e) => {
                                 e.stopPropagation()
                                 onRemove(item.id)
                             }}
                         >
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                                <path d="M3 3l6 6M9 3l-6 6" />
-                            </svg>
+                            <IconClose style={{ fontSize: 12 }} />
                         </button>
                     </div>
                 ))}

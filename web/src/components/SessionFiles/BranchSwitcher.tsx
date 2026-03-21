@@ -82,12 +82,12 @@ export function BranchSwitcher({ api, sessionId, currentBranch, hasBlockingChang
             <button
                 type="button"
                 onClick={handleOpen}
-                className="text-xs px-2 py-0.5 rounded border border-[var(--app-border)] hover:bg-[var(--app-subtle-bg)] text-[var(--app-hint)]"
+                className="text-xs px-2 py-0.5 rounded-md border border-[var(--app-border)] hover:bg-[var(--app-subtle-bg)] text-[var(--app-hint)]"
             >
                 switch
             </button>
             {open && (
-                <div className="absolute top-7 left-0 z-50 bg-[var(--app-bg)] border border-[var(--app-border)] rounded shadow-md min-w-40 max-h-60 overflow-y-auto">
+                <div className="absolute top-7 left-0 z-50 bg-[var(--app-bg)] border border-[var(--app-border)] rounded-md shadow-md min-w-40 max-h-60 overflow-y-auto">
                     <div className="flex items-center justify-between px-2 py-1.5 border-b border-[var(--app-divider)]">
                         <span className="text-xs font-semibold">Branches</span>
                         <button

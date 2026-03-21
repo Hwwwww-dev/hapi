@@ -214,13 +214,13 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                     placeholder={t('git.searchBranches')}
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
+                    className="w-full text-sm px-3 py-2 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
                 />
             </div>
 
             {/* Error */}
             {(error || fetchError) && (
-                <div className="mx-3 mb-2 px-3 py-2 text-xs text-red-500 bg-red-500/10 rounded border border-red-500/20">
+                <div className="mx-3 mb-2 px-3 py-2 text-xs text-red-500 bg-red-500/10 rounded-md border border-red-500/20">
                     {error ?? String(fetchError)}
                 </div>
             )}
@@ -274,7 +274,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                     type="button"
                                     onClick={() => handleFetch()}
                                     disabled={fetchingRemote !== null}
-                                    className="ml-auto text-[10px] px-2 py-0.5 rounded border border-[var(--app-border)] text-[var(--app-link)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-50 transition-colors"
+                                    className="ml-auto text-[10px] px-2 py-0.5 rounded-md border border-[var(--app-border)] text-[var(--app-link)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-50 transition-colors"
                                 >
                                     {fetchingRemote === '__all__' ? t('git.fetching') : t('git.fetchAll')}
                                 </button>
@@ -288,7 +288,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                             type="button"
                                             onClick={() => handleFetch(remoteName)}
                                             disabled={fetchingRemote !== null}
-                                            className="ml-auto text-[10px] px-1.5 py-0.5 rounded text-[var(--app-link)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-50 transition-colors"
+                                            className="ml-auto text-[10px] px-1.5 py-0.5 rounded-md text-[var(--app-link)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-50 transition-colors"
                                         >
                                             {fetchingRemote === remoteName ? t('git.fetching') : t('git.fetch')}
                                         </button>
@@ -347,7 +347,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                                             if (e.key === 'Escape') setEditingRemote(null)
                                                         }}
                                                         autoFocus
-                                                        className="flex-1 text-xs px-2 py-1 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)]"
+                                                        className="flex-1 text-xs px-2 py-1 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)]"
                                                     />
                                                 </div>
                                             ) : (
@@ -364,22 +364,22 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                     ))}
                                     {addRemoteOpen ? (
                                         <div className="px-3 py-2 flex flex-col gap-2">
-                                            <input type="text" placeholder={t('git.remoteName')} value={newRemoteName} onChange={e => setNewRemoteName(e.target.value)} autoFocus className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]" />
+                                            <input type="text" placeholder={t('git.remoteName')} value={newRemoteName} onChange={e => setNewRemoteName(e.target.value)} autoFocus className="w-full text-sm px-3 py-2 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]" />
                                             <input type="text" placeholder={t('git.remoteUrl')} value={newRemoteUrl} onChange={e => setNewRemoteUrl(e.target.value)} onKeyDown={async e => {
                                                 if (e.key === 'Enter' && newRemoteName.trim() && newRemoteUrl.trim()) {
                                                     const res = await api.gitRemoteAdd(sessionId, newRemoteName.trim(), newRemoteUrl.trim())
                                                     if (res.success) { notify.success(t('notify.git.remoteAddOk')); setAddRemoteOpen(false); setNewRemoteName(''); setNewRemoteUrl(''); refetchRemotes() }
                                                     else notify.error(res.stderr ?? res.error ?? 'Failed')
                                                 }
-                                            }} className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]" />
+                                            }} className="w-full text-sm px-3 py-2 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]" />
                                             <div className="flex gap-2">
                                                 <button type="button" onClick={async () => {
                                                     if (!newRemoteName.trim() || !newRemoteUrl.trim()) return
                                                     const res = await api.gitRemoteAdd(sessionId, newRemoteName.trim(), newRemoteUrl.trim())
                                                     if (res.success) { notify.success(t('notify.git.remoteAddOk')); setAddRemoteOpen(false); setNewRemoteName(''); setNewRemoteUrl(''); refetchRemotes() }
                                                     else notify.error(res.stderr ?? res.error ?? 'Failed')
-                                                }} disabled={!newRemoteName.trim() || !newRemoteUrl.trim()} className="flex-1 min-h-[36px] text-xs font-medium rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50">{t('git.addRemote')}</button>
-                                                <button type="button" onClick={() => { setAddRemoteOpen(false); setNewRemoteName(''); setNewRemoteUrl('') }} className="px-3 min-h-[36px] text-xs rounded border border-[var(--app-border)] text-[var(--app-hint)]">{t('button.cancel')}</button>
+                                                }} disabled={!newRemoteName.trim() || !newRemoteUrl.trim()} className="flex-1 min-h-[36px] text-xs font-medium rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50">{t('git.addRemote')}</button>
+                                                <button type="button" onClick={() => { setAddRemoteOpen(false); setNewRemoteName(''); setNewRemoteUrl('') }} className="px-3 min-h-[36px] text-xs rounded-md border border-[var(--app-border)] text-[var(--app-hint)]">{t('button.cancel')}</button>
                                             </div>
                                         </div>
                                     ) : (
@@ -403,7 +403,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                             onChange={e => setNewBranchName(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleCreateBranch()}
                             autoFocus
-                            className="w-full text-sm px-3 py-2 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
+                            className="w-full text-sm px-3 py-2 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] outline-none focus:border-[var(--app-link)]"
                         />
                         <Select
                             value={newBranchFrom}
@@ -428,7 +428,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                 type="checkbox"
                                 checked={checkoutAfterCreate}
                                 onChange={e => setCheckoutAfterCreate(e.target.checked)}
-                                className="rounded"
+                                className="rounded-md"
                             />
                             {t('git.checkoutAfterCreate')}
                         </label>
@@ -437,14 +437,14 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                 type="button"
                                 onClick={() => void handleCreateBranch()}
                                 disabled={!newBranchName.trim() || actionLoading === 'create'}
-                                className="flex-1 min-h-[44px] text-sm font-medium rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50 transition-opacity"
+                                className="flex-1 min-h-[44px] text-sm font-medium rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50 transition-opacity"
                             >
                                 {actionLoading === 'create' ? t('git.creating') : t('git.create')}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => { setShowCreateInput(false); setNewBranchName(''); setNewBranchFrom(''); setError(null) }}
-                                className="px-4 min-h-[44px] text-sm rounded border border-[var(--app-border)] text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
+                                className="px-4 min-h-[44px] text-sm rounded-md border border-[var(--app-border)] text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                             >
                                 {t('button.cancel')}
                             </button>
@@ -653,7 +653,7 @@ function BranchRow({ branch, loading, isRenaming, renameValue, remoteBranches, u
                         onKeyDown={e => { if (e.key === 'Enter') onRenameSubmit(); if (e.key === 'Escape') onRenameCancel() }}
                         onBlur={onRenameCancel}
                         autoFocus
-                        className="flex-1 text-sm px-2 py-0.5 rounded border border-[var(--app-link)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none"
+                        className="flex-1 text-sm px-2 py-0.5 rounded-md border border-[var(--app-link)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none"
                         onClick={e => e.stopPropagation()}
                     />
                 ) : (

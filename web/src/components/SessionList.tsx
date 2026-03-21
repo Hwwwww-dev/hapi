@@ -207,17 +207,17 @@ const SessionItem = memo(function SessionItem(props: {
     const modelLabel = getSessionModelLabel(s)
     const statusBg = s.active
         ? (s.thinking
-            ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 hover:!bg-blue-100 dark:hover:!bg-blue-950/50 animate-bg-breathe'
+            ? 'bg-[var(--app-status-thinking-bg)] border-[var(--app-status-thinking-border)] hover:!bg-[var(--app-status-thinking-bg-hover)] animate-bg-breathe'
             : s.pendingRequestsCount > 0
-                ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 hover:!bg-amber-100 dark:hover:!bg-amber-950/50'
-                : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 hover:!bg-emerald-100 dark:hover:!bg-emerald-950/50')
+                ? 'bg-[var(--app-status-pending-bg)] border-[var(--app-status-pending-border)] hover:!bg-[var(--app-status-pending-bg-hover)]'
+                : 'bg-[var(--app-status-active-bg)] border-[var(--app-status-active-border)] hover:!bg-[var(--app-status-active-bg-hover)]')
         : ''
     const selectedBg = s.active
         ? (s.thinking
-            ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-400 dark:border-blue-600 hover:!bg-blue-100 dark:hover:!bg-blue-950/50 animate-bg-breathe'
+            ? 'bg-[var(--app-status-thinking-bg)] border-[var(--app-status-thinking-border-sel)] hover:!bg-[var(--app-status-thinking-bg-hover)] animate-bg-breathe'
             : s.pendingRequestsCount > 0
-                ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-400 dark:border-amber-600 hover:!bg-amber-100 dark:hover:!bg-amber-950/50'
-                : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-600 hover:!bg-emerald-100 dark:hover:!bg-emerald-950/50')
+                ? 'bg-[var(--app-status-pending-bg)] border-[var(--app-status-pending-border-sel)] hover:!bg-[var(--app-status-pending-bg-hover)]'
+                : 'bg-[var(--app-status-active-bg)] border-[var(--app-status-active-border-sel)] hover:!bg-[var(--app-status-active-bg-hover)]')
         : 'border-[var(--app-link)] bg-[var(--app-secondary-bg)]'
     return (
         <>
@@ -241,7 +241,7 @@ const SessionItem = memo(function SessionItem(props: {
                         </div>
                         <div className="flex flex-wrap items-center justify-end gap-1.5">
                             {s.thinking ? (
-                                <span className="rounded-full bg-[#007AFF]/10 px-2 py-0.5 text-[#007AFF] animate-pulse">
+                                <span className="rounded-full bg-[var(--app-status-thinking-bg)] px-2 py-0.5 text-[var(--app-status-thinking-text)] animate-pulse">
                                     {t('session.item.thinking')}
                                 </span>
                             ) : null}
@@ -313,7 +313,7 @@ const SessionItem = memo(function SessionItem(props: {
                             key={child.id}
                             type="button"
                             onClick={() => props.onSelect(child.id)}
-                            className={`flex w-full flex-col gap-1 rounded-lg border px-3 py-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] ${child.id === props.selectedSessionId ? 'border-[var(--app-link)] bg-[var(--app-secondary-bg)]' : child.active ? (child.thinking ? 'bg-blue-500/8 border-blue-400/30' : 'bg-emerald-500/8 border-emerald-400/30') : 'border-[var(--app-divider)] bg-[var(--app-bg)] hover:bg-[var(--app-secondary-bg)]'}`}
+                            className={`flex w-full flex-col gap-1 rounded-lg border px-3 py-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] ${child.id === props.selectedSessionId ? 'border-[var(--app-link)] bg-[var(--app-secondary-bg)]' : child.active ? (child.thinking ? 'bg-[var(--app-status-thinking-bg)] border-[var(--app-status-thinking-border)]' : 'bg-[var(--app-status-active-bg)] border-[var(--app-status-active-border)]') : 'border-[var(--app-divider)] bg-[var(--app-bg)] hover:bg-[var(--app-secondary-bg)]'}`}
                         >
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-[var(--app-hint)] shrink-0">↳</span>

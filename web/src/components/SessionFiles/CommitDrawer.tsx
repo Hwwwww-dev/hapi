@@ -68,7 +68,7 @@ export function CommitDrawer({ api, sessionId, gitStatus, onCommitted, onStaged,
                 {allFiles.map(f => (
                     <label
                         key={f.fullPath}
-                        className="flex items-center gap-2 text-xs cursor-pointer hover:bg-[var(--app-subtle-bg)] px-1 py-0.5 rounded"
+                        className="flex items-center gap-2 text-xs cursor-pointer hover:bg-[var(--app-subtle-bg)] px-1 py-0.5 rounded-md"
                     >
                         <input
                             type="checkbox"
@@ -89,14 +89,14 @@ export function CommitDrawer({ api, sessionId, gitStatus, onCommitted, onStaged,
                 value={message}
                 onChange={e => setMessage(e.target.value)}
                 placeholder="Commit message..."
-                className="text-xs border border-[var(--app-border)] rounded p-1.5 resize-none h-16 bg-[var(--app-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] focus:outline-none focus:border-[var(--app-link)]"
+                className="text-xs border border-[var(--app-border)] rounded-md p-1.5 resize-none h-16 bg-[var(--app-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] focus:outline-none focus:border-[var(--app-link)]"
             />
             {error && <div className="text-xs text-red-500">{error}</div>}
             <button
                 type="button"
                 onClick={handleCommit}
                 disabled={isPending || !message.trim() || gitStatus.stagedFiles.length === 0}
-                className="text-xs px-3 py-1.5 rounded bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-40 hover:opacity-90 transition-opacity"
+                className="text-xs px-3 py-1.5 rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-40 hover:opacity-90 transition-opacity"
             >
                 {isPending ? 'Committing...' : `Commit${gitStatus.stagedFiles.length > 0 ? ` (${gitStatus.stagedFiles.length})` : ''}`}
             </button>

@@ -47,7 +47,7 @@ export function SessionTypeSelector(props: {
                                             value={props.worktreeName}
                                             onChange={(e) => props.onWorktreeNameChange(e.target.value)}
                                             disabled={props.isDisabled}
-                                            className="w-full text-sm px-3 py-1.5 rounded border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)]"
+                                            className="w-full text-sm px-3 py-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)]"
                                         />
                                     </div>
                                 ) : (

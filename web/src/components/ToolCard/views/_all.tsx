@@ -34,7 +34,7 @@ function AgentInputView({ block }: ToolViewProps) {
             {subagentType && (
                 <div>
                     <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">subagent_type</div>
-                    <span className="rounded bg-[var(--app-secondary-bg)] px-2 py-1 font-mono text-xs text-[var(--app-fg)]">{subagentType}</span>
+                    <span className="rounded-md bg-[var(--app-secondary-bg)] px-2 py-1 font-mono text-xs text-[var(--app-fg)]">{subagentType}</span>
                 </div>
             )}
             {description && (

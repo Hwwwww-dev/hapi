@@ -21,7 +21,7 @@ export function StatusBadge({ status }: { status: GitFileStatus['status'] }) {
 
     return (
         <span
-            className="inline-flex items-center justify-center rounded border px-1.5 py-0.5 text-[10px] font-semibold"
+            className="inline-flex items-center justify-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold"
             style={{ color, borderColor: color }}
         >
             {label}

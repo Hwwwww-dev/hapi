@@ -174,7 +174,7 @@ function HappyNestedBlockList(props: {
                             <div key={`event:${block.id}`} className="py-1 animate-fade-in-up">
                                 <div className="mx-auto w-fit max-w-[92%]">
                                     <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-3 py-1 text-xs text-[var(--app-hint)]">
-                                        <span aria-hidden="true">{presentation.icon}</span>
+                                        {presentation.icon ? <span aria-hidden="true">{presentation.icon}</span> : null}
                                         <span>{presentation.text}</span>
                                     </div>
                                 </div>
@@ -188,7 +188,6 @@ function HappyNestedBlockList(props: {
                                 <details className="rounded-lg border border-[var(--app-divider)] bg-[var(--app-secondary-bg)]">
                                     <summary className="cursor-pointer select-none px-3 py-2 text-xs text-[var(--app-hint)] hover:text-[var(--app-fg)]">
                                         <span className="inline-flex items-center gap-1.5">
-                                            <span aria-hidden="true">📋</span>
                                             <span>Context summary</span>
                                         </span>
                                     </summary>
