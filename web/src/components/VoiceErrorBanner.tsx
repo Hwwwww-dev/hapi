@@ -1,7 +1,5 @@
 import { useEffect } from 'react'
-import { Alert } from '@arco-design/web-react'
 import { useVoiceOptional } from '@/lib/voice-context'
-import { cn } from '@/lib/utils'
 
 export function VoiceErrorBanner() {
     const voice = useVoiceOptional()
@@ -23,13 +21,8 @@ export function VoiceErrorBanner() {
     }
 
     return (
-        <Alert
-            type="error"
-            banner
-            showIcon={false}
-            closable={false}
-            content={voice.errorMessage}
-            className={cn('fixed top-0 left-0 right-0 z-50 animate-slide-down-fade')}
-        />
+        <div className="fixed top-0 left-0 right-0 bg-red-500 text-white text-center py-2 text-sm font-medium z-50 flex items-center justify-center border-b border-red-600 animate-slide-down-fade">
+            {voice.errorMessage}
+        </div>
     )
 }

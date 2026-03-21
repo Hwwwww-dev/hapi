@@ -1,8 +1,6 @@
-import { Alert } from '@arco-design/web-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { Spinner } from '@/components/Spinner'
 import { useTranslation } from '@/lib/use-translation'
-import { cn } from '@/lib/utils'
 
 export function SyncingBanner({ isSyncing }: { isSyncing: boolean }) {
     const { t } = useTranslation()
@@ -14,18 +12,9 @@ export function SyncingBanner({ isSyncing }: { isSyncing: boolean }) {
     }
 
     return (
-        <Alert
-            type="info"
-            banner
-            showIcon={false}
-            closable={false}
-            content={
-                <div className="flex items-center justify-center gap-2">
-                    <Spinner size="sm" label={null} className="text-[var(--app-banner-text)]" />
-                    {t('syncing.title')}
-                </div>
-            }
-            className={cn('fixed top-0 left-0 right-0 z-50 animate-slide-down-fade')}
-        />
+        <div className="fixed top-0 left-0 right-0 bg-[var(--app-banner-bg)] text-[var(--app-banner-text)] text-center py-2 text-sm font-medium z-50 flex items-center justify-center gap-2 border-b border-[var(--app-divider)] animate-slide-down-fade">
+            <Spinner size="sm" label={null} className="text-[var(--app-banner-text)]" />
+            {t('syncing.title')}
+        </div>
     )
 }

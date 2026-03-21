@@ -1,7 +1,5 @@
-import { Alert } from '@arco-design/web-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useTranslation } from '@/lib/use-translation'
-import { cn } from '@/lib/utils'
 
 export function OfflineBanner() {
     const { t } = useTranslation()
@@ -12,13 +10,8 @@ export function OfflineBanner() {
     }
 
     return (
-        <Alert
-            type="warning"
-            banner
-            showIcon={false}
-            closable={false}
-            content={t('offline.message')}
-            className={cn('fixed top-0 left-0 right-0 z-50 animate-slide-down-fade')}
-        />
+        <div className="fixed top-0 left-0 right-0 bg-amber-500 text-white text-center py-2 text-sm font-medium z-50 animate-slide-down-fade">
+            {t('offline.message')}
+        </div>
     )
 }
