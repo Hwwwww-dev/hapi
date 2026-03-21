@@ -19,7 +19,7 @@ export type MessageWindowState = {
     messagesVersion: number
 }
 
-export const VISIBLE_WINDOW_SIZE = 200
+export const VISIBLE_WINDOW_SIZE = 300
 export const PENDING_WINDOW_SIZE = 100
 const PAGE_SIZE = 50
 const PENDING_OVERFLOW_WARNING = 'New messages arrived while you were away. Scroll to bottom to refresh.'
@@ -219,13 +219,30 @@ function buildState(
 
 function trimVisible(messages: DecryptedMessage[], mode: 'append' | 'prepend', currentSize = 0): DecryptedMessage[] {
     const effectiveSize = Math.max(currentSize, VISIBLE_WINDOW_SIZE)
-    if (messages.length <= effectiveSize) {
+
+    // Window limit applies to root (non-sidechain) messages only.
+    // Sidechain messages ride for free — trimming them would cause
+    // incomplete Agent output and orphan sidechain in the tracer.
+    const rootCount = messages.filter(m => !isSidechainMessage(m)).length
+    if (rootCount <= effectiveSize) {
         return messages
     }
-    if (mode === 'prepend') {
-        return messages.slice(0, effectiveSize)
+
+    // Root count exceeds limit — find the cut point by counting roots,
+    // keeping interleaved sidechain messages alongside their roots.
+    let rootSeen = 0
+    if (mode === 'append') {
+        for (let i = messages.length - 1; i >= 0; i--) {
+            if (!isSidechainMessage(messages[i])) rootSeen++
+            if (rootSeen >= effectiveSize) return messages.slice(i)
+        }
+    } else {
+        for (let i = 0; i < messages.length; i++) {
+            if (!isSidechainMessage(messages[i])) rootSeen++
+            if (rootSeen >= effectiveSize) return messages.slice(0, i + 1)
+        }
     }
-    return messages.slice(messages.length - effectiveSize)
+    return messages
 }
 
 function trimPending(
@@ -346,7 +363,7 @@ export async function fetchLatestMessages(api: ApiClient, sessionId: string): Pr
                 const merged = hasPending
                     ? mergeMessages(prev.messages, [...prev.pending, ...response.messages])
                     : mergeMessages(prev.messages, response.messages)
-                const trimmed = trimVisible(merged, 'append')
+                const trimmed = trimVisible(merged, 'append', prev.messages.length)
                 return buildState(prev, {
                     messages: trimmed,
                     pending: hasPending ? [] : prev.pending,
