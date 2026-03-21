@@ -192,6 +192,11 @@ export function HistoryTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                         value={selectedBranch ?? ''}
                         onChange={(val: string) => handleBranchChange(val)}
                         className="w-full"
+                        showSearch
+                        filterOption={(inputValue, option) => {
+                            const label = (option as { props?: { children?: React.ReactNode } }).props?.children?.toString() ?? ''
+                            return label.toLowerCase().includes(inputValue.toLowerCase())
+                        }}
                         getPopupContainer={(node) => node.parentElement ?? document.body}
                     >
                         <Select.Option value="">{currentBranch ? `${currentBranch} (HEAD)` : 'HEAD'}</Select.Option>
