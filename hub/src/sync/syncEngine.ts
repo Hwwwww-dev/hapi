@@ -967,7 +967,7 @@ export class SyncEngine {
         return await this.rpcGateway.gitPush(sessionId, options)
     }
 
-    async gitLog(sessionId: string, options: { cwd?: string; limit?: number; skip?: number; branch?: string }): Promise<RpcCommandResponse> {
+    async gitLog(sessionId: string, options: { cwd?: string; limit?: number; skip?: number; branch?: string; keyword?: string; since?: string; until?: string }): Promise<RpcCommandResponse> {
         return await this.rpcGateway.gitLog(sessionId, options)
     }
 

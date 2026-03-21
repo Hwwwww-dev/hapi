@@ -1,12 +1,10 @@
-import type { RefObject } from 'react'
-import { Radio } from '@arco-design/web-react'
+import { Radio, Input } from '@arco-design/web-react'
 import type { SessionType } from './types'
 import { useTranslation } from '@/lib/use-translation'
 
 export function SessionTypeSelector(props: {
     sessionType: SessionType
     worktreeName: string
-    worktreeInputRef: RefObject<HTMLInputElement | null>
     isDisabled: boolean
     onSessionTypeChange: (value: SessionType) => void
     onWorktreeNameChange: (value: string) => void
@@ -36,31 +34,27 @@ export function SessionTypeSelector(props: {
                         </label>
                     </div>
                     <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-1.5">
                             <Radio value="worktree">
-                                {props.sessionType === 'worktree' ? (
-                                    <div className="flex-1 min-h-[34px] flex items-center">
-                                        <input
-                                            ref={props.worktreeInputRef}
-                                            type="text"
-                                            placeholder={t('newSession.type.worktree.placeholder')}
-                                            value={props.worktreeName}
-                                            onChange={(e) => props.onWorktreeNameChange(e.target.value)}
-                                            disabled={props.isDisabled}
-                                            className="w-full text-sm px-3 py-1.5 rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] text-[var(--app-fg)] outline-none focus:border-[var(--app-link)]"
-                                        />
-                                    </div>
-                                ) : (
-                                    <>
-                                        <span className="text-sm capitalize cursor-pointer">
-                                            {t('newSession.type.worktree')}
-                                        </span>
-                                        <span className="ml-2 text-xs text-[var(--app-hint)]">
-                                            {t('newSession.type.worktree.desc')}
-                                        </span>
-                                    </>
-                                )}
+                                <span className="text-sm capitalize cursor-pointer">
+                                    {t('newSession.type.worktree')}
+                                </span>
+                                <span className="ml-2 text-xs text-[var(--app-hint)]">
+                                    {t('newSession.type.worktree.desc')}
+                                </span>
                             </Radio>
+                            {props.sessionType === 'worktree' && (
+                                <div className="ml-6">
+                                    <Input
+                                        placeholder={t('newSession.type.worktree.placeholder')}
+                                        value={props.worktreeName}
+                                        onChange={(val: string) => props.onWorktreeNameChange(val)}
+                                        disabled={props.isDisabled}
+                                        size="small"
+                                        autoFocus
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </Radio.Group>

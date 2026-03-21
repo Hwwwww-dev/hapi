@@ -18,7 +18,7 @@ import {
     DialogHeader,
     DialogTitle
 } from '@/components/ui/dialog'
-import { IconLeft } from '@arco-design/web-react/icon'
+import { IconLeft, IconCommand } from '@arco-design/web-react/icon'
 
 function ConnectionIndicator(props: { status: 'idle' | 'connecting' | 'connected' | 'error' }) {
     const isConnected = props.status === 'connected'
@@ -182,8 +182,58 @@ export default function TerminalPage() {
     const [exitInfo, setExitInfo] = useState<{ code: number | null; signal: string | null } | null>(null)
     const [ctrlActive, setCtrlActive] = useState(false)
     const [altActive, setAltActive] = useState(false)
+    const [keyboardOpen, setKeyboardOpen] = useState(false)
     const [pasteDialogOpen, setPasteDialogOpen] = useState(false)
     const [manualPasteText, setManualPasteText] = useState('')
+
+    // Draggable FAB state
+    const fabRef = useRef<HTMLDivElement | null>(null)
+    const fabPosRef = useRef({ right: 16, bottom: 16 }) // CSS pixels from edges
+    const dragStateRef = useRef<{
+        startX: number
+        startY: number
+        startRight: number
+        startBottom: number
+        moved: boolean
+    } | null>(null)
+    const [fabPos, setFabPos] = useState({ right: 16, bottom: 16 })
+
+    const handleFabPointerDown = useCallback((e: PointerEvent<HTMLDivElement>) => {
+        const el = e.currentTarget
+        el.setPointerCapture(e.pointerId)
+        dragStateRef.current = {
+            startX: e.clientX,
+            startY: e.clientY,
+            startRight: fabPosRef.current.right,
+            startBottom: fabPosRef.current.bottom,
+            moved: false,
+        }
+    }, [])
+
+    const handleFabPointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
+        const drag = dragStateRef.current
+        if (!drag) return
+        const dx = e.clientX - drag.startX
+        const dy = e.clientY - drag.startY
+        if (!drag.moved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return
+        drag.moved = true
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        const newRight = Math.max(4, Math.min(vw - 52, drag.startRight - dx))
+        const newBottom = Math.max(4, Math.min(vh - 52, drag.startBottom - dy))
+        fabPosRef.current = { right: newRight, bottom: newBottom }
+        setFabPos({ right: newRight, bottom: newBottom })
+    }, [])
+
+    const handleFabPointerUp = useCallback((e: PointerEvent<HTMLDivElement>) => {
+        const el = e.currentTarget
+        el.releasePointerCapture(e.pointerId)
+        const drag = dragStateRef.current
+        dragStateRef.current = null
+        if (!drag?.moved) {
+            setKeyboardOpen(v => !v)
+        }
+    }, [])
 
     const {
         state: terminalState,
@@ -441,43 +491,67 @@ export default function TerminalPage() {
                 </div>
             </div>
 
-            <div className="bg-[var(--app-bg)] border-t border-[var(--app-border)] pb-[env(safe-area-inset-bottom)]">
-                <div className="mx-auto w-full max-w-content px-3">
-                    <div className="flex flex-col gap-2 py-2">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                void handlePasteAction()
-                            }}
-                            disabled={quickInputDisabled}
-                            className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-secondary-bg)] px-3 py-2 text-sm font-medium text-[var(--app-fg)] transition-colors hover:bg-[var(--app-subtle-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-button)] disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {t('button.paste')}
-                        </button>
-                        {QUICK_INPUT_ROWS.map((row, rowIndex) => (
-                            <div
-                                key={`terminal-quick-row-${rowIndex}`}
-                                className="flex items-stretch overflow-hidden rounded-md bg-[var(--app-secondary-bg)]"
+            {/* Floating virtual keyboard */}
+            <div
+                ref={fabRef}
+                className="fixed z-30 flex flex-col items-end gap-2"
+                style={{
+                    right: fabPos.right,
+                    bottom: `calc(env(safe-area-inset-bottom) + ${fabPos.bottom}px)`,
+                    touchAction: 'none',
+                }}
+            >
+                {keyboardOpen && (
+                    <div className="animate-slide-up-fade rounded-xl border border-[var(--app-border)] bg-[var(--app-bg)] shadow-xl p-2 w-[min(360px,calc(100vw-2rem))]">
+                        <div className="flex flex-col gap-1.5">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void handlePasteAction()
+                                }}
+                                disabled={quickInputDisabled}
+                                className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-secondary-bg)] px-3 py-1.5 text-xs font-medium text-[var(--app-fg)] transition-colors hover:bg-[var(--app-subtle-bg)] disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                {row.map((input) => {
-                                    const modifier = input.modifier
-                                    const isCtrl = modifier === 'ctrl'
-                                    const isAlt = modifier === 'alt'
-                                    const isActive = (isCtrl && ctrlActive) || (isAlt && altActive)
-                                    return (
-                                        <QuickKeyButton
-                                            key={input.label}
-                                            input={input}
-                                            disabled={quickInputDisabled}
-                                            isActive={isActive}
-                                            onPress={handleQuickInput}
-                                            onToggleModifier={handleModifierToggle}
-                                        />
-                                    )
-                                })}
-                            </div>
-                        ))}
+                                {t('button.paste')}
+                            </button>
+                            {QUICK_INPUT_ROWS.map((row, rowIndex) => (
+                                <div
+                                    key={`terminal-quick-row-${rowIndex}`}
+                                    className="flex items-stretch overflow-hidden rounded-md bg-[var(--app-secondary-bg)]"
+                                >
+                                    {row.map((input) => {
+                                        const modifier = input.modifier
+                                        const isCtrl = modifier === 'ctrl'
+                                        const isAlt = modifier === 'alt'
+                                        const isActive = (isCtrl && ctrlActive) || (isAlt && altActive)
+                                        return (
+                                            <QuickKeyButton
+                                                key={input.label}
+                                                input={input}
+                                                disabled={quickInputDisabled}
+                                                isActive={isActive}
+                                                onPress={handleQuickInput}
+                                                onToggleModifier={handleModifierToggle}
+                                            />
+                                        )
+                                    })}
+                                </div>
+                            ))}
+                        </div>
                     </div>
+                )}
+                <div
+                    onPointerDown={handleFabPointerDown}
+                    onPointerMove={handleFabPointerMove}
+                    onPointerUp={handleFabPointerUp}
+                    className={`flex h-12 w-12 cursor-grab items-center justify-center rounded-full shadow-lg transition-all select-none active:cursor-grabbing ${
+                        keyboardOpen
+                            ? 'bg-[var(--app-fg)] text-[var(--app-bg)] rotate-45'
+                            : 'bg-[var(--app-button)] text-[var(--app-button-text)]'
+                    }`}
+                    aria-label={keyboardOpen ? 'Hide keyboard' : 'Show keyboard'}
+                >
+                    <IconCommand style={{ fontSize: 20 }} />
                 </div>
             </div>
 

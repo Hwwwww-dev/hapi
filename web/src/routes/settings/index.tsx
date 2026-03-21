@@ -1,12 +1,13 @@
-import { useState, useRef, useEffect } from 'react'
+import { Select } from '@arco-design/web-react'
 import { useTranslation, type Locale } from '@/lib/use-translation'
 import { useAppGoBack } from '@/hooks/useAppGoBack'
-import { getElevenLabsSupportedLanguages, getLanguageDisplayName, type Language } from '@/lib/languages'
+import { getElevenLabsSupportedLanguages, getLanguageDisplayName } from '@/lib/languages'
 import { getFontScaleOptions, useFontScale, type FontScale } from '@/hooks/useFontScale'
 import { getTerminalFontSizeOptions, useTerminalFontSize, type TerminalFontSize } from '@/hooks/useTerminalFontSize'
 import { useAppearance, getAppearanceOptions, type AppearancePreference } from '@/hooks/useTheme'
 import { PROTOCOL_VERSION } from '@hapi/protocol'
-import { IconLeft, IconCheck, IconDown } from '@arco-design/web-react/icon'
+import { IconLeft } from '@arco-design/web-react/icon'
+import { useState } from 'react'
 
 const locales: { value: Locale; nativeLabel: string }[] = [
     { value: 'en', nativeLabel: 'English' },
@@ -18,21 +19,10 @@ const voiceLanguages = getElevenLabsSupportedLanguages()
 export default function SettingsPage() {
     const { t, locale, setLocale } = useTranslation()
     const goBack = useAppGoBack()
-    const [isOpen, setIsOpen] = useState(false)
-    const [isAppearanceOpen, setIsAppearanceOpen] = useState(false)
-    const [isFontOpen, setIsFontOpen] = useState(false)
-    const [isTerminalFontOpen, setIsTerminalFontOpen] = useState(false)
-    const [isVoiceOpen, setIsVoiceOpen] = useState(false)
-    const containerRef = useRef<HTMLDivElement>(null)
-    const appearanceContainerRef = useRef<HTMLDivElement>(null)
-    const fontContainerRef = useRef<HTMLDivElement>(null)
-    const terminalFontContainerRef = useRef<HTMLDivElement>(null)
-    const voiceContainerRef = useRef<HTMLDivElement>(null)
     const { fontScale, setFontScale } = useFontScale()
     const { terminalFontSize, setTerminalFontSize } = useTerminalFontSize()
     const { appearance, setAppearance } = useAppearance()
 
-    // Voice language state - read from localStorage
     const [voiceLanguage, setVoiceLanguage] = useState<string | null>(() => {
         return localStorage.getItem('hapi-voice-lang')
     })
@@ -40,85 +30,16 @@ export default function SettingsPage() {
     const fontScaleOptions = getFontScaleOptions()
     const terminalFontSizeOptions = getTerminalFontSizeOptions()
     const appearanceOptions = getAppearanceOptions()
-    const currentLocale = locales.find((loc) => loc.value === locale)
-    const currentAppearanceLabel = appearanceOptions.find((opt) => opt.value === appearance)?.labelKey ?? 'settings.display.appearance.system'
-    const currentFontScaleLabel = fontScaleOptions.find((opt) => opt.value === fontScale)?.label ?? '100%'
-    const currentTerminalFontSizeLabel = terminalFontSizeOptions.find((opt) => opt.value === terminalFontSize)?.label ?? '13px'
-    const currentVoiceLanguage = voiceLanguages.find((lang) => lang.code === voiceLanguage)
 
-    const handleLocaleChange = (newLocale: Locale) => {
-        setLocale(newLocale)
-        setIsOpen(false)
-    }
-
-    const handleAppearanceChange = (pref: AppearancePreference) => {
-        setAppearance(pref)
-        setIsAppearanceOpen(false)
-    }
-
-    const handleFontScaleChange = (newScale: FontScale) => {
-        setFontScale(newScale)
-        setIsFontOpen(false)
-    }
-
-    const handleTerminalFontSizeChange = (newSize: TerminalFontSize) => {
-        setTerminalFontSize(newSize)
-        setIsTerminalFontOpen(false)
-    }
-
-    const handleVoiceLanguageChange = (language: Language) => {
-        setVoiceLanguage(language.code)
-        if (language.code === null) {
+    const handleVoiceLanguageChange = (code: string) => {
+        const realCode = code === '__auto__' ? null : code
+        setVoiceLanguage(realCode)
+        if (realCode === null) {
             localStorage.removeItem('hapi-voice-lang')
         } else {
-            localStorage.setItem('hapi-voice-lang', language.code)
+            localStorage.setItem('hapi-voice-lang', realCode)
         }
-        setIsVoiceOpen(false)
     }
-
-    // Close dropdown when clicking outside
-    useEffect(() => {
-        if (!isOpen && !isAppearanceOpen && !isFontOpen && !isTerminalFontOpen && !isVoiceOpen) return
-
-        const handleClickOutside = (event: MouseEvent) => {
-            if (isOpen && containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsOpen(false)
-            }
-            if (isAppearanceOpen && appearanceContainerRef.current && !appearanceContainerRef.current.contains(event.target as Node)) {
-                setIsAppearanceOpen(false)
-            }
-            if (isFontOpen && fontContainerRef.current && !fontContainerRef.current.contains(event.target as Node)) {
-                setIsFontOpen(false)
-            }
-            if (isTerminalFontOpen && terminalFontContainerRef.current && !terminalFontContainerRef.current.contains(event.target as Node)) {
-                setIsTerminalFontOpen(false)
-            }
-            if (isVoiceOpen && voiceContainerRef.current && !voiceContainerRef.current.contains(event.target as Node)) {
-                setIsVoiceOpen(false)
-            }
-        }
-
-        document.addEventListener('mousedown', handleClickOutside)
-        return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [isOpen, isAppearanceOpen, isFontOpen, isTerminalFontOpen, isVoiceOpen])
-
-    // Close on escape key
-    useEffect(() => {
-        if (!isOpen && !isAppearanceOpen && !isFontOpen && !isTerminalFontOpen && !isVoiceOpen) return
-
-        const handleEscape = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                setIsOpen(false)
-                setIsAppearanceOpen(false)
-                setIsFontOpen(false)
-                setIsTerminalFontOpen(false)
-                setIsVoiceOpen(false)
-            }
-        }
-
-        document.addEventListener('keydown', handleEscape)
-        return () => document.removeEventListener('keydown', handleEscape)
-    }, [isOpen, isAppearanceOpen, isFontOpen, isTerminalFontOpen, isVoiceOpen])
 
     return (
         <div className="flex h-full flex-col">
@@ -142,54 +63,18 @@ export default function SettingsPage() {
                         <div className="px-3 py-2 text-xs font-semibold text-[var(--app-hint)] uppercase tracking-wide">
                             {t('settings.language.title')}
                         </div>
-                        <div ref={containerRef} className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setIsOpen(!isOpen)}
-                                className="flex w-full items-center justify-between px-3 py-3 text-left transition-colors hover:bg-[var(--app-subtle-bg)]"
-                                aria-expanded={isOpen}
-                                aria-haspopup="listbox"
+                        <SettingsRow label={t('settings.language.label')}>
+                            <Select
+                                value={locale}
+                                onChange={(val: string) => setLocale(val as Locale)}
+                                size="small"
+                                getPopupContainer={(node) => node.parentElement ?? document.body}
                             >
-                                <span className="text-[var(--app-fg)]">{t('settings.language.label')}</span>
-                                <span className="flex items-center gap-1 text-[var(--app-hint)]">
-                                    <span>{currentLocale?.nativeLabel}</span>
-                                    <IconDown className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} style={{ fontSize: 16 }} />
-                                </span>
-                            </button>
-
-                            {isOpen && (
-                                <div
-                                    className="absolute right-3 top-full mt-1 min-w-[160px] rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] shadow-lg overflow-hidden z-50"
-                                    role="listbox"
-                                    aria-label={t('settings.language.title')}
-                                >
-                                    {locales.map((loc) => {
-                                        const isSelected = locale === loc.value
-                                        return (
-                                            <button
-                                                key={loc.value}
-                                                type="button"
-                                                role="option"
-                                                aria-selected={isSelected}
-                                                onClick={() => handleLocaleChange(loc.value)}
-                                                className={`flex items-center justify-between w-full px-3 py-2 text-base text-left transition-colors ${
-                                                    isSelected
-                                                        ? 'text-[var(--app-link)] bg-[var(--app-subtle-bg)]'
-                                                        : 'text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)]'
-                                                }`}
-                                            >
-                                                <span>{loc.nativeLabel}</span>
-                                                {isSelected && (
-                                                    <span className="ml-2 text-[var(--app-link)]">
-                                                        <IconCheck style={{ fontSize: 18 }} />
-                                                    </span>
-                                                )}
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            )}
-                        </div>
+                                {locales.map((loc) => (
+                                    <Select.Option key={loc.value} value={loc.value}>{loc.nativeLabel}</Select.Option>
+                                ))}
+                            </Select>
+                        </SettingsRow>
                     </div>
 
                     {/* Display section */}
@@ -197,150 +82,42 @@ export default function SettingsPage() {
                         <div className="px-3 py-2 text-xs font-semibold text-[var(--app-hint)] uppercase tracking-wide">
                             {t('settings.display.title')}
                         </div>
-                        <div ref={appearanceContainerRef} className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setIsAppearanceOpen(!isAppearanceOpen)}
-                                className="flex w-full items-center justify-between px-3 py-3 text-left transition-colors hover:bg-[var(--app-subtle-bg)]"
-                                aria-expanded={isAppearanceOpen}
-                                aria-haspopup="listbox"
+                        <SettingsRow label={t('settings.display.appearance')}>
+                            <Select
+                                value={appearance}
+                                onChange={(val: string) => setAppearance(val as AppearancePreference)}
+                                size="small"
+                                getPopupContainer={(node) => node.parentElement ?? document.body}
                             >
-                                <span className="text-[var(--app-fg)]">{t('settings.display.appearance')}</span>
-                                <span className="flex items-center gap-1 text-[var(--app-hint)]">
-                                    <span>{t(currentAppearanceLabel)}</span>
-                                    <IconDown className={`transition-transform ${isAppearanceOpen ? 'rotate-180' : ''}`} style={{ fontSize: 16 }} />
-                                </span>
-                            </button>
-
-                            {isAppearanceOpen && (
-                                <div
-                                    className="absolute right-3 top-full mt-1 min-w-[160px] rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] shadow-lg overflow-hidden z-50"
-                                    role="listbox"
-                                    aria-label={t('settings.display.appearance')}
-                                >
-                                    {appearanceOptions.map((opt) => {
-                                        const isSelected = appearance === opt.value
-                                        return (
-                                            <button
-                                                key={opt.value}
-                                                type="button"
-                                                role="option"
-                                                aria-selected={isSelected}
-                                                onClick={() => handleAppearanceChange(opt.value)}
-                                                className={`flex items-center justify-between w-full px-3 py-2 text-base text-left transition-colors ${
-                                                    isSelected
-                                                        ? 'text-[var(--app-link)] bg-[var(--app-subtle-bg)]'
-                                                        : 'text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)]'
-                                                }`}
-                                            >
-                                                <span>{t(opt.labelKey)}</span>
-                                                {isSelected && (
-                                                    <span className="ml-2 text-[var(--app-link)]">
-                                                        <IconCheck style={{ fontSize: 18 }} />
-                                                    </span>
-                                                )}
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                        <div ref={fontContainerRef} className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setIsFontOpen(!isFontOpen)}
-                                className="flex w-full items-center justify-between px-3 py-3 text-left transition-colors hover:bg-[var(--app-subtle-bg)]"
-                                aria-expanded={isFontOpen}
-                                aria-haspopup="listbox"
+                                {appearanceOptions.map((opt) => (
+                                    <Select.Option key={opt.value} value={opt.value}>{t(opt.labelKey)}</Select.Option>
+                                ))}
+                            </Select>
+                        </SettingsRow>
+                        <SettingsRow label={t('settings.display.fontSize')}>
+                            <Select
+                                value={fontScale}
+                                onChange={(val: string) => setFontScale(val as FontScale)}
+                                size="small"
+                                getPopupContainer={(node) => node.parentElement ?? document.body}
                             >
-                                <span className="text-[var(--app-fg)]">{t('settings.display.fontSize')}</span>
-                                <span className="flex items-center gap-1 text-[var(--app-hint)]">
-                                    <span>{currentFontScaleLabel}</span>
-                                    <IconDown className={`transition-transform ${isFontOpen ? 'rotate-180' : ''}`} style={{ fontSize: 16 }} />
-                                </span>
-                            </button>
-
-                            {isFontOpen && (
-                                <div
-                                    className="absolute right-3 top-full mt-1 min-w-[140px] rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] shadow-lg overflow-hidden z-50"
-                                    role="listbox"
-                                    aria-label={t('settings.display.fontSize')}
-                                >
-                                    {fontScaleOptions.map((opt) => {
-                                        const isSelected = fontScale === opt.value
-                                        return (
-                                            <button
-                                                key={opt.value}
-                                                type="button"
-                                                role="option"
-                                                aria-selected={isSelected}
-                                                onClick={() => handleFontScaleChange(opt.value)}
-                                                className={`flex items-center justify-between w-full px-3 py-2 text-base text-left transition-colors ${
-                                                    isSelected
-                                                        ? 'text-[var(--app-link)] bg-[var(--app-subtle-bg)]'
-                                                        : 'text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)]'
-                                                }`}
-                                            >
-                                                <span>{opt.label}</span>
-                                                {isSelected && (
-                                                    <span className="ml-2 text-[var(--app-link)]">
-                                                        <IconCheck style={{ fontSize: 18 }} />
-                                                    </span>
-                                                )}
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                        <div ref={terminalFontContainerRef} className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setIsTerminalFontOpen(!isTerminalFontOpen)}
-                                className="flex w-full items-center justify-between px-3 py-3 text-left transition-colors hover:bg-[var(--app-subtle-bg)]"
-                                aria-expanded={isTerminalFontOpen}
-                                aria-haspopup="listbox"
+                                {fontScaleOptions.map((opt) => (
+                                    <Select.Option key={opt.value} value={opt.value}>{opt.label}</Select.Option>
+                                ))}
+                            </Select>
+                        </SettingsRow>
+                        <SettingsRow label={t('settings.display.terminalFontSize')}>
+                            <Select
+                                value={terminalFontSize}
+                                onChange={(val: string) => setTerminalFontSize(val as TerminalFontSize)}
+                                size="small"
+                                getPopupContainer={(node) => node.parentElement ?? document.body}
                             >
-                                <span className="text-[var(--app-fg)]">{t('settings.display.terminalFontSize')}</span>
-                                <span className="flex items-center gap-1 text-[var(--app-hint)]">
-                                    <span>{currentTerminalFontSizeLabel}</span>
-                                    <IconDown className={`transition-transform ${isTerminalFontOpen ? 'rotate-180' : ''}`} style={{ fontSize: 16 }} />
-                                </span>
-                            </button>
-
-                            {isTerminalFontOpen && (
-                                <div
-                                    className="absolute right-3 top-full mt-1 min-w-[140px] rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] shadow-lg overflow-hidden z-50"
-                                    role="listbox"
-                                    aria-label={t('settings.display.terminalFontSize')}
-                                >
-                                    {terminalFontSizeOptions.map((opt) => {
-                                        const isSelected = terminalFontSize === opt.value
-                                        return (
-                                            <button
-                                                key={opt.value}
-                                                type="button"
-                                                role="option"
-                                                aria-selected={isSelected}
-                                                onClick={() => handleTerminalFontSizeChange(opt.value)}
-                                                className={`flex items-center justify-between w-full px-3 py-2 text-base text-left transition-colors ${
-                                                    isSelected
-                                                        ? 'text-[var(--app-link)] bg-[var(--app-subtle-bg)]'
-                                                        : 'text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)]'
-                                                }`}
-                                            >
-                                                <span>{opt.label}</span>
-                                                {isSelected && (
-                                                    <span className="ml-2 text-[var(--app-link)]">
-                                                        <IconCheck style={{ fontSize: 18 }} />
-                                                    </span>
-                                                )}
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            )}
-                        </div>
+                                {terminalFontSizeOptions.map((opt) => (
+                                    <Select.Option key={opt.value} value={opt.value}>{opt.label}</Select.Option>
+                                ))}
+                            </Select>
+                        </SettingsRow>
                     </div>
 
                     {/* Voice Assistant section */}
@@ -348,63 +125,21 @@ export default function SettingsPage() {
                         <div className="px-3 py-2 text-xs font-semibold text-[var(--app-hint)] uppercase tracking-wide">
                             {t('settings.voice.title')}
                         </div>
-                        <div ref={voiceContainerRef} className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setIsVoiceOpen(!isVoiceOpen)}
-                                className="flex w-full items-center justify-between px-3 py-3 text-left transition-colors hover:bg-[var(--app-subtle-bg)]"
-                                aria-expanded={isVoiceOpen}
-                                aria-haspopup="listbox"
+                        <SettingsRow label={t('settings.voice.language')}>
+                            <Select
+                                value={voiceLanguage ?? '__auto__'}
+                                onChange={handleVoiceLanguageChange}
+                                size="small"
+                                showSearch
+                                getPopupContainer={(node) => node.parentElement ?? document.body}
                             >
-                                <span className="text-[var(--app-fg)]">{t('settings.voice.language')}</span>
-                                <span className="flex items-center gap-1 text-[var(--app-hint)]">
-                                    <span>
-                                        {currentVoiceLanguage
-                                            ? currentVoiceLanguage.code === null
-                                                ? t('settings.voice.autoDetect')
-                                                : getLanguageDisplayName(currentVoiceLanguage)
-                                            : t('settings.voice.autoDetect')}
-                                    </span>
-                                    <IconDown className={`transition-transform ${isVoiceOpen ? 'rotate-180' : ''}`} style={{ fontSize: 16 }} />
-                                </span>
-                            </button>
-
-                            {isVoiceOpen && (
-                                <div
-                                    className="absolute right-3 top-full mt-1 min-w-[200px] max-h-[300px] overflow-y-auto rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] shadow-lg z-50"
-                                    role="listbox"
-                                    aria-label={t('settings.voice.title')}
-                                >
-                                    {voiceLanguages.map((lang) => {
-                                        const isSelected = voiceLanguage === lang.code
-                                        const displayName = lang.code === null
-                                            ? t('settings.voice.autoDetect')
-                                            : getLanguageDisplayName(lang)
-                                        return (
-                                            <button
-                                                key={lang.code ?? 'auto'}
-                                                type="button"
-                                                role="option"
-                                                aria-selected={isSelected}
-                                                onClick={() => handleVoiceLanguageChange(lang)}
-                                                className={`flex items-center justify-between w-full px-3 py-2 text-base text-left transition-colors ${
-                                                    isSelected
-                                                        ? 'text-[var(--app-link)] bg-[var(--app-subtle-bg)]'
-                                                        : 'text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)]'
-                                                }`}
-                                            >
-                                                <span>{displayName}</span>
-                                                {isSelected && (
-                                                    <span className="ml-2 text-[var(--app-link)]">
-                                                        <IconCheck style={{ fontSize: 18 }} />
-                                                    </span>
-                                                )}
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            )}
-                        </div>
+                                {voiceLanguages.map((lang) => (
+                                    <Select.Option key={lang.code ?? '__auto__'} value={lang.code ?? '__auto__'}>
+                                        {lang.code === null ? t('settings.voice.autoDetect') : getLanguageDisplayName(lang)}
+                                    </Select.Option>
+                                ))}
+                            </Select>
+                        </SettingsRow>
                     </div>
 
                     {/* About section */}
@@ -425,7 +160,18 @@ export default function SettingsPage() {
                         </div>
                         <div className="flex w-full items-center justify-between px-3 py-3">
                             <span className="text-[var(--app-fg)]">{t('settings.about.appVersion')}</span>
-                            <span className="text-[var(--app-hint)]">{__APP_VERSION__}</span>
+                            <span className="text-[var(--app-hint)]">0.16.2-Base</span>
+                        </div>
+                        <div className="flex w-full items-center justify-between px-3 py-3">
+                            <span className="text-[var(--app-fg)]">二次开发</span>
+                            <a
+                                href="https://github.com/Hwwwww-dev/hapi"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[var(--app-link)] hover:underline"
+                            >
+                                Hwwwww
+                            </a>
                         </div>
                         <div className="flex w-full items-center justify-between px-3 py-3">
                             <span className="text-[var(--app-fg)]">{t('settings.about.protocolVersion')}</span>
@@ -433,6 +179,17 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    )
+}
+
+function SettingsRow({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div className="relative flex w-full items-center justify-between px-3 py-3">
+            <span className="text-[var(--app-fg)] shrink-0 mr-3">{label}</span>
+            <div className="shrink-0 min-w-[200px]">
+                {children}
             </div>
         </div>
     )

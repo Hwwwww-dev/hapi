@@ -1,19 +1,32 @@
-import type { ComponentPropsWithoutRef } from 'react'
-import {
-    MarkdownTextPrimitive,
-    unstable_memoizeMarkdownComponents as memoizeMarkdownComponents,
-    useIsMarkdownCodeBlock,
-    type CodeHeaderProps,
-} from '@assistant-ui/react-markdown'
-import { useMessagePart } from '@assistant-ui/react'
+import { createContext, useContext, memo, type ComponentPropsWithoutRef } from 'react'
+import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Image as ArcoImage } from '@arco-design/web-react'
+import type { CodeHeaderProps } from '@/chat/chat-types'
 import { cn } from '@/lib/utils'
 import { SyntaxHighlighter } from '@/components/assistant-ui/shiki-highlighter'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { CopyIcon, CheckIcon } from '@/components/icons'
 
 export const MARKDOWN_PLUGINS = [remarkGfm]
+
+const CodeBlockContext = createContext(false)
+
+/** 替代 useIsMarkdownCodeBlock，检测 code 元素是否在 pre（代码块）内 */
+function useIsCodeBlock() {
+    return useContext(CodeBlockContext)
+}
+
+function memoizeMarkdownComponents(
+    components: Record<string, React.ComponentType<any>>
+): Record<string, React.ComponentType<any>> {
+    return Object.fromEntries(
+        Object.entries(components).map(([key, Component]) => [
+            key,
+            memo(Component),
+        ])
+    )
+}
 
 function CodeHeader(props: CodeHeaderProps) {
     const { copied, copy } = useCopyToClipboard()
@@ -37,30 +50,27 @@ function CodeHeader(props: CodeHeaderProps) {
 }
 
 function Pre(props: ComponentPropsWithoutRef<'pre'>) {
-    const { className, ...rest } = props
-
     return (
-        <div className="aui-md-pre-wrapper my-2 min-w-0 w-full max-w-full overflow-x-auto overflow-y-hidden">
-            <pre
-                {...rest}
-                className={cn(
-                    'aui-md-pre m-0 w-max min-w-full rounded-b-md rounded-t-none bg-[var(--app-code-bg)] p-2 text-sm',
-                    className
-                )}
-            />
-        </div>
+        <CodeBlockContext.Provider value={true}>
+            {props.children}
+        </CodeBlockContext.Provider>
     )
 }
 
 function Code(props: ComponentPropsWithoutRef<'code'>) {
-    const isCodeBlock = useIsMarkdownCodeBlock()
+    const isCodeBlock = useIsCodeBlock()
 
     if (isCodeBlock) {
+        const language = /language-(\w+)/.exec(props.className || '')?.[1] ?? ''
+        const code = typeof props.children === 'string'
+            ? props.children.replace(/\n$/, '')
+            : String(props.children ?? '').replace(/\n$/, '')
+
         return (
-            <code
-                {...props}
-                className={cn('aui-md-codeblockcode font-mono', props.className)}
-            />
+            <>
+                <CodeHeader language={language} code={code} />
+                <SyntaxHighlighter language={language} code={code} />
+            </>
         )
     }
 
@@ -158,27 +168,27 @@ function Td(props: ComponentPropsWithoutRef<'td'>) {
 }
 
 function H1(props: ComponentPropsWithoutRef<'h1'>) {
-    return <h1 {...props} className={cn('aui-md-h1 mt-4 mb-2 text-lg font-semibold border-b border-[var(--app-divider)] pb-1', props.className)} />
+    return <h1 {...props} className={cn('aui-md-h1 mt-4 mb-2 text-[1.25em] font-semibold border-b border-[var(--app-divider)] pb-1', props.className)} />
 }
 
 function H2(props: ComponentPropsWithoutRef<'h2'>) {
-    return <h2 {...props} className={cn('aui-md-h2 mt-4 mb-2 text-base font-semibold border-b border-[var(--app-divider)] pb-1', props.className)} />
+    return <h2 {...props} className={cn('aui-md-h2 mt-4 mb-2 text-[1.125em] font-semibold border-b border-[var(--app-divider)] pb-1', props.className)} />
 }
 
 function H3(props: ComponentPropsWithoutRef<'h3'>) {
-    return <h3 {...props} className={cn('aui-md-h3 mt-3 mb-1 text-base font-semibold', props.className)} />
+    return <h3 {...props} className={cn('aui-md-h3 mt-3 mb-1 text-[1em] font-semibold', props.className)} />
 }
 
 function H4(props: ComponentPropsWithoutRef<'h4'>) {
-    return <h4 {...props} className={cn('aui-md-h4 mt-3 mb-1 text-sm font-semibold', props.className)} />
+    return <h4 {...props} className={cn('aui-md-h4 mt-3 mb-1 text-[0.875em] font-semibold', props.className)} />
 }
 
 function H5(props: ComponentPropsWithoutRef<'h5'>) {
-    return <h5 {...props} className={cn('aui-md-h5 mt-2 mb-1 text-sm font-semibold', props.className)} />
+    return <h5 {...props} className={cn('aui-md-h5 mt-2 mb-1 text-[0.875em] font-semibold', props.className)} />
 }
 
 function H6(props: ComponentPropsWithoutRef<'h6'>) {
-    return <h6 {...props} className={cn('aui-md-h6 mt-2 mb-1 text-sm font-semibold text-[var(--app-hint)]', props.className)} />
+    return <h6 {...props} className={cn('aui-md-h6 mt-2 mb-1 text-[0.8em] font-semibold text-[color:var(--app-hint)]', props.className)} />
 }
 
 function Strong(props: ComponentPropsWithoutRef<'strong'>) {
@@ -204,8 +214,6 @@ function Image(props: ComponentPropsWithoutRef<'img'>) {
 }
 
 export const defaultComponents = memoizeMarkdownComponents({
-    SyntaxHighlighter,
-    CodeHeader,
     pre: Pre,
     code: Code,
     h1: H1,
@@ -232,25 +240,26 @@ export const defaultComponents = memoizeMarkdownComponents({
     img: Image,
 } as const)
 
-export function MarkdownText() {
+export function MarkdownText({ text }: { text: string }) {
     const { copied, copy } = useCopyToClipboard()
-    const part = useMessagePart()
-    const rawText = part.type === 'text' ? part.text : ''
 
     return (
         <div className="aui-md-block group/text relative">
             <div className="rounded-lg px-2 py-1 transition-colors hover:bg-[var(--app-subtle-bg)]">
-                <MarkdownTextPrimitive
-                    remarkPlugins={MARKDOWN_PLUGINS}
-                    components={defaultComponents}
-                    className={cn('aui-md min-w-0 max-w-full break-words text-base')}
-                />
+                <div className={cn('aui-md min-w-0 max-w-full break-words text-[15px]')}>
+                    <Markdown
+                        remarkPlugins={MARKDOWN_PLUGINS}
+                        components={defaultComponents}
+                    >
+                        {text}
+                    </Markdown>
+                </div>
             </div>
-            {rawText && (
+            {text && (
                 <div className="flex justify-start opacity-60 transition-opacity hover:opacity-100">
                     <button
                         type="button"
-                        onClick={() => copy(rawText)}
+                        onClick={() => copy(text)}
                         className="rounded p-1 text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
                         title="Copy"
                     >

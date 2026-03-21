@@ -24,7 +24,8 @@ const gitCommitSchema = z.object({ message: z.string().min(1) })
 const gitFetchSchema = z.object({ remote: z.string().optional() })
 const gitPullSchema = z.object({ remote: z.string().optional(), branch: z.string().optional() })
 const gitPushSchema = z.object({ remote: z.string().optional(), branch: z.string().optional() })
-const gitLogSchema = z.object({ limit: z.coerce.number().int().min(1).max(500).optional(), skip: z.coerce.number().int().min(0).optional(), branch: z.string().optional() })
+const gitLogSchema = z.object({ limit: z.coerce.number().int().min(1).max(500).optional(), skip: z.coerce.number().int().min(0).optional(), branch: z.string().optional(), keyword: z.string().optional(), since: z.string().optional(), until: z.string().optional() })
+const gitTagListSchema = z.object({ keyword: z.string().optional() })
 const gitCreateBranchSchema = z.object({ name: z.string().min(1), from: z.string().optional() })
 const gitDeleteBranchSchema = z.object({ name: z.string().min(1), force: z.boolean().optional() })
 const gitRenameBranchSchema = z.object({ oldName: z.string().min(1).regex(/^[^-]/), newName: z.string().min(1).regex(/^[^-]/) })
@@ -352,7 +353,7 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
         const parsed = gitLogSchema.safeParse(c.req.query())
         if (!parsed.success) return c.json({ error: 'Invalid query' }, 400)
-        const result = await runRpc(() => engine.gitLog(sessionResult.sessionId, { cwd: sessionPath, limit: parsed.data.limit, skip: parsed.data.skip, branch: parsed.data.branch }))
+        const result = await runRpc(() => engine.gitLog(sessionResult.sessionId, { cwd: sessionPath, limit: parsed.data.limit, skip: parsed.data.skip, branch: parsed.data.branch, keyword: parsed.data.keyword, since: parsed.data.since, until: parsed.data.until }))
         if (!result.success) return c.json({ success: false, error: result.error ?? 'Unknown error' })
         return c.json({ success: true, data: parseGitLog(result.stdout ?? '') })
     })
@@ -653,9 +654,20 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         if (sessionResult instanceof Response) return sessionResult
         const sessionPath = sessionResult.session.metadata?.path
         if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const parsed = gitTagListSchema.safeParse(c.req.query())
         const result = await runRpc(() => engine.gitTagList(sessionResult.sessionId, { cwd: sessionPath }))
         if (!result.success) return c.json({ success: false, error: result.error ?? 'Unknown error' })
-        return c.json({ success: true, data: parseTagList(result.stdout ?? '') })
+        let data = parseTagList(result.stdout ?? '')
+        const keyword = parsed.success ? parsed.data.keyword?.trim().toLowerCase() : undefined
+        if (keyword) {
+            data = data.filter(t =>
+                t.name.toLowerCase().includes(keyword)
+                || t.short.toLowerCase().startsWith(keyword)
+                || (t.author && t.author.toLowerCase().includes(keyword))
+                || (t.subject && t.subject.toLowerCase().includes(keyword))
+            )
+        }
+        return c.json({ success: true, data })
     })
 
     app.post('/sessions/:id/git-tag-create', async (c) => {

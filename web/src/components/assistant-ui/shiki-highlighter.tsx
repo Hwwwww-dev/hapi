@@ -1,4 +1,4 @@
-import type { SyntaxHighlighterProps } from '@assistant-ui/react-markdown'
+import type { SyntaxHighlighterProps } from '@/chat/chat-types'
 import { useShikiHighlighter } from '@/lib/shiki'
 
 export function SyntaxHighlighter(props: SyntaxHighlighterProps) {

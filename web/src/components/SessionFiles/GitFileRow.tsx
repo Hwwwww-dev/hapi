@@ -3,6 +3,7 @@ import type { GitFileStatus } from '@/types/api'
 import { StatusBadge } from './StatusBadge'
 import { FileIcon } from '@/components/FileIcon'
 import { useTranslation } from '@/lib/use-translation'
+import { Checkbox } from '@arco-design/web-react'
 
 function LineChanges({ added, removed }: { added: number; removed: number }) {
     if (!added && !removed) return null
@@ -75,24 +76,23 @@ export function GitFileRow({ file, onOpen, actions, showCheckbox, checked, onTog
     const subtitle = file.filePath || t('git.projectRoot')
 
     return (
-        <div className={`flex w-full items-center gap-3 px-3 py-2 ${showDivider ? 'border-b border-[var(--app-divider)]' : ''}`}>
+        <div className={`flex w-full items-center gap-2 px-3 py-1 ${showDivider ? 'border-b border-[var(--app-divider)]' : ''}`}>
             {showCheckbox && (
-                <input
-                    type="checkbox"
+                <Checkbox
                     checked={checked}
                     onChange={() => onToggle?.(file)}
-                    className="shrink-0 w-4 h-4 accent-[var(--app-link)]"
+                    className="shrink-0"
                 />
             )}
             <button
                 type="button"
                 onClick={() => onOpen(file.fullPath, file.isStaged)}
-                className="flex min-w-0 flex-1 items-center gap-3 text-left hover:bg-[var(--app-subtle-bg)] transition-colors rounded-md px-2 py-1.5"
+                className="flex min-w-0 flex-1 items-center gap-2 text-left hover:bg-[var(--app-subtle-bg)] transition-colors rounded-md px-1.5 py-1"
             >
-                <FileIcon fileName={file.fileName} size={22} />
+                <FileIcon fileName={file.fileName} size={18} />
                 <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{file.fileName}</div>
-                    <div className="truncate text-xs text-[var(--app-hint)]">{subtitle}</div>
+                    <div className="truncate text-sm font-medium">{file.fileName}</div>
+                    <div className="truncate text-[11px] text-[var(--app-hint)]">{subtitle}</div>
                 </div>
                 <div className="flex items-center gap-2">
                     <LineChanges added={file.linesAdded} removed={file.linesRemoved} />

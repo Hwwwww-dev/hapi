@@ -209,8 +209,8 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
             {/* Fixed bottom: actions + commit */}
             <div className="border-t border-[var(--app-divider)] bg-[var(--app-bg)] p-3 flex flex-col gap-2">
                 <div className="flex gap-2">
-                    <button type="button" onClick={handleStageAll} disabled={unstaged.length === 0 || batchLoading} className="flex-1 text-xs py-1.5 rounded-md border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40">{t('git.stageAll')}</button>
-                    <button type="button" onClick={handleUnstageAll} disabled={staged.length === 0 || batchLoading} className="flex-1 text-xs py-1.5 rounded-md border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40">{t('git.unstageAll')}</button>
+                    <button type="button" onClick={handleStageAll} disabled={unstaged.length === 0 || batchLoading} className="flex-1 text-xs py-1.5 rounded-lg border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40">{t('git.stageAll')}</button>
+                    <button type="button" onClick={handleUnstageAll} disabled={staged.length === 0 || batchLoading} className="flex-1 text-xs py-1.5 rounded-lg border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40">{t('git.unstageAll')}</button>
                 </div>
                 <textarea
                     value={commitMessage}
@@ -229,13 +229,13 @@ export function ChangesTab({ api, sessionId, gitStatus, isLoading, onOpenFile, o
                         }
                     }}
                     placeholder={t('git.commitPlaceholder')}
-                    className="text-xs border border-[var(--app-border)] rounded-md p-1.5 resize-none h-16 bg-[var(--app-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] focus:outline-none focus:border-[var(--app-link)]"
+                    className="text-xs border border-[var(--app-border)] rounded-lg p-1.5 resize-y min-h-[3rem] bg-[var(--app-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] focus:outline-none focus:border-[var(--app-link)]"
                 />
                 <button
                     type="button"
                     onClick={() => setCommitConfirmOpen(true)}
                     disabled={commitLoading || !commitMessage.trim() || staged.length === 0}
-                    className="text-xs px-3 py-1.5 rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-40 hover:opacity-90 transition-opacity"
+                    className="text-xs px-3 py-1.5 rounded-lg bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-40 hover:opacity-90 transition-opacity"
                 >
                     {commitLoading ? t('git.committing') : staged.length > 0 ? t('git.commitN', { n: staged.length }) : t('git.commit')}
                 </button>

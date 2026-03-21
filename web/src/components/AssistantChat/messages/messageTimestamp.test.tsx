@@ -1,16 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 
-let mockMessage: any = null
-
-vi.mock('@assistant-ui/react', () => ({
-    useAssistantState: (selector: (state: { message: unknown }) => unknown) => selector({ message: mockMessage }),
-    MessagePrimitive: {
-        Root: ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={className}>{children}</div>,
-        Content: () => <div data-testid="assistant-content">assistant-content</div>
-    }
-}))
-
 vi.mock('@/components/AssistantChat/context', () => ({
     useHappyChatContext: () => ({
         onRetryMessage: vi.fn()
@@ -35,7 +25,8 @@ vi.mock('@/components/CliOutputBlock', () => ({
 
 vi.mock('@/chat/presentation', () => ({
     isPillEvent: () => false,
-    getEventPresentation: () => ({ icon: '⚙️', text: 'event' })
+    getEventPresentation: () => ({ icon: null, text: 'event' }),
+    renderEventLabel: () => 'event'
 }))
 
 vi.mock('@/hooks/useCopyToClipboard', () => ({
@@ -61,11 +52,11 @@ vi.mock('@/components/AssistantChat/messages/ToolMessage', () => ({
 import { HappyUserMessage } from './UserMessage'
 import { HappyAssistantMessage } from './AssistantMessage'
 import { HappySystemMessage } from './SystemMessage'
+import type { UserTextBlock, AgentTextBlock, AgentEventBlock } from '@/chat/types'
 
 describe('message timestamps', () => {
     beforeEach(() => {
         cleanup()
-        mockMessage = null
         Object.defineProperty(window, 'matchMedia', {
             writable: true,
             value: vi.fn().mockImplementation((query: string) => ({
@@ -82,91 +73,43 @@ describe('message timestamps', () => {
     })
 
     it('shows seconds timestamp for user messages', () => {
-        mockMessage = {
-            role: 'user',
-            createdAt: new Date('2026-03-15T12:34:56.000Z'),
-            content: [{ type: 'text', text: 'hello' }],
-            metadata: {
-                custom: {
-                    kind: 'user'
-                }
-            }
+        const block: UserTextBlock = {
+            kind: 'user-text',
+            id: 'msg-1',
+            localId: null,
+            createdAt: new Date('2026-03-15T12:34:56.000Z').getTime(),
+            text: 'hello'
         }
 
-        render(<HappyUserMessage />)
+        render(<HappyUserMessage block={block} />)
 
         expect(screen.getByText(/\d{2}:\d{2}:\d{2}/)).toBeInTheDocument()
     })
 
     it('shows seconds timestamp for assistant messages', () => {
-        mockMessage = {
-            role: 'assistant',
-            createdAt: new Date('2026-03-15T12:34:56.000Z'),
-            content: [{ type: 'text', text: 'hello' }],
-            metadata: {
-                custom: {
-                    kind: 'assistant'
-                }
-            }
+        const block: AgentTextBlock = {
+            kind: 'agent-text',
+            id: 'msg-2',
+            localId: null,
+            createdAt: new Date('2026-03-15T12:34:56.000Z').getTime(),
+            text: 'hello'
         }
 
-        render(<HappyAssistantMessage />)
-
-        expect(screen.getByText(/\d{2}:\d{2}:\d{2}/)).toBeInTheDocument()
-    })
-
-    it('shows seconds timestamp for user cli output messages', () => {
-        mockMessage = {
-            role: 'user',
-            createdAt: new Date('2026-03-15T12:34:56.000Z'),
-            content: [{ type: 'text', text: 'cli output' }],
-            metadata: {
-                custom: {
-                    kind: 'cli-output',
-                    source: 'user'
-                }
-            }
-        }
-
-        render(<HappyUserMessage />)
-
-        expect(screen.getByText(/\d{2}:\d{2}:\d{2}/)).toBeInTheDocument()
-    })
-
-    it('shows seconds timestamp for assistant cli output messages', () => {
-        mockMessage = {
-            role: 'assistant',
-            createdAt: new Date('2026-03-15T12:34:56.000Z'),
-            content: [{ type: 'text', text: 'cli output' }],
-            metadata: {
-                custom: {
-                    kind: 'cli-output',
-                    source: 'assistant'
-                }
-            }
-        }
-
-        render(<HappyAssistantMessage />)
+        render(<HappyAssistantMessage block={block} />)
 
         expect(screen.getByText(/\d{2}:\d{2}:\d{2}/)).toBeInTheDocument()
     })
 
     it('shows seconds timestamp for system messages', () => {
-        mockMessage = {
-            role: 'system',
-            createdAt: new Date('2026-03-15T12:34:56.000Z'),
-            content: [{ type: 'text', text: 'system notice' }],
-            metadata: {
-                custom: {
-                    kind: 'event',
-                    event: { type: 'session-ready' }
-                }
-            }
+        const block: AgentEventBlock = {
+            kind: 'agent-event',
+            id: 'msg-5',
+            createdAt: new Date('2026-03-15T12:34:56.000Z').getTime(),
+            event: { type: 'ready' }
         }
 
-        render(<HappySystemMessage />)
+        render(<HappySystemMessage block={block} />)
 
         expect(screen.getByText(/\d{2}:\d{2}:\d{2}/)).toBeInTheDocument()
     })
 })
-

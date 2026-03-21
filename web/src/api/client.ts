@@ -342,11 +342,14 @@ export class ApiClient {
         })
     }
 
-    async gitLog(sessionId: string, limit?: number, skip?: number, branch?: string): Promise<GitParsedResponse<CommitEntry[]>> {
+    async gitLog(sessionId: string, limit?: number, skip?: number, branch?: string, keyword?: string, since?: string, until?: string): Promise<GitParsedResponse<CommitEntry[]>> {
         const params = new URLSearchParams()
         if (limit !== undefined) params.set('limit', String(limit))
         if (skip !== undefined) params.set('skip', String(skip))
         if (branch) params.set('branch', branch)
+        if (keyword) params.set('keyword', keyword)
+        if (since) params.set('since', since)
+        if (until) params.set('until', until)
         const qs = params.toString()
         return await this.request<GitParsedResponse<CommitEntry[]>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-log${qs ? `?${qs}` : ''}`)
     }
@@ -488,8 +491,11 @@ export class ApiClient {
         })
     }
 
-    async gitTagList(sessionId: string): Promise<GitParsedResponse<GitTagEntry[]>> {
-        return await this.request<GitParsedResponse<GitTagEntry[]>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-tag-list`)
+    async gitTagList(sessionId: string, keyword?: string): Promise<GitParsedResponse<GitTagEntry[]>> {
+        const params = new URLSearchParams()
+        if (keyword) params.set('keyword', keyword)
+        const qs = params.toString()
+        return await this.request<GitParsedResponse<GitTagEntry[]>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-tag-list${qs ? `?${qs}` : ''}`)
     }
 
     async gitTagCreate(sessionId: string, name: string, message?: string, ref?: string): Promise<GitCommandResponse> {

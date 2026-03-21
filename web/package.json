@@ -13,8 +13,6 @@
     },
     "dependencies": {
         "@arco-design/web-react": "^2.66.12",
-        "@assistant-ui/react": "^0.11.53",
-        "@assistant-ui/react-markdown": "^0.11.9",
         "@elevenlabs/react": "^0.13.0",
         "@hapi/protocol": "workspace:*",
         "@radix-ui/react-slot": "^1.2.4",

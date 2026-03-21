@@ -1,12 +1,10 @@
 import { memo, useState } from 'react'
-import { MessagePrimitive, useAssistantState } from '@assistant-ui/react'
 import { LazyRainbowText } from '@/components/LazyRainbowText'
 import { useHappyChatContext } from '@/components/AssistantChat/context'
-import type { HappyChatMessageMetadata } from '@/lib/assistant-runtime'
+import type { UserTextBlock } from '@/chat/types'
 import { MessageStatusIndicator } from '@/components/AssistantChat/messages/MessageStatusIndicator'
 import { MessageAttachments } from '@/components/AssistantChat/messages/MessageAttachments'
 import { MessageTimestamp } from '@/components/AssistantChat/messages/MessageTimestamp'
-import { CliOutputBlock } from '@/components/CliOutputBlock'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { BulbIcon, ClipboardIcon } from '@/components/ToolCard/icons'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
@@ -82,38 +80,13 @@ function parseSystemLikeMessage(text: string): { icon: string; label: string } |
     return { icon: '', label: 'System event' }
 }
 
-export const HappyUserMessage = memo(function HappyUserMessage() {
+export const HappyUserMessage = memo(function HappyUserMessage({ block }: { block: UserTextBlock }) {
     const ctx = useHappyChatContext()
-    const role = useAssistantState(({ message }) => message.role)
-    const text = useAssistantState(({ message }) => {
-        if (message.role !== 'user') return ''
-        return message.content.find((part) => part.type === 'text')?.text ?? ''
-    })
-    const status = useAssistantState(({ message }) => {
-        if (message.role !== 'user') return undefined
-        const custom = message.metadata.custom as Partial<HappyChatMessageMetadata> | undefined
-        return custom?.status
-    })
-    const localId = useAssistantState(({ message }) => {
-        if (message.role !== 'user') return null
-        const custom = message.metadata.custom as Partial<HappyChatMessageMetadata> | undefined
-        return custom?.localId ?? null
-    })
-    const attachments = useAssistantState(({ message }) => {
-        if (message.role !== 'user') return undefined
-        const custom = message.metadata.custom as Partial<HappyChatMessageMetadata> | undefined
-        return custom?.attachments
-    })
-    const isCliOutput = useAssistantState(({ message }) => {
-        const custom = message.metadata.custom as Partial<HappyChatMessageMetadata> | undefined
-        return custom?.kind === 'cli-output'
-    })
-    const cliText = useAssistantState(({ message }) => {
-        const custom = message.metadata.custom as Partial<HappyChatMessageMetadata> | undefined
-        if (custom?.kind !== 'cli-output') return ''
-        return message.content.find((part) => part.type === 'text')?.text ?? ''
-    })
-    const createdAt = useAssistantState(({ message }) => message.createdAt)
+    const text = block.text
+    const status = block.status
+    const localId = block.localId
+    const attachments = block.attachments
+    const createdAt = new Date(block.createdAt)
 
     // All hooks must be before any conditional returns (React rules of hooks)
     const skillInfo = parseSkillContent(text)
@@ -124,7 +97,6 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
     const [expanded, setExpanded] = useState(false)
     const { copied, copy } = useCopyToClipboard()
 
-    if (role !== 'user') return null
     const canRetry = status === 'failed' && typeof localId === 'string' && Boolean(ctx.onRetryMessage)
     const onRetry = canRetry ? () => ctx.onRetryMessage!(localId) : undefined
 
@@ -142,22 +114,9 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
         )
     }
 
-    if (isCliOutput) {
-        return (
-            <MessagePrimitive.Root className="px-1 min-w-0 max-w-full overflow-x-hidden">
-                <div className="ml-auto w-full max-w-[92%]">
-                    <CliOutputBlock text={cliText} />
-                    <div className="mt-1 flex justify-end">
-                        <MessageTimestamp value={createdAt} />
-                    </div>
-                </div>
-            </MessagePrimitive.Root>
-        )
-    }
-
     if (skillInfo) {
         return (
-            <MessagePrimitive.Root className="px-1 min-w-0 max-w-full overflow-x-hidden">
+            <div className="px-1 min-w-0 max-w-full overflow-x-hidden">
                 <Card className="overflow-hidden shadow-sm cursor-pointer select-none" onClick={() => setSkillExpanded(v => !v)}>
                     <CardHeader className="p-3 space-y-0">
                         <div className="flex items-center justify-between gap-3">
@@ -181,13 +140,13 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
                         </div>
                     )}
                 </Card>
-            </MessagePrimitive.Root>
+            </div>
         )
     }
 
     if (isCompact) {
         return (
-            <MessagePrimitive.Root className="px-1 min-w-0 max-w-full overflow-x-hidden">
+            <div className="px-1 min-w-0 max-w-full overflow-x-hidden">
                 <Card className="overflow-hidden shadow-sm cursor-pointer select-none" onClick={() => setCompactExpanded(v => !v)}>
                     <CardHeader className="p-3 space-y-0">
                         <div className="flex items-center justify-between gap-3">
@@ -211,7 +170,7 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
                         </div>
                     )}
                 </Card>
-            </MessagePrimitive.Root>
+            </div>
         )
     }
 
@@ -221,7 +180,7 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
 
     return (
         <div className="group/user ml-auto w-fit min-w-0 max-w-[92%]">
-            <MessagePrimitive.Root className="rounded-xl bg-[var(--app-secondary-bg)] px-3 py-2 text-[var(--app-fg)] shadow-sm">
+            <div className="rounded-xl bg-[var(--app-secondary-bg)] px-3 py-2 text-[15px] text-[var(--app-fg)] shadow-sm">
                 <div className="flex items-end gap-2">
                     <div className="flex-1 min-w-0">
                         {hasText && (
@@ -251,7 +210,7 @@ export const HappyUserMessage = memo(function HappyUserMessage() {
                         </div>
                     ) : null}
                 </div>
-            </MessagePrimitive.Root>
+            </div>
             <div className="mt-1 flex items-center justify-end gap-2">
                 {hasText && (
                     <button

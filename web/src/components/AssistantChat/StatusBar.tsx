@@ -5,30 +5,24 @@ import {
     isPermissionModeAllowedForFlavor
 } from '@hapi/protocol'
 import type { PermissionModeTone } from '@hapi/protocol'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import type { AgentState, CodexCollaborationMode, PermissionMode } from '@/types/api'
 import type { ConversationStatus } from '@/realtime/types'
 import { getContextBudgetTokens } from '@/chat/modelConfig'
 import { useTranslation } from '@/lib/use-translation'
+import { setSessionVibing, getSessionVibingMessage } from '@/lib/vibing-store'
 
-// Vibing messages for thinking state
-const VIBING_MESSAGES = [
-    "Accomplishing", "Actioning", "Actualizing", "Baking", "Booping", "Brewing",
-    "Calculating", "Cerebrating", "Channelling", "Churning", "Clauding", "Coalescing",
-    "Cogitating", "Computing", "Combobulating", "Concocting", "Conjuring", "Considering",
-    "Contemplating", "Cooking", "Crafting", "Creating", "Crunching", "Deciphering",
-    "Deliberating", "Determining", "Discombobulating", "Divining", "Doing", "Effecting",
-    "Elucidating", "Enchanting", "Envisioning", "Finagling", "Flibbertigibbeting",
-    "Forging", "Forming", "Frolicking", "Generating", "Germinating", "Hatching",
-    "Herding", "Honking", "Ideating", "Imagining", "Incubating", "Inferring",
-    "Manifesting", "Marinating", "Meandering", "Moseying", "Mulling", "Mustering",
-    "Musing", "Noodling", "Percolating", "Perusing", "Philosophising", "Pontificating",
-    "Pondering", "Processing", "Puttering", "Puzzling", "Reticulating", "Ruminating",
-    "Scheming", "Schlepping", "Shimmying", "Simmering", "Smooshing", "Spelunking",
-    "Spinning", "Stewing", "Sussing", "Synthesizing", "Thinking", "Tinkering",
-    "Transmuting", "Unfurling", "Unravelling", "Vibing", "Wandering", "Whirring",
-    "Wibbling", "Wizarding", "Working", "Wrangling"
-]
+// Vibing messages are now managed by vibing-store.ts
+
+function WavyText({ text }: { text: string }) {
+    return (
+        <span className="wavy-text">
+            {[...text].map((ch, i) => (
+                <span key={i} style={{ animationDelay: `${i * 0.06}s` }}>{ch === ' ' ? '\u00A0' : ch}</span>
+            ))}
+        </span>
+    )
+}
 
 const PERMISSION_TONE_CLASSES: Record<PermissionModeTone, string> = {
     neutral: 'text-[var(--app-hint)]',
@@ -42,6 +36,7 @@ function getConnectionStatus(
     thinking: boolean,
     agentState: AgentState | null | undefined,
     voiceStatus: ConversationStatus | undefined,
+    vibingMessage: string | null,
     t: (key: string) => string
 ): { text: string; color: string; dotColor: string; isPulsing: boolean } {
     const hasPermissions = agentState?.requests && Object.keys(agentState.requests).length > 0
@@ -75,9 +70,8 @@ function getConnectionStatus(
     }
 
     if (thinking) {
-        const vibingMessage = VIBING_MESSAGES[Math.floor(Math.random() * VIBING_MESSAGES.length)].toLowerCase() + '…'
         return {
-            text: vibingMessage,
+            text: vibingMessage ?? 'thinking…',
             color: 'text-[#007AFF]',
             dotColor: 'bg-[#007AFF]',
             isPulsing: true
@@ -98,23 +92,29 @@ function formatTokenCount(tokens: number): string {
     return `${tokens}`
 }
 
-function getContextWarning(contextSize: number, maxContextSize: number, t: (key: string, params?: Record<string, string | number>) => string): { text: string; color: string } | null {
+function getContextColor(percent: number): string {
+    // 0-30%: green, 30-60%: yellow/amber, 60-100%: orange→red
+    if (percent <= 30) return 'text-green-500'
+    if (percent <= 40) return 'text-lime-500'
+    if (percent <= 50) return 'text-yellow-500'
+    if (percent <= 60) return 'text-amber-500'
+    if (percent <= 70) return 'text-orange-500'
+    if (percent <= 80) return 'text-orange-600'
+    if (percent <= 90) return 'text-red-500'
+    return 'text-red-600'
+}
+
+function getContextWarning(contextSize: number, maxContextSize: number): { percent: number; label: string; color: string } | null {
     const percentageUsed = (contextSize / maxContextSize) * 100
-    const percentageRemaining = Math.max(0, 100 - percentageUsed)
     const usedLabel = formatTokenCount(contextSize)
     const totalLabel = formatTokenCount(maxContextSize)
     const percent = Math.min(100, Math.round(percentageUsed))
 
-    if (percentageRemaining <= 5) {
-        return { text: t('misc.contextUsage', { percent, used: usedLabel, total: totalLabel }), color: 'text-red-500' }
-    } else if (percentageRemaining <= 10) {
-        return { text: t('misc.contextUsage', { percent, used: usedLabel, total: totalLabel }), color: 'text-amber-500' }
-    } else {
-        return { text: t('misc.contextUsage', { percent, used: usedLabel, total: totalLabel }), color: 'text-[var(--app-hint)]' }
-    }
+    return { percent, label: `(${usedLabel} / ${totalLabel})`, color: getContextColor(percent) }
 }
 
 export function StatusBar(props: {
+    sessionId?: string | null
     active: boolean
     thinking: boolean
     agentState: AgentState | null | undefined
@@ -128,9 +128,17 @@ export function StatusBar(props: {
     voiceStatus?: ConversationStatus
 }) {
     const { t } = useTranslation()
+    const sid = props.sessionId ?? ''
+
+    // Sync thinking state → vibing store
+    useEffect(() => {
+        if (sid) setSessionVibing(sid, props.thinking)
+    }, [sid, props.thinking])
+
+    const vibingMessage = getSessionVibingMessage(sid)
     const connectionStatus = useMemo(
-        () => getConnectionStatus(props.active, props.thinking, props.agentState, props.voiceStatus, t),
-        [props.active, props.thinking, props.agentState, props.voiceStatus, t]
+        () => getConnectionStatus(props.active, props.thinking, props.agentState, props.voiceStatus, vibingMessage, t),
+        [props.active, props.thinking, props.agentState, props.voiceStatus, vibingMessage, t]
     )
 
     const contextWarning = useMemo(
@@ -138,9 +146,9 @@ export function StatusBar(props: {
             if (props.contextSize === undefined) return null
             const maxContextSize = getContextBudgetTokens(props.model, props.agentFlavor)
             if (!maxContextSize) return null
-            return getContextWarning(props.contextSize, maxContextSize, t)
+            return getContextWarning(props.contextSize, maxContextSize)
         },
-        [props.contextSize, props.model, props.agentFlavor, t]
+        [props.contextSize, props.model, props.agentFlavor]
     )
 
     const permissionMode = props.permissionMode
@@ -168,12 +176,12 @@ export function StatusBar(props: {
                         className={`h-2 w-2 rounded-full ${connectionStatus.dotColor} ${connectionStatus.isPulsing ? 'animate-pulse' : ''}`}
                     />
                     <span className={`text-xs ${connectionStatus.color}`}>
-                        {connectionStatus.text}
+                        {connectionStatus.isPulsing ? <WavyText text={connectionStatus.text} /> : connectionStatus.text}
                     </span>
                 </div>
                 {contextWarning ? (
-                    <span className={`text-[10px] ${contextWarning.color}`}>
-                        {contextWarning.text}
+                    <span className="text-[10px] text-[var(--app-hint)]">
+                        <span className={contextWarning.color}>{contextWarning.percent}%</span> {contextWarning.label}
                     </span>
                 ) : null}
                 {props.totalMessages != null && props.messageCount != null ? (

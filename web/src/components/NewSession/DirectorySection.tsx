@@ -1,4 +1,5 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { Input } from '@arco-design/web-react'
 import type { Suggestion } from '@/hooks/useActiveSuggestions'
 import { Autocomplete } from '@/components/ChatInput/Autocomplete'
 import { FloatingOverlay } from '@/components/ChatInput/FloatingOverlay'
@@ -33,16 +34,15 @@ export function DirectorySection(props: {
             </label>
             <div className="relative">
                 <div className="flex gap-2">
-                    <input
-                        type="text"
+                    <Input
                         placeholder={t('newSession.placeholder')}
                         value={props.directory}
-                        onChange={(event) => props.onDirectoryChange(event.target.value)}
-                        onKeyDown={props.onDirectoryKeyDown}
+                        onChange={(val: string) => props.onDirectoryChange(val)}
+                        onKeyDown={props.onDirectoryKeyDown as unknown as React.KeyboardEventHandler<HTMLInputElement>}
                         onFocus={props.onDirectoryFocus}
                         onBlur={props.onDirectoryBlur}
                         disabled={props.isDisabled}
-                        className="w-full rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] p-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-link)] disabled:opacity-50"
+                        size="small"
                     />
                     <Button
                         type="button"
@@ -74,7 +74,7 @@ export function DirectorySection(props: {
 
             {props.statusMessage ? (
                 <div
-                    className={`mt-1 rounded-md px-2 py-1 text-xs ${
+                    className={`mt-1 rounded-lg px-2 py-1 text-xs ${
                         props.statusTone === 'error'
                             ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                             : 'bg-amber-500/10 text-[var(--app-hint)]'
@@ -94,7 +94,7 @@ export function DirectorySection(props: {
                                 type="button"
                                 onClick={() => props.onPathClick(path)}
                                 disabled={props.isDisabled}
-                                className="rounded-md bg-[var(--app-subtle-bg)] px-2 py-1 text-xs text-[var(--app-fg)] hover:bg-[var(--app-secondary-bg)] transition-colors truncate max-w-[200px] disabled:opacity-50"
+                                className="rounded-lg bg-[var(--app-subtle-bg)] px-2 py-1 text-xs text-[var(--app-fg)] hover:bg-[var(--app-secondary-bg)] transition-colors truncate max-w-[200px] disabled:opacity-50"
                                 title={path}
                             >
                                 {path}

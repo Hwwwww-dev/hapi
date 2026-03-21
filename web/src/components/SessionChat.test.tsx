@@ -15,10 +15,6 @@ vi.mock('@tanstack/react-router', () => ({
     useNavigate: () => vi.fn()
 }))
 
-vi.mock('@assistant-ui/react', () => ({
-    AssistantRuntimeProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>
-}))
-
 vi.mock('@/components/AssistantChat/HappyComposer', () => ({
     HappyComposer: () => null
 }))
@@ -70,14 +66,6 @@ vi.mock('@/hooks/mutations/useSessionActions', () => ({
         setPermissionMode: setPermissionModeMock,
         setModelMode: setModelModeMock
     })
-}))
-
-vi.mock('@/lib/assistant-runtime', () => ({
-    useHappyRuntime: () => ({})
-}))
-
-vi.mock('@/lib/attachmentAdapter', () => ({
-    createAttachmentAdapter: () => ({})
 }))
 
 vi.mock('@/lib/voice-context', () => ({

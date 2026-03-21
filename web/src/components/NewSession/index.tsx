@@ -54,13 +54,6 @@ export function NewSession(props: {
     const [worktreeName, setWorktreeName] = useState('')
     const [directoryCreationConfirmed, setDirectoryCreationConfirmed] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const worktreeInputRef = useRef<HTMLInputElement>(null)
-
-    useEffect(() => {
-        if (sessionType === 'worktree') {
-            worktreeInputRef.current?.focus()
-        }
-    }, [sessionType])
 
     useEffect(() => {
         setModel('auto')
@@ -361,7 +354,6 @@ export function NewSession(props: {
             <SessionTypeSelector
                 sessionType={sessionType}
                 worktreeName={worktreeName}
-                worktreeInputRef={worktreeInputRef}
                 isDisabled={isFormDisabled}
                 onSessionTypeChange={setSessionType}
                 onWorktreeNameChange={setWorktreeName}
