@@ -104,10 +104,10 @@ export const HappyUserMessage = memo(function HappyUserMessage({ block }: { bloc
         return (
             <div className="py-1">
                 <div className="mx-auto w-fit max-w-[92%]">
-                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-3 py-1 text-xs text-[var(--app-hint)]">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-3 py-1 text-[length:var(--text-caption)] text-[var(--app-hint)]">
                         <span>{systemLikeInfo.label}</span>
                         <span aria-hidden="true">·</span>
-                        <MessageTimestamp value={createdAt} className="text-[10px] text-[var(--app-hint)] opacity-80" />
+                        <MessageTimestamp value={createdAt} className="text-[length:var(--text-badge)] text-[var(--app-hint)] opacity-80" />
                     </div>
                 </div>
             </div>
@@ -124,18 +124,18 @@ export const HappyUserMessage = memo(function HappyUserMessage({ block }: { bloc
                                 <div className="shrink-0 flex h-3.5 w-3.5 items-center justify-center text-[var(--app-hint)] leading-none">
                                     <BulbIcon className="h-3.5 w-3.5" />
                                 </div>
-                                <CardTitle className="min-w-0 text-sm font-medium leading-tight break-words">
+                                <CardTitle className="min-w-0 text-[length:var(--text-body)] font-medium leading-tight break-words">
                                     Skill 指令已加载
                                 </CardTitle>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                                <CardDescription className="text-xs">{skillInfo.skillName}</CardDescription>
+                                <CardDescription className="text-[length:var(--text-caption)]">{skillInfo.skillName}</CardDescription>
                                 <span className={`text-[var(--app-hint)] transition-transform ${skillExpanded ? 'rotate-180' : ''}`}>▾</span>
                             </div>
                         </div>
                     </CardHeader>
                     {skillExpanded && (
-                        <div className="border-t border-[var(--app-divider)] px-3 py-2 text-xs text-[var(--app-hint)] max-h-[300px] overflow-y-auto whitespace-pre-wrap break-words">
+                        <div className="border-t border-[var(--app-divider)] px-3 py-2 text-[length:var(--text-caption)]  text-[var(--app-hint)] max-h-[300px] overflow-y-auto whitespace-pre-wrap break-words">
                             {text}
                         </div>
                     )}
@@ -154,18 +154,18 @@ export const HappyUserMessage = memo(function HappyUserMessage({ block }: { bloc
                                 <div className="shrink-0 flex h-3.5 w-3.5 items-center justify-center text-[var(--app-hint)] leading-none">
                                     <ClipboardIcon className="h-3.5 w-3.5" />
                                 </div>
-                                <CardTitle className="min-w-0 text-sm font-medium leading-tight break-words">
+                                <CardTitle className="min-w-0 text-[length:var(--text-body)] font-medium leading-tight break-words">
                                     上下文已压缩
                                 </CardTitle>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                                <CardDescription className="text-xs">Compact</CardDescription>
+                                <CardDescription className="text-[length:var(--text-caption)]">Compact</CardDescription>
                                 <span className={`text-[var(--app-hint)] transition-transform ${compactExpanded ? 'rotate-180' : ''}`}>▾</span>
                             </div>
                         </div>
                     </CardHeader>
                     {compactExpanded && (
-                        <div className="border-t border-[var(--app-divider)] px-3 py-2 text-xs text-[var(--app-hint)] max-h-[300px] overflow-y-auto whitespace-pre-wrap break-words">
+                        <div className="border-t border-[var(--app-divider)] px-3 py-2 text-[length:var(--text-caption)]  text-[var(--app-hint)] max-h-[300px] overflow-y-auto whitespace-pre-wrap break-words">
                             {text}
                         </div>
                     )}
@@ -187,8 +187,8 @@ export const HappyUserMessage = memo(function HappyUserMessage({ block }: { bloc
                             isLong ? (
                                 <div>
                                     {expanded
-                                        ? <LazyRainbowText text={text} />
-                                        : <div className="line-clamp-5 whitespace-pre-wrap break-words">{text}</div>
+                                        ? <LazyRainbowText text={text} size="chat" />
+                                        : <div className="line-clamp-5 whitespace-pre-wrap break-words text-[length:var(--text-chat-body)]">{text}</div>
                                     }
                                     <button
                                         type="button"
@@ -199,7 +199,7 @@ export const HappyUserMessage = memo(function HappyUserMessage({ block }: { bloc
                                     </button>
                                 </div>
                             ) : (
-                                <LazyRainbowText text={text} />
+                                <LazyRainbowText text={text} size="chat" />
                             )
                         )}
                         {hasAttachments && <MessageAttachments attachments={attachments} />}

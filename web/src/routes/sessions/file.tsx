@@ -228,7 +228,7 @@ export default function FilePage() {
                     </button>
                     <div className="min-w-0 flex-1">
                         <div className="truncate font-semibold">{fileName}</div>
-                        <div className="truncate text-xs text-[var(--app-hint)]">{filePath || 'Unknown path'}</div>
+                        <div className="truncate text-[length:var(--text-caption)] text-[var(--app-hint)]">{filePath || 'Unknown path'}</div>
                     </div>
                 </div>
             </div>
@@ -236,7 +236,7 @@ export default function FilePage() {
             <div className="bg-[var(--app-bg)]">
                 <div className="mx-auto w-full max-w-content px-3 py-2 flex items-center gap-2 border-b border-[var(--app-divider)]">
                     <FileIcon fileName={fileName} size={20} />
-                    <span className="min-w-0 flex-1 truncate text-xs text-[var(--app-hint)]">{filePath}</span>
+                    <span className="min-w-0 flex-1 truncate text-[length:var(--text-caption)] text-[var(--app-hint)]">{filePath}</span>
                     <button
                         type="button"
                         onClick={() => copyPath(filePath)}
@@ -254,7 +254,7 @@ export default function FilePage() {
                         <button
                             type="button"
                             onClick={() => setDisplayMode('diff')}
-                            className={`rounded px-3 py-1 text-xs font-semibold ${displayMode === 'diff' ? 'bg-[var(--app-button)] text-[var(--app-button-text)] opacity-80' : 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)]'}`}
+                            className={`rounded px-3 py-1 text-[length:var(--text-caption)] font-semibold ${displayMode === 'diff' ? 'bg-[var(--app-button)] text-[var(--app-button-text)] opacity-80' : 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)]'}`}
                         >
                             Diff
                         </button>
@@ -272,24 +272,24 @@ export default function FilePage() {
             <div className="flex-1 overflow-y-auto">
                 <div className="mx-auto w-full max-w-content p-4">
                     {diffErrorMessage ? (
-                        <div className="mb-3 rounded-md bg-amber-500/10 p-2 text-xs text-[var(--app-hint)]">
+                        <div className="mb-3 rounded-md bg-amber-500/10 p-2 text-[length:var(--text-caption)] text-[var(--app-hint)]">
                             {diffErrorMessage}
                         </div>
                     ) : null}
                     {missingPath ? (
-                        <div className="text-sm text-[var(--app-hint)]">No file path provided.</div>
+                        <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">No file path provided.</div>
                     ) : loading ? (
                         <FileContentSkeleton />
                     ) : fileError ? (
-                        <div className="text-sm text-[var(--app-hint)]">{fileError}</div>
+                        <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{fileError}</div>
                     ) : binaryFile ? (
-                        <div className="text-sm text-[var(--app-hint)]">
+                        <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">
                             This looks like a binary file. It cannot be displayed.
                         </div>
                     ) : displayMode === 'diff' && diffContent ? (
                         <DiffDisplay diffContent={diffContent} />
                     ) : displayMode === 'diff' && diffError ? (
-                        <div className="text-sm text-[var(--app-hint)]">{diffError}</div>
+                        <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{diffError}</div>
                     ) : displayMode === 'file' ? (
                         decodedContent ? (
                             <div className="relative">
@@ -303,15 +303,15 @@ export default function FilePage() {
                                         {contentCopied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
                                     </button>
                                 ) : null}
-                                <pre className="shiki overflow-auto rounded-md bg-[var(--app-code-bg)] p-3 pr-8 text-xs font-mono">
+                                <pre className="shiki overflow-auto rounded-md bg-[var(--app-code-bg)] p-3 pr-8 text-[length:var(--text-code)] font-mono">
                                     <code>{highlighted ?? decodedContent}</code>
                                 </pre>
                             </div>
                         ) : (
-                            <div className="text-sm text-[var(--app-hint)]">File is empty.</div>
+                            <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">File is empty.</div>
                         )
                     ) : (
-                        <div className="text-sm text-[var(--app-hint)]">No changes to display.</div>
+                        <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">No changes to display.</div>
                     )}
                 </div>
             </div>

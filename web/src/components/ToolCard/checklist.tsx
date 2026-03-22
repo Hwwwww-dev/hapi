@@ -85,9 +85,9 @@ function checklistTone(item: ChecklistItem): string {
 }
 
 function checklistIcon(item: ChecklistItem): ReactNode {
-    if (item.status === 'completed') return <IconCheckCircleFill className="text-emerald-600 inline-block align-text-bottom" style={{ fontSize: 14 }} />
-    if (item.status === 'in_progress') return <IconLoading className="text-[var(--app-link)] inline-block align-text-bottom animate-spin" style={{ fontSize: 14 }} />
-    return <IconMinusCircleFill className="text-[var(--app-hint)] inline-block align-text-bottom opacity-40" style={{ fontSize: 14 }} />
+    if (item.status === 'completed') return <IconCheckCircleFill className="text-emerald-600 inline-block align-text-bottom" style={{ fontSize: 'var(--icon-sm)' }} />
+    if (item.status === 'in_progress') return <IconLoading className="text-[var(--app-link)] inline-block align-text-bottom animate-spin" style={{ fontSize: 'var(--icon-sm)' }} />
+    return <IconMinusCircleFill className="text-[var(--app-hint)] inline-block align-text-bottom opacity-40" style={{ fontSize: 'var(--icon-sm)' }} />
 }
 
 export function ChecklistList(props: { items: ChecklistItem[]; emptyLabel?: string | null }) {

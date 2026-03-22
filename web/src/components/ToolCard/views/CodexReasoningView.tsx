@@ -22,5 +22,5 @@ export function CodexReasoningView(props: ToolViewProps) {
     const text = extractReasoningText(props.block.tool.result)
     if (!text) return null
 
-    return <MarkdownRenderer content={text} />
+    return <MarkdownRenderer content={text} className="text-[length:var(--text-caption)] text-[var(--app-hint)]" />
 }

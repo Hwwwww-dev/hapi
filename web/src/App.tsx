@@ -267,7 +267,7 @@ function AppInner() {
     if (isAuthSourceLoading) {
         return (
             <div className="h-full flex items-center justify-center p-4">
-                <LoadingState label={t('loading')} className="text-sm" />
+                <LoadingState label={t('loading')} className="text-[length:var(--text-body)]" />
             </div>
         )
     }
@@ -305,7 +305,7 @@ function AppInner() {
     if (isAuthLoading || (authSource && !token && !authError)) {
         return (
             <div className="h-full flex items-center justify-center p-4">
-                <LoadingState label={t('authorizing')} className="text-sm" />
+                <LoadingState label={t('authorizing')} className="text-[length:var(--text-body)]" />
             </div>
         )
     }
@@ -330,11 +330,11 @@ function AppInner() {
         // Telegram auth failed
         return (
             <div className="p-4 space-y-3">
-                <div className="text-base font-semibold">{t('login.title')}</div>
-                <div className="text-sm text-red-600">
+                <div className="text-[length:var(--text-chat-body)] font-semibold">{t('login.title')}</div>
+                <div className="text-[length:var(--text-body)] text-red-600">
                     {authError ?? t('login.error.authFailed')}
                 </div>
-                <div className="text-xs text-[var(--app-hint)]">
+                <div className="text-[length:var(--text-caption)] text-[var(--app-hint)]">
                     Open this page from Telegram using the bot's "Open App" button (not "Open in browser").
                 </div>
             </div>

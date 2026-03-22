@@ -274,7 +274,7 @@ const BashResultView: ToolViewComponent = (props: ToolViewProps) => {
         const display = toolUseError.isToolUseError ? (toolUseError.errorMessage ?? '') : result
         return (
             <>
-                <CodeBlock code={display} language="text" preClassName="shiki m-0 w-max min-w-full p-2 pr-8 text-[11px] font-mono max-sm:p-1.5 max-sm:pr-7 max-sm:text-[10px]" />
+                <CodeBlock code={display} language="text" />
                 <RawJsonDevOnly value={result} />
             </>
         )
@@ -285,8 +285,8 @@ const BashResultView: ToolViewComponent = (props: ToolViewProps) => {
         return (
             <>
                 <div className="flex flex-col gap-2">
-                    {stdio.stdout ? <CodeBlock code={stdio.stdout} language="text" preClassName="shiki m-0 w-max min-w-full p-2 pr-8 text-[11px] font-mono max-sm:p-1.5 max-sm:pr-7 max-sm:text-[10px]" /> : null}
-                    {stdio.stderr ? <CodeBlock code={stdio.stderr} language="text" preClassName="shiki m-0 w-max min-w-full p-2 pr-8 text-[11px] font-mono max-sm:p-1.5 max-sm:pr-7 max-sm:text-[10px]" /> : null}
+                    {stdio.stdout ? <CodeBlock code={stdio.stdout} language="text" /> : null}
+                    {stdio.stderr ? <CodeBlock code={stdio.stderr} language="text" /> : null}
                 </div>
                 <RawJsonDevOnly value={result} />
             </>
@@ -297,7 +297,7 @@ const BashResultView: ToolViewComponent = (props: ToolViewProps) => {
     if (text) {
         return (
             <>
-                <CodeBlock code={text} language="text" preClassName="shiki m-0 w-max min-w-full p-2 pr-8 text-[11px] font-mono max-sm:p-1.5 max-sm:pr-7 max-sm:text-[10px]" />
+                <CodeBlock code={text} language="text" />
                 <RawJsonDevOnly value={result} />
             </>
         )
@@ -489,7 +489,7 @@ const ReadResultView: ToolViewComponent = (props: ToolViewProps) => {
                         <span className="shrink-0 rounded-md bg-[var(--app-secondary-bg)] px-1 py-0.5 text-[length:var(--text-badge)]">{language}</span>
                     </div>
                 ) : null}
-                <CodeBlock code={cleanContent} language={language} preClassName="shiki m-0 w-max min-w-full p-2 pr-8 text-[11px] font-mono max-sm:p-1.5 max-sm:pr-7 max-sm:text-[10px]" />
+                <CodeBlock code={cleanContent} language={language} />
                 <RawJsonDevOnly value={result} />
             </>
         )
@@ -809,7 +809,7 @@ const SkillResultView: ToolViewComponent = (props: ToolViewProps) => {
                     name="skill-output"
                     header={<span className="text-[length:var(--text-caption)] text-[var(--app-hint)]">Skill output{text.length > 300 ? ` (${Math.round(text.length / 100) / 10}K chars)` : ''}</span>}
                 >
-                <div className="p-3 text-[length:var(--text-code)]">
+                <div className="p-3 text-[length:var(--text-body)]">
                     <MarkdownRenderer content={text} />
                 </div>
             </CollapseItem>

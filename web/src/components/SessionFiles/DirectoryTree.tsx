@@ -10,7 +10,7 @@ import { useSessionDirectory } from '@/hooks/queries/useSessionDirectory'
 import { useTranslation } from '@/lib/use-translation'
 import { queryKeys } from '@/lib/query-keys'
 
-const folderIcon = <IconFolder className="text-[var(--app-link)]" style={{ fontSize: 16, marginRight: 4 }} />
+const folderIcon = <IconFolder className="text-[var(--app-link)]" style={{ fontSize: 'var(--icon-md)', marginRight: 4 }} />
 
 function entriesToTreeData(entries: DirectoryEntry[], parentPath: string): TreeDataType[] {
     const dirs = entries.filter((e) => e.type === 'directory')
@@ -20,7 +20,7 @@ function entriesToTreeData(entries: DirectoryEntry[], parentPath: string): TreeD
         const fullPath = parentPath ? `${parentPath}/${entry.name}` : entry.name
         return {
             key: fullPath,
-            title: entry.name,
+            title: <span className="text-[length:var(--text-body)] leading-[1.45]">{entry.name}</span>,
             icon: folderIcon,
             isLeaf: false,
             children: [],
@@ -31,7 +31,7 @@ function entriesToTreeData(entries: DirectoryEntry[], parentPath: string): TreeD
         const fullPath = parentPath ? `${parentPath}/${entry.name}` : entry.name
         return {
             key: fullPath,
-            title: entry.name,
+            title: <span className="text-[length:var(--text-body)] leading-[1.45]">{entry.name}</span>,
             icon: <span style={{ marginRight: 4, display: 'inline-flex' }}><FileIcon fileName={entry.name} size={16} /></span>,
             isLeaf: true,
         }
@@ -134,7 +134,7 @@ export function DirectoryTree(props: {
             if (children.length === 0) {
                 const emptyNode: TreeDataType = {
                     key: `${dirPath}/__empty__`,
-                    title: <span className="text-[var(--app-hint)] text-sm">{t('git.emptyDirectory')}</span>,
+                    title: <span className="text-[length:var(--text-caption)] text-[var(--app-hint)]">{t('git.emptyDirectory')}</span>,
                     isLeaf: true,
                     selectable: false,
                 }
@@ -179,7 +179,7 @@ export function DirectoryTree(props: {
                     const children = entriesToTreeData(response.entries, key)
                     setTreeData((prev) => mergeChildren(prev, key, children.length > 0 ? children : [{
                         key: `${key}/__empty__`,
-                        title: <span className="text-[var(--app-hint)] text-sm">{t('git.emptyDirectory')}</span>,
+                        title: <span className="text-[length:var(--text-caption)] text-[var(--app-hint)]">{t('git.emptyDirectory')}</span>,
                         isLeaf: true,
                         selectable: false,
                     }]))
@@ -205,14 +205,13 @@ export function DirectoryTree(props: {
     return (
         <div className="flex-1 overflow-y-auto border-t border-[var(--app-divider)] directory-tree-wrapper">
             <style>{`
+                .directory-tree-wrapper .arco-tree { background: transparent; font-size: var(--text-body); }
                 .directory-tree-wrapper .arco-tree-node { padding: 4px 8px; }
                 .directory-tree-wrapper .arco-tree-node:hover { background: var(--app-subtle-bg); }
-                .directory-tree-wrapper .arco-tree-node-title { color: var(--app-fg); font-weight: 500; }
+                .directory-tree-wrapper .arco-tree-node-title { color: var(--app-fg); font-weight: 500; display: inline-flex; align-items: center; vertical-align: middle; }
                 .directory-tree-wrapper .arco-tree-node-switcher { color: var(--app-hint); }
-                .directory-tree-wrapper .arco-tree { background: transparent; }
                 .directory-tree-wrapper .arco-tree-node-selected .arco-tree-node-title { color: var(--app-link); }
                 .directory-tree-wrapper .arco-tree-node-icon { display: inline-flex; align-items: center; vertical-align: middle; }
-                .directory-tree-wrapper .arco-tree-node-title { display: inline-flex; align-items: center; vertical-align: middle; }
             `}</style>
             <Tree
                 treeData={treeData}

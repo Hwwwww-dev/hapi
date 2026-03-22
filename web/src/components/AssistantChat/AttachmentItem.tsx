@@ -11,7 +11,7 @@ export function AttachmentItem({ attachment, onRemove }: { attachment: HappyAtta
             {isUploading ? <Spinner size="sm" label={null} className="text-[var(--app-hint)]" /> : null}
             {isError ? (
                 <span className="text-red-500">
-                    <IconExclamationCircleFill style={{ fontSize: 16 }} />
+                    <IconExclamationCircleFill style={{ fontSize: 'var(--icon-md)' }} />
                 </span>
             ) : null}
             <span className="max-w-[150px] truncate">{attachment.name}</span>
@@ -22,7 +22,7 @@ export function AttachmentItem({ attachment, onRemove }: { attachment: HappyAtta
                 aria-label="Remove attachment"
                 title="Remove attachment"
             >
-                <IconClose style={{ fontSize: 12 }} />
+                <IconClose style={{ fontSize: 'var(--icon-xs)' }} />
             </button>
         </div>
     )

@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { Tabs } from '@arco-design/web-react'
+import { Tabs, Menu } from '@arco-design/web-react'
 import { useDirectoryExpanded } from '@/hooks/useDirectoryExpanded'
 import { DirectoryTree } from '@/components/SessionFiles/DirectoryTree'
 import { ChangesTab } from '@/components/SessionFiles/ChangesTab'
@@ -18,8 +18,7 @@ import { useSession } from '@/hooks/queries/useSession'
 import { useTranslation } from '@/lib/use-translation'
 import { queryKeys } from '@/lib/query-keys'
 import { notify } from '@/lib/notify'
-import { IconLeft, IconSync, IconBranch, IconTool } from '@arco-design/web-react/icon'
-import { Dropdown, Menu } from '@arco-design/web-react'
+import { IconLeft, IconSync, IconBranch, IconTool, IconArrowDown, IconStorage } from '@arco-design/web-react/icon'
 
 const TabPane = Tabs.TabPane
 
@@ -47,7 +46,22 @@ export default function FilesPage() {
     const [gitActionLoading, setGitActionLoading] = useState<'fetch' | 'pull' | 'push' | null>(null)
     const [confirmAction, setConfirmAction] = useState<'fetch' | 'pull' | 'push' | null>(null)
     const [stashOpen, setStashOpen] = useState(false)
+    const [actionsOpen, setActionsOpen] = useState(false)
+    const actionsRef = useRef<HTMLDivElement | null>(null)
     const anyActionLoading = gitActionLoading !== null
+
+    useEffect(() => {
+        if (!actionsOpen) return
+
+        const onPointerDown = (event: PointerEvent) => {
+            if (!actionsRef.current?.contains(event.target as Node)) {
+                setActionsOpen(false)
+            }
+        }
+
+        document.addEventListener('pointerdown', onPointerDown)
+        return () => document.removeEventListener('pointerdown', onPointerDown)
+    }, [actionsOpen])
 
     const handleRefreshAll = useCallback(async () => {
         setRefreshing(true)
@@ -120,57 +134,71 @@ export default function FilesPage() {
             <div className="bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
                 <div className="mx-auto w-full max-w-content flex items-center gap-2 p-3 border-b border-[var(--app-border)]">
                     <button type="button" onClick={goBack} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]">
-                        <IconLeft style={{ fontSize: 20 }} />
+                        <IconLeft style={{ fontSize: 'var(--icon-xl)' }} />
                     </button>
                     <div className="min-w-0 flex-1">
                         <div className="truncate font-semibold">{t('files.header.git')}</div>
-                        <div className="flex items-center gap-1.5 text-xs text-[var(--app-hint)]">
-                            <IconBranch style={{ fontSize: 16 }} />
+                        <div className="flex items-center gap-1.5 text-[length:var(--text-caption)] text-[var(--app-hint)]">
+                            <IconBranch style={{ fontSize: 'var(--icon-md)' }} />
                             <span className="truncate">{branchLabel}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                        <Dropdown
-                            trigger="click"
-                            position="bl"
-                            droplist={
-                                <Menu onClickMenuItem={(key) => {
-                                    if (key === 'fetch' || key === 'pull' || key === 'push') setConfirmAction(key)
-                                    if (key === 'stash') setStashOpen(true)
-                                }}>
-                                    <Menu.Item key="fetch" disabled={anyActionLoading}>
-                                        <span className="flex items-center gap-2 w-24 justify-center">
-                                            {gitActionLoading === 'fetch' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : null}
-                                            {t('git.fetch')}
-                                        </span>
-                                    </Menu.Item>
-                                    <Menu.Item key="pull" disabled={anyActionLoading}>
-                                        <span className="flex items-center gap-2 w-24 justify-center">
-                                            {gitActionLoading === 'pull' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : null}
-                                            {t('git.pull')}
-                                        </span>
-                                    </Menu.Item>
-                                    <Menu.Item key="push" disabled={anyActionLoading}>
-                                        <span className="flex items-center gap-2 w-24 justify-center">
-                                            {gitActionLoading === 'push' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : null}
-                                            {t('git.push')}
-                                        </span>
-                                    </Menu.Item>
-                                    <Menu.Item key="stash" disabled={anyActionLoading}>
-                                    <span className="flex items-center gap-2 w-24 justify-center">
-                                            {gitActionLoading === 'push' ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : null}
-                                            {t('git.stash')}
-                                        </span>
-                                    </Menu.Item>
-                                </Menu>
-                            }
-                        >
-                            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]" title={t('files.header.actions')}>
-                                <IconTool style={{ fontSize: 18 }} />
+                        <div className="relative" ref={actionsRef}>
+                            <button
+                                type="button"
+                                onClick={() => setActionsOpen(v => !v)}
+                                className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
+                                title={t('files.header.actions')}
+                            >
+                                <IconTool style={{ fontSize: 'var(--icon-lg)' }} />
                             </button>
-                        </Dropdown>
+                            {actionsOpen ? (
+                                <div className="absolute right-0 top-full z-20 mt-1 min-w-[120px] overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] p-1 shadow-lg">
+                                    <Menu
+                                        className="border-none bg-transparent"
+                                        onClickMenuItem={(key) => {
+                                            setActionsOpen(false)
+                                            if (key === 'fetch' || key === 'pull' || key === 'push') setConfirmAction(key)
+                                            if (key === 'stash') setStashOpen(true)
+                                        }}
+                                    >
+                                        <Menu.Item key="fetch" disabled={anyActionLoading}>
+                                            <div className="flex items-center gap-3">
+                                                {gitActionLoading === 'fetch'
+                                                    ? <span className="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin text-[var(--app-hint)]" />
+                                                    : <IconSync className="text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-lg)' }} />}
+                                                {t('git.fetch')}
+                                            </div>
+                                        </Menu.Item>
+                                        <Menu.Item key="pull" disabled={anyActionLoading}>
+                                            <div className="flex items-center gap-3">
+                                                {gitActionLoading === 'pull'
+                                                    ? <span className="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin text-[var(--app-hint)]" />
+                                                    : <IconArrowDown className="text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-lg)' }} />}
+                                                {t('git.pull')}
+                                            </div>
+                                        </Menu.Item>
+                                        <Menu.Item key="push" disabled={anyActionLoading}>
+                                            <div className="flex items-center gap-3">
+                                                {gitActionLoading === 'push'
+                                                    ? <span className="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin text-[var(--app-hint)]" />
+                                                    : <IconArrowDown className="rotate-180 text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-lg)' }} />}
+                                                {t('git.push')}
+                                            </div>
+                                        </Menu.Item>
+                                        <Menu.Item key="stash" disabled={anyActionLoading}>
+                                            <div className="flex items-center gap-3">
+                                                <IconStorage className="text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-lg)' }} />
+                                                {t('git.stash')}
+                                            </div>
+                                        </Menu.Item>
+                                    </Menu>
+                                </div>
+                            ) : null}
+                        </div>
                         <button type="button" onClick={() => void handleRefreshAll()} className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]" title={t('files.header.refresh')}>
-                            <IconSync className={refreshing || gitLoading ? 'animate-spin' : ''} style={{ fontSize: 18 }} />
+                            <IconSync className={refreshing || gitLoading ? 'animate-spin' : ''} style={{ fontSize: 'var(--icon-lg)' }} />
                         </button>
                     </div>
                 </div>

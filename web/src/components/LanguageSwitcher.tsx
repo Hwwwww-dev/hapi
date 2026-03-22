@@ -16,7 +16,7 @@ export function LanguageSwitcher() {
         <Menu.Item key={loc.value}>
           <div className="flex items-center justify-between w-full">
             <span>{loc.label}</span>
-            {locale === loc.value && <IconCheck className="text-[var(--app-link)]" style={{ fontSize: 14 }} />}
+            {locale === loc.value && <IconCheck className="text-[var(--app-link)]" style={{ fontSize: 'var(--icon-sm)' }} />}
           </div>
         </Menu.Item>
       ))}
@@ -31,7 +31,7 @@ export function LanguageSwitcher() {
         title={t('language.title')}
         aria-label={t('language.title')}
       >
-        <IconLanguage style={{ fontSize: 18 }} />
+        <IconLanguage style={{ fontSize: 'var(--icon-lg)' }} />
       </button>
     </Dropdown>
   )

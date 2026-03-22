@@ -102,8 +102,9 @@ function processChildrenForRainbow(children: React.ReactNode): React.ReactNode {
     })
 }
 
-export function LazyRainbowText(props: { text: string }) {
+export function LazyRainbowText(props: { text: string; size?: 'body' | 'chat' }) {
     const text = props.text
+    const sizeClass = props.size === 'chat' ? 'text-[length:var(--text-chat-body)]' : 'text-[length:var(--text-body)]'
     const ref = useRef<HTMLDivElement>(null)
     const [hasBeenVisible, setHasBeenVisible] = useState(false)
 
@@ -137,7 +138,7 @@ export function LazyRainbowText(props: { text: string }) {
         <div ref={ref}>
             <MarkdownRenderer
                 content={text}
-                className="text-[length:var(--text-body)]"
+                className={sizeClass}
                 components={hasSpecialWord && hasBeenVisible ? rainbowComponents : undefined}
             />
         </div>

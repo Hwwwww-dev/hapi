@@ -14,9 +14,9 @@ import {
     IconLoading,
 } from '@arco-design/web-react/icon'
 
-const iconSize18 = { fontSize: 18 }
-const iconSize16 = { fontSize: 16 }
-const iconSize14 = { fontSize: 14 }
+const iconSizeLg = { fontSize: 'var(--icon-lg)' }
+const iconSizeMd = { fontSize: 'var(--icon-md)' }
+const iconSizeSm = { fontSize: 'var(--icon-sm)' }
 
 function UnifiedButton(props: {
     canSend: boolean
@@ -55,23 +55,23 @@ function UnifiedButton(props: {
     let ariaLabel: string
 
     if (isConnecting) {
-        icon = <IconLoading spin style={iconSize16} />
+        icon = <IconLoading spin style={iconSizeMd} />
         className = 'bg-[var(--app-button)] text-[var(--app-button-text)]'
         ariaLabel = t('voice.connecting')
     } else if (isConnected) {
-        icon = <IconRecordStop style={iconSize14} />
+        icon = <IconRecordStop style={iconSizeSm} />
         className = 'bg-[var(--app-button)] text-[var(--app-button-text)]'
         ariaLabel = t('composer.stop')
     } else if (props.hasContent) {
-        icon = <IconSend style={iconSize16} />
+        icon = <IconSend style={iconSizeMd} />
         className = 'bg-[var(--app-button)] text-[var(--app-button-text)]'
         ariaLabel = t('composer.send')
     } else if (props.voiceEnabled) {
-        icon = <IconVoice style={iconSize18} />
+        icon = <IconVoice style={iconSizeLg} />
         className = 'bg-[var(--app-button)] text-[var(--app-button-text)]'
         ariaLabel = t('composer.voice')
     } else {
-        icon = <IconSend style={iconSize16} />
+        icon = <IconSend style={iconSizeMd} />
         className = 'bg-[var(--app-hint)] text-[var(--app-button-text)]'
         ariaLabel = t('composer.send')
     }
@@ -150,7 +150,7 @@ export function ComposerButtons(props: {
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-[var(--app-fg)] disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => fileInputRef.current?.click()}
                     >
-                        <IconAttachment style={iconSize18} />
+                        <IconAttachment style={iconSizeLg} />
                     </button>
                 </>
 
@@ -163,7 +163,7 @@ export function ComposerButtons(props: {
                         onClick={props.onSettingsToggle}
                         disabled={props.controlsDisabled}
                     >
-                        <IconSettings style={iconSize18} />
+                        <IconSettings style={iconSizeLg} />
                     </button>
                 ) : null}
 
@@ -176,7 +176,7 @@ export function ComposerButtons(props: {
                         onClick={props.onTerminal}
                         disabled={props.terminalDisabled}
                     >
-                        <IconCommand style={iconSize18} />
+                        <IconCommand style={iconSizeLg} />
                     </button>
                 ) : null}
 
@@ -189,7 +189,7 @@ export function ComposerButtons(props: {
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={props.onAbort}
                     >
-                        {props.isAborting ? <IconLoading spin style={iconSize18} /> : <IconRecordStop style={iconSize18} />}
+                        {props.isAborting ? <IconLoading spin style={iconSizeLg} /> : <IconRecordStop style={iconSizeLg} />}
                     </button>
                 ) : null}
 
@@ -202,7 +202,7 @@ export function ComposerButtons(props: {
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-fg)]/60 transition-colors hover:bg-[var(--app-bg)] hover:text-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={props.onSwitch}
                     >
-                        <IconMobile style={iconSize18} />
+                        <IconMobile style={iconSizeLg} />
                     </button>
                 ) : null}
 
@@ -218,7 +218,7 @@ export function ComposerButtons(props: {
                         }`}
                         onClick={props.onVoiceMicToggle}
                     >
-                        {props.voiceMicMuted ? <IconMute style={iconSize18} /> : <IconSound style={iconSize18} />}
+                        {props.voiceMicMuted ? <IconMute style={iconSizeLg} /> : <IconSound style={iconSizeLg} />}
                     </button>
                 ) : null}
             </div>

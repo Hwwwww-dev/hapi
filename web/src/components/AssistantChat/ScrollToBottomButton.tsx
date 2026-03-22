@@ -19,7 +19,7 @@ export function ScrollToBottomButton(props: { visible: boolean; count?: number; 
                 {hasNew ? (
                     <>{t('misc.newMessage', { n: props.count! })} &#8595;</>
                 ) : (
-                    <IconArrowDown style={{ fontSize: 16 }} />
+                    <IconArrowDown style={{ fontSize: 'var(--icon-md)' }} />
                 )}
             </button>
         </div>

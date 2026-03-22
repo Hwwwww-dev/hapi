@@ -122,8 +122,8 @@ export function LoginPrompt(props: LoginPromptProps) {
             <div className="w-full max-w-sm space-y-6">
                 {/* Header */}
                 <div className="text-center space-y-2">
-                    <div className="text-2xl font-semibold">{title}</div>
-                    <div className="text-sm text-[var(--app-hint)]">
+                    <div className="text-[length:var(--text-title-lg)] font-semibold">{title}</div>
+                    <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">
                         {subtitle}
                     </div>
                 </div>
@@ -200,7 +200,7 @@ export function LoginPrompt(props: LoginPromptProps) {
                                             placeholder={t('login.server.placeholder')}
                                             className="w-full px-3 py-2.5 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] text-[var(--app-fg)] placeholder:text-[var(--app-hint)] focus:outline-none focus:ring-2 focus:ring-[var(--app-button)] focus:border-transparent"
                                         />
-                                        <div className="text-[11px] text-[var(--app-hint)]">
+                                        <div className="text-[length:var(--text-caption)] text-[var(--app-hint)]">
                                             {t('login.server.hint')}
                                         </div>
                                     </div>

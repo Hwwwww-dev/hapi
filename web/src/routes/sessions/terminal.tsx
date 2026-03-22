@@ -450,7 +450,7 @@ export default function TerminalPage() {
                         onClick={goBack}
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
                     >
-                        <IconLeft style={{ fontSize: 20 }} />
+                        <IconLeft style={{ fontSize: 'var(--icon-xl)' }} />
                     </button>
                     <div className="min-w-0 flex-1">
                         <div className="truncate font-semibold">Terminal</div>
@@ -551,7 +551,7 @@ export default function TerminalPage() {
                     }`}
                     aria-label={keyboardOpen ? 'Hide keyboard' : 'Show keyboard'}
                 >
-                    <IconCommand style={{ fontSize: 20 }} />
+                    <IconCommand style={{ fontSize: 'var(--icon-xl)' }} />
                 </div>
             </div>
 
