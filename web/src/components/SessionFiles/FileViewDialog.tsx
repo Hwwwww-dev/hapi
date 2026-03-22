@@ -51,7 +51,7 @@ export function DiffDisplay(props: { diffContent: string }) {
                 const isHunk = line.startsWith('@@')
                 const isHeader = line.startsWith('+++') || line.startsWith('---')
                 const className = [
-                    'whitespace-pre-wrap px-3 py-0.5 text-xs font-mono',
+                    'whitespace-pre-wrap px-3 py-0.5 text-[length:var(--text-code)] font-mono',
                     isAdd ? 'bg-[var(--app-diff-added-bg)] text-[var(--app-diff-added-text)]' : '',
                     isRemove ? 'bg-[var(--app-diff-removed-bg)] text-[var(--app-diff-removed-text)]' : '',
                     isHunk ? 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)] font-semibold' : '',
@@ -168,7 +168,7 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
             {/* File path bar */}
             <div className="shrink-0 px-3 py-2 flex items-center gap-2 border-b border-[var(--app-divider)]">
                 <FileIcon fileName={fileName} size={16} />
-                <span className="min-w-0 flex-1 truncate text-xs text-[var(--app-hint)] font-mono">{filePath}</span>
+                <span className="min-w-0 flex-1 truncate text-[length:var(--text-caption)] text-[var(--app-hint)] font-mono">{filePath}</span>
                 <button
                     type="button"
                     onClick={() => copyPath(filePath)}
@@ -220,7 +220,7 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
                                     {contentCopied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
                                 </button>
                             ) : null}
-                            <pre className="shiki overflow-auto rounded-md bg-[var(--app-code-bg)] p-3 pr-8 text-xs font-mono">
+                            <pre className="shiki overflow-auto rounded-md bg-[var(--app-code-bg)] p-3 pr-8 text-[length:var(--text-code)] font-mono">
                                 <code>{highlighted ?? decodedContent}</code>
                             </pre>
                         </div>

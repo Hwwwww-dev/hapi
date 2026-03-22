@@ -53,7 +53,7 @@ export function DiffView(props: {
                 >
                     <div className="overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] hover:bg-[var(--app-secondary-bg)] transition-colors">
                         {props.filePath ? (
-                            <div className="border-b border-[var(--app-border)] bg-[var(--app-subtle-bg)] px-2 py-1 text-xs text-[var(--app-hint)] truncate">
+                            <div className="border-b border-[var(--app-border)] bg-[var(--app-subtle-bg)] px-2 py-1 text-[length:var(--text-caption)] text-[var(--app-hint)] truncate">
                                 {props.filePath}
                             </div>
                         ) : null}
@@ -95,12 +95,12 @@ function DiffInlineView(props: {
     return (
         <div className="overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)]">
             {props.filePath ? (
-                <div className="border-b border-[var(--app-border)] bg-[var(--app-subtle-bg)] px-2 py-1 text-xs text-[var(--app-hint)] truncate">
+                <div className="border-b border-[var(--app-border)] bg-[var(--app-subtle-bg)] px-2 py-1 text-[length:var(--text-caption)] text-[var(--app-hint)] truncate">
                     {props.filePath}
                 </div>
             ) : null}
 
-            <div className="font-mono text-xs">
+            <div className="font-mono text-[length:var(--text-code)]">
                 {diff.map((part, i) => {
                     const lines = part.value.split('\n')
                     if (lines.length > 0 && lines[lines.length - 1] === '') {

@@ -553,7 +553,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                                 {diffLoading ? t('git.loading') : diffPreview ? t('git.hideDiffPreview') : t('git.showDiffPreview')}
                             </button>
                             {diffPreview && (
-                                <pre className="mt-2 p-2 rounded-md bg-[var(--app-subtle-bg)] text-[10px] font-mono text-[var(--app-fg)] overflow-x-auto max-h-[200px] overflow-y-auto whitespace-pre border border-[var(--app-divider)]">
+                                <pre className="mt-2 p-2 rounded-md bg-[var(--app-subtle-bg)] text-[length:var(--text-code)] font-mono text-[var(--app-fg)] overflow-x-auto max-h-[200px] overflow-y-auto whitespace-pre border border-[var(--app-divider)]">
                                     {diffPreview}
                                 </pre>
                             )}
@@ -563,7 +563,7 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                         {mergeConflict && (
                             <div className="mb-3 px-3 py-2 text-xs text-red-500 bg-red-500/10 rounded-md border border-red-500/20 whitespace-pre-wrap">
                                 {t('git.mergeConflictDetected')}
-                                <pre className="mt-1 text-[10px] font-mono max-h-[120px] overflow-y-auto">{mergeConflict}</pre>
+                                <pre className="mt-1 text-[length:var(--text-code)] font-mono max-h-[120px] overflow-y-auto">{mergeConflict}</pre>
                             </div>
                         )}
 

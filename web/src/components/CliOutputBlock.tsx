@@ -103,7 +103,7 @@ export function CliOutputBlock(props: { text: string }) {
                                         <div className="shrink-0 flex h-4 w-4 items-center justify-center text-[var(--app-hint)] leading-none">
                                             <IconCommand style={{ fontSize: 16 }} />
                                         </div>
-                                        <CardTitle className="min-w-0 text-sm font-medium leading-tight break-words">
+                                        <CardTitle className="min-w-0 text-[length:var(--text-body)] font-medium leading-tight break-words">
                                             {commandName ?? t('terminal.commandName')}
                                         </CardTitle>
                                     </div>
@@ -120,7 +120,7 @@ export function CliOutputBlock(props: { text: string }) {
                         </DialogHeader>
                         <div className="mt-3 max-h-[75vh] overflow-auto">
                             <div className="min-w-0 max-w-full overflow-x-auto overflow-y-hidden">
-                                <pre className="m-0 w-max min-w-full bg-[var(--app-code-bg)] p-2 text-xs font-mono">
+                                <pre className="m-0 w-max min-w-full bg-[var(--app-code-bg)] p-2 text-[length:var(--text-code)] font-mono">
                                     {content}
                                 </pre>
                             </div>

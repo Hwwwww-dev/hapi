@@ -27,7 +27,7 @@ export function CodeBlock(props: {
             ) : null}
 
             <div className="min-w-0 w-full max-w-full overflow-x-auto overflow-y-hidden rounded-md bg-[var(--app-code-bg)]">
-                <pre className="shiki m-0 w-max min-w-full p-2 pr-8 text-xs font-mono">
+                <pre className="shiki m-0 w-max min-w-full p-2 pr-8 text-[length:var(--text-code)] font-mono">
                     <code className="block">{highlighted ?? props.code}</code>
                 </pre>
             </div>

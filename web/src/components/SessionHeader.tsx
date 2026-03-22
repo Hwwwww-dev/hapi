@@ -100,7 +100,7 @@ export function SessionHeader(props: {
                             </div>
                             <SessionSourceBadge source={session.metadata?.source} className="shrink-0 mt-0.5" />
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-[var(--app-hint)]">
+                        <div className="flex flex-wrap items-center gap-x-2 text-[length:var(--text-badge)] text-[var(--app-hint)]">
                             <span className="inline-flex items-center gap-0.5 shrink-0">
                                 <span aria-hidden="true">❖</span>
                                 {formatFlavorName(session.metadata?.flavor)}

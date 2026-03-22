@@ -207,12 +207,12 @@ export function CommitRow({ commit, api, sessionId, isLocal, isFirst, onUncommit
                 >
                     <div className="flex-1 min-w-0">
                         <div className="text-sm text-[var(--app-fg)] truncate flex items-center gap-1.5">
-                            {isLocal && <span className="shrink-0 inline-flex items-center rounded-md px-1 py-0.5 text-[10px] font-semibold leading-none bg-amber-500/15 text-amber-600">{t('git.local')}</span>}
-                            {!isLocal && <span className="shrink-0 inline-flex items-center rounded-md px-1 py-0.5 text-[10px] font-semibold leading-none bg-emerald-500/15 text-emerald-600">{t('git.remote')}</span>}
+                            {isLocal && <span className="shrink-0 inline-flex items-center rounded-md px-1 py-0.5 text-[length:var(--text-badge)] font-semibold leading-none bg-amber-500/15 text-amber-600">{t('git.local')}</span>}
+                            {!isLocal && <span className="shrink-0 inline-flex items-center rounded-md px-1 py-0.5 text-[length:var(--text-badge)] font-semibold leading-none bg-emerald-500/15 text-emerald-600">{t('git.remote')}</span>}
                             <span className="truncate">{commit.subject}</span>
                             {loading && <span className="shrink-0 w-3.5 h-3.5 border border-[var(--app-link)] border-t-transparent rounded-full animate-spin inline-block" />}
                         </div>
-                        <div className="text-xs text-[var(--app-hint)] mt-0.5 flex items-center gap-1">
+                        <div className="text-[length:var(--text-caption)] text-[var(--app-hint)] mt-0.5 flex items-center gap-1">
                             <span className="font-mono">{commit.short}</span>
                             <span>·</span>
                             <span>{commit.author}</span>
@@ -295,12 +295,12 @@ export function CommitRow({ commit, api, sessionId, isLocal, isFirst, onUncommit
                                     onClick={() => setDialogFile(f.path)}
                                     className="flex w-full items-center gap-2 text-left py-0.5 hover:underline"
                                 >
-                                    <span className={`shrink-0 text-[10px] font-bold w-4 ${f.status === 'A' ? 'text-green-500' : f.status === 'D' ? 'text-red-500' : 'text-yellow-500'}`}>
+                                    <span className={`shrink-0 text-[length:var(--text-badge)] font-bold w-4 ${f.status === 'A' ? 'text-green-500' : f.status === 'D' ? 'text-red-500' : 'text-yellow-500'}`}>
                                         {f.status === 'A' ? 'A' : f.status === 'D' ? 'D' : 'M'}
                                     </span>
-                                    <span className="text-xs text-[var(--app-link)] font-mono truncate">{f.path}</span>
+                                    <span className="text-[length:var(--text-caption)] text-[var(--app-link)] font-mono truncate">{f.path}</span>
                                     {(f.additions > 0 || f.deletions > 0) && (
-                                        <span className="shrink-0 ml-auto flex items-center gap-1 text-[10px] font-mono">
+                                        <span className="shrink-0 ml-auto flex items-center gap-1 text-[length:var(--text-badge)] font-mono">
                                             {f.additions > 0 && <span className="text-green-500">+{f.additions}</span>}
                                             {f.deletions > 0 && <span className="text-red-500">-{f.deletions}</span>}
                                         </span>

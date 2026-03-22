@@ -20,10 +20,12 @@ const iconSize14 = { fontSize: 14 }
 
 function UnifiedButton(props: {
     canSend: boolean
+    hasContent: boolean
     voiceStatus: ConversationStatus
     voiceEnabled: boolean
     controlsDisabled: boolean
     onSend: () => void
+    onEnqueue: () => void
     onVoiceToggle: () => void
 }) {
     const { t } = useTranslation()
@@ -32,20 +34,22 @@ function UnifiedButton(props: {
     const isConnecting = props.voiceStatus === 'connecting'
     const isConnected = props.voiceStatus === 'connected'
     const isVoiceActive = isConnecting || isConnected
-    const hasText = props.canSend
 
     // Determine button behavior
     const handleClick = () => {
         if (isVoiceActive) {
             props.onVoiceToggle() // Stop voice
-        } else if (hasText) {
-            props.onSend() // Send message
+        } else if (props.canSend) {
+            props.onSend() // Direct send
+        } else if (props.hasContent) {
+            props.onEnqueue() // Enqueue when thread is running
         } else if (props.voiceEnabled) {
             props.onVoiceToggle() // Start voice
         }
     }
 
-    // Determine button style and icon
+    // Determine button style and icon — use hasContent (not canSend) so
+    // the send icon stays visible while the thread is running.
     let icon: React.ReactNode
     let className: string
     let ariaLabel: string
@@ -58,7 +62,7 @@ function UnifiedButton(props: {
         icon = <IconRecordStop style={iconSize14} />
         className = 'bg-[var(--app-button)] text-[var(--app-button-text)]'
         ariaLabel = t('composer.stop')
-    } else if (hasText) {
+    } else if (props.hasContent) {
         icon = <IconSend style={iconSize16} />
         className = 'bg-[var(--app-button)] text-[var(--app-button-text)]'
         ariaLabel = t('composer.send')
@@ -72,7 +76,7 @@ function UnifiedButton(props: {
         ariaLabel = t('composer.send')
     }
 
-    const isDisabled = props.controlsDisabled || (!hasText && !props.voiceEnabled && !isVoiceActive)
+    const isDisabled = props.controlsDisabled || (!props.hasContent && !props.voiceEnabled && !isVoiceActive)
 
     return (
         <button
@@ -90,6 +94,7 @@ function UnifiedButton(props: {
 
 export function ComposerButtons(props: {
     canSend: boolean
+    hasContent: boolean
     controlsDisabled: boolean
     showSettingsButton: boolean
     onSettingsToggle: () => void
@@ -111,6 +116,7 @@ export function ComposerButtons(props: {
     onAddAttachment: (file: File) => void
     onVoiceMicToggle?: () => void
     onSend: () => void
+    onEnqueue: () => void
 }) {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const { t } = useTranslation()
@@ -219,10 +225,12 @@ export function ComposerButtons(props: {
 
             <UnifiedButton
                 canSend={props.canSend}
+                hasContent={props.hasContent}
                 voiceStatus={props.voiceStatus}
                 voiceEnabled={props.voiceEnabled}
                 controlsDisabled={props.controlsDisabled}
                 onSend={props.onSend}
+                onEnqueue={props.onEnqueue}
                 onVoiceToggle={props.onVoiceToggle}
             />
         </div>

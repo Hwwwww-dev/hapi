@@ -180,7 +180,7 @@ export const HappyUserMessage = memo(function HappyUserMessage({ block }: { bloc
 
     return (
         <div className="group/user ml-auto w-fit min-w-0 max-w-[92%]">
-            <div className="rounded-xl bg-[var(--app-secondary-bg)] px-3 py-2 text-[15px] text-[var(--app-fg)] shadow-sm">
+            <div className="rounded-xl bg-[var(--app-secondary-bg)] px-3 py-2 text-[length:var(--text-body)] text-[var(--app-fg)] shadow-sm">
                 <div className="flex items-end gap-2">
                     <div className="flex-1 min-w-0">
                         {hasText && (

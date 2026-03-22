@@ -8,7 +8,7 @@ import { Checkbox } from '@arco-design/web-react'
 function LineChanges({ added, removed }: { added: number; removed: number }) {
     if (!added && !removed) return null
     return (
-        <span className="flex items-center gap-1 text-[11px] font-mono">
+        <span className="flex items-center gap-1 text-[length:var(--text-caption)] font-mono">
             {added ? <span className="text-green-500">+{added}</span> : null}
             {removed ? <span className="text-red-500">-{removed}</span> : null}
         </span>
@@ -92,7 +92,7 @@ export function GitFileRow({ file, onOpen, actions, showCheckbox, checked, onTog
                 <FileIcon fileName={file.fileName} size={18} />
                 <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{file.fileName}</div>
-                    <div className="truncate text-[11px] text-[var(--app-hint)]">{subtitle}</div>
+                    <div className="truncate text-[length:var(--text-caption)] text-[var(--app-hint)]">{subtitle}</div>
                 </div>
                 <div className="flex items-center gap-2">
                     <LineChanges added={file.linesAdded} removed={file.linesRemoved} />
