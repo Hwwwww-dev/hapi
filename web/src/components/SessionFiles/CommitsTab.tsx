@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Select, Timeline, Input, DatePicker } from '@arco-design/web-react'
+import type { RefInputType } from '@arco-design/web-react/es/Input'
 import type { ApiClient } from '@/api/client'
 import type { CommitEntry } from '@/types/api'
 import { useGitLog } from '@/hooks/queries/useGitLog'
@@ -9,6 +10,35 @@ import { useTranslation } from '@/lib/use-translation'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { notify } from '@/lib/notify'
 import { CommitRow } from './CommitRow'
+
+// --- Tag search parser ---
+type ParsedSearch = { keyword?: string; author?: string; hash?: string }
+const TAG_KEYS = ['keyword', 'author', 'hash'] as const
+
+function parseSearchQuery(input: string): ParsedSearch {
+    const result: ParsedSearch = {}
+    const remaining: string[] = []
+    // Match tokens: either tag:value, tag:"value with spaces", or plain words
+    const tokens = input.match(/(?:[^\s"]+|"[^"]*")+/g) ?? []
+    for (const token of tokens) {
+        const colonIdx = token.indexOf(':')
+        if (colonIdx > 0) {
+            const key = token.slice(0, colonIdx).toLowerCase()
+            const value = token.slice(colonIdx + 1).replace(/^"|"$/g, '')
+            if (key === 'keyword') result.keyword = value
+            else if (key === 'author') result.author = value
+            else if (key === 'hash') result.hash = value
+            else remaining.push(token) // unknown tag → treat as text
+        } else {
+            remaining.push(token)
+        }
+    }
+    // Plain text (no tag prefix) treated as keyword
+    if (remaining.length > 0 && !result.keyword) {
+        result.keyword = remaining.join(' ')
+    }
+    return result
+}
 
 type CommitsTabProps = {
     api: ApiClient
@@ -27,29 +57,36 @@ export function CommitsTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
 
     // Search / filter (debounced for backend queries)
     const [commitSearchInput, setCommitSearchInput] = useState('')
-    const [debouncedCommitKeyword, setDebouncedCommitKeyword] = useState('')
+    const [debouncedSearch, setDebouncedSearch] = useState('')
     const [dateSince, setDateSince] = useState('')
     const [dateUntil, setDateUntil] = useState('')
+    const [showTagHints, setShowTagHints] = useState(false)
+    const searchInputRef = useRef<RefInputType>(null)
 
-    // Debounce keyword inputs
+    // Debounce raw input
     useEffect(() => {
-        const timer = setTimeout(() => setDebouncedCommitKeyword(commitSearchInput.trim()), 300)
+        const timer = setTimeout(() => setDebouncedSearch(commitSearchInput.trim()), 300)
         return () => clearTimeout(timer)
     }, [commitSearchInput])
+
+    // Parse debounced input into structured filters
+    const parsedSearch = useMemo(() => parseSearchQuery(debouncedSearch), [debouncedSearch])
 
     // Reset pagination when search/date filters change
     useEffect(() => {
         setAllCommits([])
         setSkip(0)
         setHasMore(true)
-    }, [debouncedCommitKeyword, dateSince, dateUntil])
+    }, [debouncedSearch, dateSince, dateUntil])
 
     const { local: localBranches, remote: remoteBranches } = useGitBranches(api, sessionId, currentBranch)
     const { commits, isLoading } = useGitLog(api, sessionId, {
         limit: 50,
         skip,
         branch: selectedBranch,
-        keyword: debouncedCommitKeyword || undefined,
+        keyword: parsedSearch.keyword || undefined,
+        author: parsedSearch.author || undefined,
+        hash: parsedSearch.hash || undefined,
         since: dateSince || undefined,
         until: dateUntil || undefined,
     })
@@ -75,6 +112,15 @@ export function CommitsTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
     const [tagName, setTagName] = useState('')
     const [tagMessage, setTagMessage] = useState('')
     const [createTagLoading, setCreateTagLoading] = useState(false)
+
+    // Amend
+    const [amendTarget, setAmendTarget] = useState<CommitEntry | null>(null)
+    const [amendMessage, setAmendMessage] = useState('')
+    const [amendLoading, setAmendLoading] = useState(false)
+
+    // Revert
+    const [revertTarget, setRevertTarget] = useState<CommitEntry | null>(null)
+    const [revertLoading, setRevertLoading] = useState(false)
 
     // Tags (only for refetchTags after create tag)
     const { refetch: refetchTags } = useGitTags(api, sessionId, undefined)
@@ -176,6 +222,34 @@ export function CommitsTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
         }
     }, [api, sessionId, createTagTarget, tagName, tagMessage, t])
 
+    const handleAmend = useCallback(async () => {
+        if (!amendTarget || !amendMessage.trim()) return
+        setAmendLoading(true)
+        const res = await api.gitAmend(sessionId, amendMessage.trim())
+        setAmendLoading(false)
+        if (res.success) {
+            setAmendTarget(null); setAmendMessage('')
+            notify.success(t('notify.git.amendOk'))
+            setSkip(0); setAllCommits([]); onRefresh()
+        } else {
+            notify.error(res.stderr ?? res.error ?? 'Amend failed')
+        }
+    }, [api, sessionId, amendTarget, amendMessage, t, onRefresh])
+
+    const handleRevert = useCallback(async () => {
+        if (!revertTarget) return
+        setRevertLoading(true)
+        const res = await api.gitRevert(sessionId, revertTarget.hash)
+        setRevertLoading(false)
+        if (res.success) {
+            setRevertTarget(null)
+            notify.success(t('notify.git.revertOk'))
+            setSkip(0); setAllCommits([]); onRefresh()
+        } else {
+            notify.error(res.stderr ?? res.error ?? 'Revert failed')
+        }
+    }, [api, sessionId, revertTarget, t, onRefresh])
+
     return (
         <div className="flex flex-col h-full">
             {/* Branch selector */}
@@ -211,14 +285,53 @@ export function CommitsTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                 </div>
             )}
             <div className="px-3 py-1.5 border-b border-[var(--app-divider)] shrink-0 grid grid-cols-1 sm:grid-cols-10 gap-1.5">
-                <div className="sm:col-span-4">
-                    <Input.Search
+                <div className="sm:col-span-4 relative">
+                    <Input
+                        ref={searchInputRef}
                         value={commitSearchInput}
-                        onChange={(val: string) => setCommitSearchInput(val)}
-                        placeholder={t('git.searchCommits')}
+                        onChange={(val: string) => {
+                            setCommitSearchInput(val)
+                            // Show tag hints when input is empty or cursor at a word boundary
+                            setShowTagHints(val === '' || val.endsWith(' '))
+                        }}
+                        onFocus={() => setShowTagHints(commitSearchInput === '' || commitSearchInput.endsWith(' '))}
+                        onBlur={() => setTimeout(() => setShowTagHints(false), 150)}
+                        placeholder={t('git.searchCommitsTagged')}
                         allowClear
                         size="small"
+                        suffix={
+                            (parsedSearch.keyword || parsedSearch.author || parsedSearch.hash) ? (
+                                <span className="flex items-center gap-1">
+                                    {parsedSearch.keyword && <span className="inline-flex items-center rounded px-1 py-px text-[10px] font-medium bg-blue-500/15 text-blue-600">K</span>}
+                                    {parsedSearch.author && <span className="inline-flex items-center rounded px-1 py-px text-[10px] font-medium bg-purple-500/15 text-purple-600">A</span>}
+                                    {parsedSearch.hash && <span className="inline-flex items-center rounded px-1 py-px text-[10px] font-medium bg-amber-500/15 text-amber-600">H</span>}
+                                </span>
+                            ) : undefined
+                        }
                     />
+                    {showTagHints && (
+                        <div className="absolute left-0 top-full z-20 mt-1 flex gap-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] px-2 py-1.5 shadow-lg">
+                            {TAG_KEYS.map(tag => (
+                                <button
+                                    key={tag}
+                                    type="button"
+                                    className="rounded-md px-2 py-0.5 text-[11px] font-mono text-[var(--app-link)] hover:bg-[var(--app-subtle-bg)] transition-colors"
+                                    onMouseDown={e => {
+                                        e.preventDefault()
+                                        const prefix = tag + ':'
+                                        setCommitSearchInput(prev => {
+                                            const trimmed = prev.trimEnd()
+                                            return trimmed ? trimmed + ' ' + prefix : prefix
+                                        })
+                                        setShowTagHints(false)
+                                        setTimeout(() => searchInputRef.current?.focus(), 0)
+                                    }}
+                                >
+                                    {tag}:
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 <div className="sm:col-span-6">
                     <DatePicker.RangePicker
@@ -254,7 +367,10 @@ export function CommitsTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                                         api={api}
                                         sessionId={sessionId}
                                         isLocal={isLocal_}
+                                        isFirst={index === 0}
                                         onUncommit={selectedBranch ? undefined : () => setUncommitTarget(commit)}
+                                        onAmend={selectedBranch ? undefined : () => { setAmendTarget(commit); setAmendMessage(commit.subject) }}
+                                        onRevert={() => setRevertTarget(commit)}
                                         onCherryPick={() => setCherryPickTarget(commit)}
                                         onResetMixed={selectedBranch ? undefined : () => setResetMixedTarget(commit)}
                                         onResetHard={selectedBranch ? undefined : () => setResetHardTarget(commit)}
@@ -350,6 +466,38 @@ export function CommitsTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                     </div>
                 </div>
             )}
+            {/* Amend commit message */}
+            {amendTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setAmendTarget(null); setAmendMessage('') }}>
+                    <div className="bg-[var(--app-bg)] rounded-xl border border-[var(--app-border)] p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-base font-semibold text-[var(--app-fg)] mb-2">{t('dialog.git.amend.title')}</h3>
+                        <p className="text-xs text-[var(--app-hint)] mb-3 font-mono">{amendTarget.short}: {amendTarget.subject}</p>
+                        <Input
+                            value={amendMessage}
+                            onChange={(val: string) => setAmendMessage(val)}
+                            placeholder={t('git.commitPlaceholder')}
+                            autoFocus
+                            size="small"
+                            className="mb-4"
+                        />
+                        <div className="flex gap-2 justify-end">
+                            <button type="button" onClick={() => { setAmendTarget(null); setAmendMessage('') }} className="px-4 py-2 text-sm rounded-md border border-[var(--app-border)] text-[var(--app-hint)]">{t('button.cancel')}</button>
+                            <button type="button" onClick={handleAmend} disabled={!amendMessage.trim() || amendLoading} className="px-4 py-2 text-sm rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50">{amendLoading ? t('dialog.git.amend.confirming') : t('dialog.git.amend.confirm')}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Revert commit */}
+            <ConfirmDialog
+                isOpen={revertTarget !== null}
+                onClose={() => setRevertTarget(null)}
+                title={t('dialog.git.revert.title')}
+                description={t('dialog.git.revert.description', { short: revertTarget?.short ?? '', subject: revertTarget?.subject ?? '' })}
+                confirmLabel={t('dialog.git.revert.confirm')}
+                confirmingLabel={t('dialog.git.revert.confirming')}
+                onConfirm={handleRevert}
+                isPending={revertLoading}
+            />
         </div>
     )
 }

@@ -967,7 +967,7 @@ export class SyncEngine {
         return await this.rpcGateway.gitPush(sessionId, options)
     }
 
-    async gitLog(sessionId: string, options: { cwd?: string; limit?: number; skip?: number; branch?: string; keyword?: string; since?: string; until?: string }): Promise<RpcCommandResponse> {
+    async gitLog(sessionId: string, options: { cwd?: string; limit?: number; skip?: number; branch?: string; keyword?: string; author?: string; hash?: string; since?: string; until?: string }): Promise<RpcCommandResponse> {
         return await this.rpcGateway.gitLog(sessionId, options)
     }
 
@@ -1031,7 +1031,15 @@ export class SyncEngine {
         return await this.rpcGateway.gitStashList(sessionId, options)
     }
 
-    async gitMerge(sessionId: string, options: { cwd?: string; branch: string }): Promise<RpcCommandResponse> {
+    async gitStashApply(sessionId: string, options: { cwd?: string; index?: number }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitStashApply(sessionId, options)
+    }
+
+    async gitStashDrop(sessionId: string, options: { cwd?: string; index?: number }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitStashDrop(sessionId, options)
+    }
+
+    async gitMerge(sessionId: string, options: { cwd?: string; branch: string; squash?: boolean }): Promise<RpcCommandResponse> {
         return await this.rpcGateway.gitMerge(sessionId, options)
     }
 
@@ -1065,6 +1073,22 @@ export class SyncEngine {
 
     async gitTagDelete(sessionId: string, options: { cwd?: string; name: string }): Promise<RpcCommandResponse> {
         return await this.rpcGateway.gitTagDelete(sessionId, options)
+    }
+
+    async gitAmend(sessionId: string, options: { cwd?: string; message: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitAmend(sessionId, options)
+    }
+
+    async gitRevert(sessionId: string, options: { cwd?: string; hash: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitRevert(sessionId, options)
+    }
+
+    async gitMergeDryRun(sessionId: string, options: { cwd?: string; branch: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitMergeDryRun(sessionId, options)
+    }
+
+    async gitDiffBranches(sessionId: string, options: { cwd?: string; from: string; to: string }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitDiffBranches(sessionId, options)
     }
 
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {

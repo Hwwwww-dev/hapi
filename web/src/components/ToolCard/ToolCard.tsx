@@ -502,7 +502,7 @@ function ToolCardInner(props: ToolCardProps) {
     )
 
     return (
-        <Card className={cn('overflow-hidden shadow-sm', presentation.hoverReveal && 'group/card')}>
+        <Card className={cn('overflow-hidden shadow-sm toolcard-muted', presentation.hoverReveal && 'group/card')}>
             <CardHeader className="p-3 space-y-0">
                 <Dialog>
                     <DialogTrigger asChild>

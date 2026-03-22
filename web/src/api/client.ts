@@ -342,12 +342,14 @@ export class ApiClient {
         })
     }
 
-    async gitLog(sessionId: string, limit?: number, skip?: number, branch?: string, keyword?: string, since?: string, until?: string): Promise<GitParsedResponse<CommitEntry[]>> {
+    async gitLog(sessionId: string, limit?: number, skip?: number, branch?: string, keyword?: string, since?: string, until?: string, author?: string, hash?: string): Promise<GitParsedResponse<CommitEntry[]>> {
         const params = new URLSearchParams()
         if (limit !== undefined) params.set('limit', String(limit))
         if (skip !== undefined) params.set('skip', String(skip))
         if (branch) params.set('branch', branch)
         if (keyword) params.set('keyword', keyword)
+        if (author) params.set('author', author)
+        if (hash) params.set('hash', hash)
         if (since) params.set('since', since)
         if (until) params.set('until', until)
         const qs = params.toString()
@@ -443,16 +445,60 @@ export class ApiClient {
         return await this.request<GitParsedResponse<StashEntry[]>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-stash-list`)
     }
 
+    async gitStashApply(sessionId: string, index?: number): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-stash-apply`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(index !== undefined ? { index } : {})
+        })
+    }
+
+    async gitStashDrop(sessionId: string, index?: number): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-stash-drop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(index !== undefined ? { index } : {})
+        })
+    }
+
     async getGitStatusFiles(sessionId: string): Promise<GitParsedResponse<GitStatusFiles>> {
         return await this.request<GitParsedResponse<GitStatusFiles>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-status-files`)
     }
 
-    async gitMerge(sessionId: string, branch: string): Promise<GitCommandResponse> {
+    async gitMerge(sessionId: string, branch: string, squash?: boolean): Promise<GitCommandResponse> {
         return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-merge`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ branch, ...(squash ? { squash } : {}) })
+        })
+    }
+
+    async gitAmend(sessionId: string, message: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-amend`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        })
+    }
+
+    async gitRevert(sessionId: string, hash: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-revert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hash })
+        })
+    }
+
+    async gitMergeDryRun(sessionId: string, branch: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-merge-dry-run`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ branch })
         })
+    }
+
+    async gitDiffBranches(sessionId: string, from: string, to: string): Promise<GitCommandResponse> {
+        return await this.request<GitCommandResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/git-diff-branches?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
     }
 
     async gitDiscardChanges(sessionId: string, filePath: string): Promise<GitCommandResponse> {

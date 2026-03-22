@@ -54,6 +54,36 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
         }
     }
 
+    const handleApply = async (index: number) => {
+        setActionLoading(true)
+        setError(null)
+        const res = await api.gitStashApply(sessionId, index)
+        setActionLoading(false)
+        if (res.success) {
+            onStashChanged()
+            notify.success(t('notify.git.stashApplied'))
+        } else {
+            const msg = res.stderr ?? res.error ?? t('git.stashApplyFailed')
+            setError(msg)
+            notify.error(msg)
+        }
+    }
+
+    const handleDrop = async (index: number) => {
+        setActionLoading(true)
+        setError(null)
+        const res = await api.gitStashDrop(sessionId, index)
+        setActionLoading(false)
+        if (res.success) {
+            refetch()
+            notify.success(t('notify.git.stashDropped'))
+        } else {
+            const msg = res.stderr ?? res.error ?? t('git.stashDropFailed')
+            setError(msg)
+            notify.error(msg)
+        }
+    }
+
     return (
         <Drawer
             visible={open}
@@ -99,14 +129,32 @@ export function StashSheet({ api, sessionId, open, onClose, onStashChanged }: St
                                 <span className="text-xs text-[var(--app-hint)]">stash@{`{${entry.index}}`}</span>
                                 <span className="text-xs text-[var(--app-fg)] truncate">{entry.message}</span>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => handlePop(entry.index)}
-                                disabled={actionLoading}
-                                className="min-h-[44px] min-w-[44px] text-xs px-3 rounded-md border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40 transition-colors shrink-0"
-                            >
-                                {t('git.stashPop')}
-                            </button>
+                            <div className="flex gap-1 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => handlePop(entry.index)}
+                                    disabled={actionLoading}
+                                    className="min-h-[32px] text-xs px-2 rounded-md border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40 transition-colors"
+                                >
+                                    {t('git.stashPop')}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleApply(entry.index)}
+                                    disabled={actionLoading}
+                                    className="min-h-[32px] text-xs px-2 rounded-md border border-[var(--app-border)] text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] disabled:opacity-40 transition-colors"
+                                >
+                                    {t('git.stashApply')}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleDrop(entry.index)}
+                                    disabled={actionLoading}
+                                    className="min-h-[32px] text-xs px-2 rounded-md border border-[var(--app-border)] text-red-500 hover:bg-red-500/10 disabled:opacity-40 transition-colors"
+                                >
+                                    {t('git.stashDrop')}
+                                </button>
+                            </div>
                         </div>
                     ))
                 )}

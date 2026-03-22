@@ -433,6 +433,12 @@ body {
     background-color: var(--app-link);
 }
 
+/* ToolCard opacity split: background ≈60%, foreground 90% */
+.toolcard-muted {
+    background: color-mix(in srgb, var(--app-secondary-bg) 67%, transparent) !important;
+    opacity: 0.9;
+}
+
 /* ToolCard Arco Collapse overrides */
 .toolcard-collapse.arco-collapse {
     border: none;

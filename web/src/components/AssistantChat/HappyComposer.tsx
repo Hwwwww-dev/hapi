@@ -339,38 +339,26 @@ export function HappyComposer(props: {
             }
         }
 
-        // Message queue: Enter/Ctrl+Enter behavior
-        if (key === 'Enter' && !e.shiftKey) {
-            // Ctrl+Enter → enqueue current text + flush all
-            if (e.ctrlKey || e.metaKey) {
-                if (messageQueue.queue.length > 0 || hasText) {
-                    e.preventDefault()
-                    if (hasText) {
-                        messageQueue.enqueue(trimmed)
-                        composerCtx.setText('')
-                    }
-                    void messageQueue.flush()
-                    return
-                }
-            }
-
-            // Enter with queue non-empty OR threadIsRunning → enqueue instead of send
+        // Ctrl/Cmd+Enter → send or enqueue+flush
+        if (key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault()
+            // Queue has items or thread is running → enqueue current + flush
             if (messageQueue.queue.length > 0 || threadIsRunning) {
                 if (hasText) {
-                    e.preventDefault()
                     messageQueue.enqueue(trimmed)
                     composerCtx.setText('')
                 }
+                void messageQueue.flush()
                 return
             }
-
-            // Normal send (replaces ComposerPrimitive submitOnEnter)
+            // Normal send
             if (canSend) {
-                e.preventDefault()
                 handleSendMessage()
             }
             return
         }
+
+        // Plain Enter → newline (default textarea behavior, no preventDefault)
 
         // Ctrl+J → insert newline at cursor
         if (key === 'j' && (e.ctrlKey || e.metaKey)) {

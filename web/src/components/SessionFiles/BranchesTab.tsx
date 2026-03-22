@@ -32,6 +32,11 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
     const [renameValue, setRenameValue] = useState('')
     const [upstreamBranch, setUpstreamBranch] = useState<string | null>(null)
     const [mergeBranch, setMergeBranch] = useState<GitBranchEntry | null>(null)
+    const [mergeSquash, setMergeSquash] = useState(false)
+    const [mergeDryRunning, setMergeDryRunning] = useState(false)
+    const [mergeConflict, setMergeConflict] = useState<string | null>(null)
+    const [diffPreview, setDiffPreview] = useState<string | null>(null)
+    const [diffLoading, setDiffLoading] = useState(false)
 
     const { remotes, refetch: refetchRemotes } = useGitRemotes(api, sessionId)
     const [remotesExpanded, setRemotesExpanded] = useState(false)
@@ -122,20 +127,52 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
 
     const executeMerge = async () => {
         if (!mergeBranch) return
-        setActionLoading(mergeBranch.name)
+        // Step 1: Dry-run conflict check
+        setMergeDryRunning(true)
+        setMergeConflict(null)
         setError(null)
         try {
-            const res = await api.gitMerge(sessionId, mergeBranch.name)
+            const dryRunRes = await api.gitMergeDryRun(sessionId, mergeBranch.name)
+            if (!dryRunRes.success) {
+                // Merge would cause conflicts
+                setMergeConflict(dryRunRes.stderr ?? dryRunRes.error ?? t('git.mergeConflict'))
+                setMergeDryRunning(false)
+                return
+            }
+            setMergeDryRunning(false)
+            // Step 2: Actual merge (dry-run passed)
+            setActionLoading(mergeBranch.name)
+            const res = await api.gitMerge(sessionId, mergeBranch.name, mergeSquash || undefined)
             if (res.success) {
                 notify.success(t('notify.git.mergeOk'))
                 setMergeBranch(null)
+                setMergeSquash(false)
+                setMergeConflict(null)
+                setDiffPreview(null)
                 await refetch()
                 onBranchChanged()
             } else {
                 const msg = res.stderr ?? res.error ?? t('git.mergeFailed')
                 setError(msg); notify.error(msg)
             }
-        } finally { setActionLoading(null) }
+        } finally {
+            setActionLoading(null)
+            setMergeDryRunning(false)
+        }
+    }
+
+    const loadDiffPreview = async (branchName: string) => {
+        setDiffLoading(true)
+        try {
+            const res = await api.gitDiffBranches(sessionId, branchName, currentBranch ?? 'HEAD')
+            if (res.success && res.stdout) {
+                setDiffPreview(res.stdout)
+            } else {
+                setDiffPreview(null)
+            }
+        } finally {
+            setDiffLoading(false)
+        }
     }
 
     const handleDelete = (branch: GitBranchEntry) => {
@@ -487,16 +524,63 @@ export function BranchesTab({ api, sessionId, currentBranch, onBranchChanged }: 
                 destructive
                 confirmText={deleteBranchTarget?.name}
             />
-            <ConfirmDialog
-                isOpen={mergeBranch !== null}
-                onClose={() => setMergeBranch(null)}
-                title={t('dialog.git.merge.title')}
-                description={t('dialog.git.merge.description', { branch: mergeBranch?.name ?? '' })}
-                confirmLabel={t('dialog.git.merge.confirm')}
-                confirmingLabel={t('dialog.git.merge.confirming')}
-                onConfirm={executeMerge}
-                isPending={actionLoading !== null}
-            />
+            {/* Enhanced merge dialog */}
+            {mergeBranch && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setMergeBranch(null); setMergeSquash(false); setMergeConflict(null); setDiffPreview(null) }}>
+                    <div className="bg-[var(--app-bg)] rounded-xl border border-[var(--app-border)] p-6 max-w-md w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-base font-semibold text-[var(--app-fg)] mb-2">{t('dialog.git.merge.title')}</h3>
+                        <p className="text-sm text-[var(--app-hint)] mb-4">{t('dialog.git.merge.description', { source: mergeBranch.name, target: currentBranch ?? 'HEAD' })}</p>
+
+                        {/* Squash option */}
+                        <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-[var(--app-fg)] mb-3">
+                            <input
+                                type="checkbox"
+                                checked={mergeSquash}
+                                onChange={e => setMergeSquash(e.target.checked)}
+                                className="rounded-md"
+                            />
+                            {t('git.squashMerge')}
+                        </label>
+
+                        {/* Diff preview */}
+                        <div className="mb-3">
+                            <button
+                                type="button"
+                                onClick={() => diffPreview ? setDiffPreview(null) : loadDiffPreview(mergeBranch.name)}
+                                disabled={diffLoading}
+                                className="text-xs text-[var(--app-link)] hover:underline disabled:opacity-50"
+                            >
+                                {diffLoading ? t('git.loading') : diffPreview ? t('git.hideDiffPreview') : t('git.showDiffPreview')}
+                            </button>
+                            {diffPreview && (
+                                <pre className="mt-2 p-2 rounded-md bg-[var(--app-subtle-bg)] text-[10px] font-mono text-[var(--app-fg)] overflow-x-auto max-h-[200px] overflow-y-auto whitespace-pre border border-[var(--app-divider)]">
+                                    {diffPreview}
+                                </pre>
+                            )}
+                        </div>
+
+                        {/* Conflict warning */}
+                        {mergeConflict && (
+                            <div className="mb-3 px-3 py-2 text-xs text-red-500 bg-red-500/10 rounded-md border border-red-500/20 whitespace-pre-wrap">
+                                {t('git.mergeConflictDetected')}
+                                <pre className="mt-1 text-[10px] font-mono max-h-[120px] overflow-y-auto">{mergeConflict}</pre>
+                            </div>
+                        )}
+
+                        <div className="flex gap-2 justify-end">
+                            <button type="button" onClick={() => { setMergeBranch(null); setMergeSquash(false); setMergeConflict(null); setDiffPreview(null) }}
+                                className="px-4 py-2 text-sm rounded-md border border-[var(--app-border)] text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors">
+                                {t('button.cancel')}
+                            </button>
+                            <button type="button" onClick={executeMerge}
+                                disabled={actionLoading !== null || mergeDryRunning}
+                                className="px-4 py-2 text-sm rounded-md bg-[var(--app-button)] text-[var(--app-button-text)] disabled:opacity-50">
+                                {mergeDryRunning ? t('git.checkingConflicts') : actionLoading !== null ? t('dialog.git.merge.confirming') : t('dialog.git.merge.confirm')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <ConfirmDialog
                 isOpen={removeRemoteTarget !== null}
                 onClose={() => setRemoveRemoteTarget(null)}

@@ -24,7 +24,10 @@ type CommitRowProps = {
     api: ApiClient
     sessionId: string
     isLocal?: boolean
+    isFirst?: boolean
     onUncommit?: () => void
+    onAmend?: () => void
+    onRevert?: () => void
     onCherryPick?: () => void
     onResetMixed?: () => void
     onResetHard?: () => void
@@ -34,7 +37,10 @@ type CommitRowProps = {
 
 function CommitActionMenu({
     isLocal,
+    isFirst,
     onUncommit,
+    onAmend,
+    onRevert,
     onCherryPick,
     onResetMixed,
     onResetHard,
@@ -42,7 +48,10 @@ function CommitActionMenu({
     onCreateBranch,
 }: {
     isLocal?: boolean
+    isFirst?: boolean
     onUncommit?: () => void
+    onAmend?: () => void
+    onRevert?: () => void
     onCherryPick?: () => void
     onResetMixed?: () => void
     onResetHard?: () => void
@@ -79,10 +88,22 @@ function CommitActionMenu({
                             {t('git.newBranchFromCommit')}
                         </button>
                     )}
+                    {onAmend && (
+                        <button type="button" disabled={!isFirst || !isLocal} onClick={(e) => { e.stopPropagation(); setOpen(false); onAmend() }}
+                            className={`w-full px-3 py-1.5 text-left text-xs transition-colors ${!isFirst || !isLocal ? 'text-[var(--app-hint)] opacity-40 cursor-not-allowed' : 'text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)]'}`}>
+                            {t('git.editMessage')}
+                        </button>
+                    )}
                     {onCherryPick && (
                         <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); onCherryPick() }}
                             className="w-full px-3 py-1.5 text-left text-xs text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors">
                             {t('git.cherryPick')}
+                        </button>
+                    )}
+                    {onRevert && (
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(false); onRevert() }}
+                            className="w-full px-3 py-1.5 text-left text-xs text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors">
+                            {t('git.revert')}
                         </button>
                     )}
                     {onCreateTag && (
@@ -116,7 +137,7 @@ function CommitActionMenu({
     )
 }
 
-export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherryPick, onResetMixed, onResetHard, onCreateTag, onBranchCreated }: CommitRowProps) {
+export function CommitRow({ commit, api, sessionId, isLocal, isFirst, onUncommit, onAmend, onRevert, onCherryPick, onResetMixed, onResetHard, onCreateTag, onBranchCreated }: CommitRowProps) {
     const { t } = useTranslation()
     const [expanded, setExpanded] = useState(false)
     const [files, setFiles] = useState<ShowStatEntry[]>([])
@@ -205,7 +226,10 @@ export function CommitRow({ commit, api, sessionId, isLocal, onUncommit, onCherr
                 <div className="absolute right-0 top-0">
                     <CommitActionMenu
                         isLocal={isLocal}
+                        isFirst={isFirst}
                         onUncommit={onUncommit}
+                        onAmend={onAmend}
+                        onRevert={onRevert}
                         onCherryPick={onCherryPick}
                         onResetMixed={onResetMixed}
                         onResetHard={onResetHard}
