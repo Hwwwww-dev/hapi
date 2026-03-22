@@ -243,7 +243,7 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-push', options) as RpcCommandResponse
     }
 
-    async gitLog(sessionId: string, options: { cwd?: string; limit?: number; skip?: number; branch?: string; keyword?: string; since?: string; until?: string }): Promise<RpcCommandResponse> {
+    async gitLog(sessionId: string, options: { cwd?: string; limit?: number; skip?: number; branch?: string; keyword?: string; author?: string; hash?: string; since?: string; until?: string }): Promise<RpcCommandResponse> {
         return await this.sessionRpc(sessionId, 'git-log', options) as RpcCommandResponse
     }
 
@@ -307,7 +307,15 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-stash-list', options) as RpcCommandResponse
     }
 
-    async gitMerge(sessionId: string, options: { cwd?: string; branch: string }): Promise<RpcCommandResponse> {
+    async gitStashApply(sessionId: string, options: { cwd?: string; index?: number }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-stash-apply', options) as RpcCommandResponse
+    }
+
+    async gitStashDrop(sessionId: string, options: { cwd?: string; index?: number }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-stash-drop', options) as RpcCommandResponse
+    }
+
+    async gitMerge(sessionId: string, options: { cwd?: string; branch: string; squash?: boolean }): Promise<RpcCommandResponse> {
         return await this.sessionRpc(sessionId, 'git-merge', options) as RpcCommandResponse
     }
 
@@ -341,6 +349,22 @@ export class RpcGateway {
 
     async gitTagDelete(sessionId: string, options: { cwd?: string; name: string }): Promise<RpcCommandResponse> {
         return await this.sessionRpc(sessionId, 'git-tag-delete', options) as RpcCommandResponse
+    }
+
+    async gitAmend(sessionId: string, options: { cwd?: string; message: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-amend', options) as RpcCommandResponse
+    }
+
+    async gitRevert(sessionId: string, options: { cwd?: string; hash: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-revert', options) as RpcCommandResponse
+    }
+
+    async gitMergeDryRun(sessionId: string, options: { cwd?: string; branch: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-merge-dry-run', options) as RpcCommandResponse
+    }
+
+    async gitDiffBranches(sessionId: string, options: { cwd?: string; from: string; to: string }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-diff-branches', options) as RpcCommandResponse
     }
 
     async readSessionFile(sessionId: string, path: string): Promise<RpcReadFileResponse> {

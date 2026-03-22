@@ -5,7 +5,8 @@ import { Tabs } from '@arco-design/web-react'
 import { useDirectoryExpanded } from '@/hooks/useDirectoryExpanded'
 import { DirectoryTree } from '@/components/SessionFiles/DirectoryTree'
 import { ChangesTab } from '@/components/SessionFiles/ChangesTab'
-import { HistoryTab } from '@/components/SessionFiles/HistoryTab'
+import { CommitsTab } from '@/components/SessionFiles/CommitsTab'
+import { TagsTab } from '@/components/SessionFiles/TagsTab'
 import { BranchesTab } from '@/components/SessionFiles/BranchesTab'
 import { FileViewDialog } from '@/components/SessionFiles/FileViewDialog'
 import { StashSheet } from '@/components/SessionFiles/StashSheet'
@@ -22,19 +23,19 @@ import { Dropdown, Menu } from '@arco-design/web-react'
 
 const TabPane = Tabs.TabPane
 
-type TabType = 'changes' | 'history' | 'branches' | 'directories'
+type TabType = 'changes' | 'commits' | 'tags' | 'branches' | 'directories'
 
 export default function FilesPage() {
     const { t } = useTranslation()
     const { api } = useAppContext()
     const navigate = useNavigate()
     const goBack = useAppGoBack()
-    const { sessionId } = useParams({ from: '/sessions/$sessionId/files' })
-    const search = useSearch({ from: '/sessions/$sessionId/files' })
+    const { sessionId } = useParams({ from: '/sessions/$sessionId/vcs' })
+    const search = useSearch({ from: '/sessions/$sessionId/vcs' })
     const { session } = useSession(api, sessionId)
     const { expanded, handleExpandedChange } = useDirectoryExpanded(sessionId)
 
-    const validTabs: TabType[] = ['changes', 'history', 'branches', 'directories']
+    const validTabs: TabType[] = ['changes', 'commits', 'tags', 'branches', 'directories']
     const initialTab: TabType = validTabs.includes(search.tab as TabType) ? (search.tab as TabType) : 'changes'
     const [activeTab, setActiveTab] = useState<TabType>(initialTab)
 
@@ -97,7 +98,7 @@ export default function FilesPage() {
     const handleTabChange = useCallback((nextTab: TabType) => {
         setActiveTab(nextTab)
         navigate({
-            to: '/sessions/$sessionId/files',
+            to: '/sessions/$sessionId/vcs',
             params: { sessionId },
             search: nextTab === 'changes' ? {} : { tab: nextTab },
             replace: true,
@@ -106,8 +107,9 @@ export default function FilesPage() {
 
     const visibleTabs: { key: TabType; label: string }[] = [
         { key: 'changes', label: t('files.tab.changes') },
-        { key: 'history', label: t('files.tab.history') },
+        { key: 'commits', label: t('files.tab.commits') },
         { key: 'branches', label: t('files.tab.branches') },
+        { key: 'tags', label: t('files.tab.tags') },
         { key: 'directories', label: t('files.tab.files') },
     ]
 
@@ -191,8 +193,11 @@ export default function FilesPage() {
                     {activeTab === 'changes' && (
                         <ChangesTab api={api} sessionId={sessionId} gitStatus={gitStatus} isLoading={gitLoading} onOpenFile={handleOpenFile} onRefresh={() => void handleRefreshAll()} />
                     )}
-                    {activeTab === 'history' && (
-                        <HistoryTab api={api} sessionId={sessionId} ahead={gitStatus?.ahead ?? 0} currentBranch={gitStatus?.branch ?? null} onRefresh={() => void handleRefreshAll()} />
+                    {activeTab === 'commits' && (
+                        <CommitsTab api={api} sessionId={sessionId} ahead={gitStatus?.ahead ?? 0} currentBranch={gitStatus?.branch ?? null} onRefresh={() => void handleRefreshAll()} />
+                    )}
+                    {activeTab === 'tags' && (
+                        <TagsTab api={api} sessionId={sessionId} onRefresh={() => void handleRefreshAll()} />
                     )}
                     {activeTab === 'branches' && (
                         <BranchesTab api={api} sessionId={sessionId} currentBranch={gitStatus?.branch ?? null} onBranchChanged={() => void handleRefreshAll()} />

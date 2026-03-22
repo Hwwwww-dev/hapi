@@ -211,18 +211,23 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         return await queuedGitCommand(args, resolved.cwd, data.timeout ?? 60_000)
     })
 
-    rpcHandlerManager.registerHandler<{ cwd?: string; limit?: number; skip?: number; branch?: string; keyword?: string; since?: string; until?: string; timeout?: number }, GitCommandResponse>('git-log', async (data) => {
+    rpcHandlerManager.registerHandler<{ cwd?: string; limit?: number; skip?: number; branch?: string; keyword?: string; author?: string; hash?: string; since?: string; until?: string; timeout?: number }, GitCommandResponse>('git-log', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
         const limit = Math.min(Math.max(data.limit ?? 50, 1), 500)
         const args = ['log', '--format=%H%x00%h%x00%an%x00%ae%x00%at%x00%s%x00%b%x1e', '-n', String(limit)]
         if (data.skip && data.skip > 0) args.push('--skip=' + String(data.skip))
+        // 当同时有 keyword 和 author 时需要 --all-match 确保 AND 逻辑
+        if (data.keyword && data.author) args.push('--all-match')
         if (data.keyword) {
-            args.push('--grep=' + data.keyword, '--author=' + data.keyword, '-i')
+            args.push('--grep=' + data.keyword, '--fixed-strings', '-i')
         }
+        if (data.author) args.push('--author=' + data.author, '-i')
         if (data.since) args.push('--since=' + data.since)
         if (data.until) args.push('--until=' + data.until)
-        if (data.branch) args.push(data.branch)
+        // hash 作为 revision 指定（优先于 branch）
+        if (data.hash) args.push(data.hash)
+        else if (data.branch) args.push(data.branch)
         return await queuedGitCommand(args, resolved.cwd, data.timeout)
     })
 
@@ -269,11 +274,26 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         return await queuedGitCommand(['stash', 'list'], resolved.cwd, data.timeout)
     })
 
-    rpcHandlerManager.registerHandler<{ cwd?: string; branch: string; timeout?: number }, GitCommandResponse>('git-merge', async (data) => {
+    rpcHandlerManager.registerHandler<{ cwd?: string; index?: number; timeout?: number }, GitCommandResponse>('git-stash-apply', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        const args = data.index !== undefined ? ['stash', 'apply', String(data.index)] : ['stash', 'apply']
+        return await queuedGitCommand(args, resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; index?: number; timeout?: number }, GitCommandResponse>('git-stash-drop', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        const args = data.index !== undefined ? ['stash', 'drop', String(data.index)] : ['stash', 'drop']
+        return await queuedGitCommand(args, resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; branch: string; squash?: boolean; timeout?: number }, GitCommandResponse>('git-merge', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)
         if (!data.branch || typeof data.branch !== 'string') return rpcError('branch name is required')
-        return await queuedGitCommand(['merge', data.branch], resolved.cwd, data.timeout ?? 30_000)
+        const args = data.squash ? ['merge', '--squash', data.branch] : ['merge', data.branch]
+        return await queuedGitCommand(args, resolved.cwd, data.timeout ?? 30_000)
     })
 
     rpcHandlerManager.registerHandler<{ cwd?: string; filePath: string; timeout?: number }, GitCommandResponse>('git-discard-changes', async (data) => {
@@ -446,6 +466,38 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         if (resolved.error) return rpcError(resolved.error)
         if (!data.name || typeof data.name !== 'string') return rpcError('tag name is required')
         return await queuedGitCommand(['tag', '-d', data.name], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; message: string; timeout?: number }, GitCommandResponse>('git-amend', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.message?.trim()) return rpcError('commit message is required')
+        return await queuedGitCommand(['commit', '--amend', '-m', data.message], resolved.cwd, data.timeout)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; hash: string; timeout?: number }, GitCommandResponse>('git-revert', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.hash || typeof data.hash !== 'string') return rpcError('commit hash is required')
+        return await queuedGitCommand(['revert', '--no-edit', data.hash], resolved.cwd, data.timeout ?? 30_000)
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; branch: string; timeout?: number }, GitCommandResponse>('git-merge-dry-run', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.branch || typeof data.branch !== 'string') return rpcError('branch name is required')
+        const result = await queuedGitCommand(['merge', '--no-commit', '--no-ff', data.branch], resolved.cwd, data.timeout ?? 30_000)
+        // Always abort the merge regardless of outcome
+        await queuedGitCommand(['merge', '--abort'], resolved.cwd, 5_000).catch(() => {})
+        return result
+    })
+
+    rpcHandlerManager.registerHandler<{ cwd?: string; from: string; to: string; timeout?: number }, GitCommandResponse>('git-diff-branches', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        if (!data.from || typeof data.from !== 'string') return rpcError('from branch is required')
+        if (!data.to || typeof data.to !== 'string') return rpcError('to branch is required')
+        return await queuedGitCommand(['diff', `${data.from}...${data.to}`, '--stat'], resolved.cwd, data.timeout ?? 15_000)
     })
 
 }

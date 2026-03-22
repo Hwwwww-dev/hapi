@@ -91,14 +91,25 @@ describe('HappyComposer keyboard behavior', () => {
         cleanup()
     })
 
-    it('allows Shift+Enter to insert a newline instead of sending', () => {
+    it('allows Enter to insert a newline instead of sending', () => {
         renderWithComposer('hello')
 
         const textarea = document.querySelector('textarea')!
-        const event = createEvent.keyDown(textarea, { key: 'Enter', shiftKey: true })
+        const event = createEvent.keyDown(textarea, { key: 'Enter' })
         fireEvent(textarea, event)
 
         expect(event.defaultPrevented).toBe(false)
         expect(sendMock).not.toHaveBeenCalled()
+    })
+
+    it('sends message on Ctrl+Enter', () => {
+        renderWithComposer('hello')
+
+        const textarea = document.querySelector('textarea')!
+        const event = createEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true })
+        fireEvent(textarea, event)
+
+        expect(event.defaultPrevented).toBe(true)
+        expect(sendMock).toHaveBeenCalled()
     })
 })

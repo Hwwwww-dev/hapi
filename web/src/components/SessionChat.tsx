@@ -56,7 +56,7 @@ export const SessionChat = memo(function SessionChat(props: {
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
     const [atBottom, setAtBottom] = useState(true)
-    const blocksSnapshotRef = useRef(0)
+    const seqSnapshotRef = useRef(0)
     const threadRef = useRef<HappyThreadHandle>(null)
     const [statusActionPending, setStatusActionPending] = useState<'resume' | 'disconnect' | 'refresh' | null>(null)
     const agentFlavor = props.session.metadata?.flavor ?? null
@@ -198,6 +198,17 @@ export const SessionChat = memo(function SessionChat(props: {
         [props.messages]
     )
 
+    // Count truly NEW messages (seq > snapshot) — ignores loadMore'd old messages
+    const newMessageCount = useMemo(() => {
+        const snapshot = seqSnapshotRef.current
+        if (snapshot === 0) return 0
+        let count = 0
+        for (const m of props.messages) {
+            if ((m.seq ?? 0) > snapshot && !isSidechainMessage(m)) count++
+        }
+        return count
+    }, [props.messages])
+
     const reduced = useMemo(
         () => reduceChatBlocks(normalizedMessages, props.session.agentState),
         [normalizedMessages, props.session.agentState]
@@ -260,7 +271,7 @@ export const SessionChat = memo(function SessionChat(props: {
 
     const handleViewFiles = useCallback(() => {
         navigate({
-            to: '/sessions/$sessionId/files',
+            to: '/sessions/$sessionId/vcs',
             params: { sessionId: props.session.id }
         })
     }, [navigate, props.session.id])
@@ -278,17 +289,23 @@ export const SessionChat = memo(function SessionChat(props: {
     }, [props.onSend])
 
     const handleAtBottomChange = useCallback((value: boolean) => {
-        if (!value && blocksSnapshotRef.current === 0) {
-            blocksSnapshotRef.current = reconciled.blocks.length
+        if (!value && seqSnapshotRef.current === 0) {
+            // Capture the newest seq when user scrolls away from bottom
+            let maxSeq = 0
+            for (const m of props.messages) {
+                const s = m.seq ?? 0
+                if (s > maxSeq) maxSeq = s
+            }
+            seqSnapshotRef.current = maxSeq
         } else if (value) {
-            blocksSnapshotRef.current = 0
+            seqSnapshotRef.current = 0
         }
         setAtBottom(value)
         props.onAtBottomChange(value)
-    }, [props.onAtBottomChange, reconciled.blocks.length])
+    }, [props.onAtBottomChange, props.messages])
 
     const handleScrollToBottom = useCallback(() => {
-        blocksSnapshotRef.current = 0
+        seqSnapshotRef.current = 0
         threadRef.current?.scrollToBottom()
     }, [])
 
@@ -415,7 +432,7 @@ export const SessionChat = memo(function SessionChat(props: {
 
                     {!isSubagent && (
                     <div className="relative shrink-0">
-                    <ScrollToBottomButton visible={!atBottom} count={(blocksSnapshotRef.current > 0 ? Math.max(0, reconciled.blocks.length - blocksSnapshotRef.current) : 0) + props.pendingCount} onClick={handleScrollToBottom} />
+                    <ScrollToBottomButton visible={!atBottom} count={newMessageCount + props.pendingCount} onClick={handleScrollToBottom} />
                     <HappyComposer
                         disabled={props.isSending}
                         permissionMode={props.session.permissionMode}
