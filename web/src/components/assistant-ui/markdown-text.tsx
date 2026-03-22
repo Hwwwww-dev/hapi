@@ -78,7 +78,7 @@ function Code(props: ComponentPropsWithoutRef<'code'>) {
         <code
             {...props}
             className={cn(
-                'aui-md-code break-words rounded bg-[var(--app-inline-code-bg)] px-[0.3em] py-[0.1em] font-mono text-[0.9em]',
+                'aui-md-code break-words rounded bg-[var(--app-inline-code-bg)] px-[0.3em] py-[0.1em] font-mono text-[length:var(--text-code)]',
                 props.className
             )}
         />
@@ -246,7 +246,7 @@ export function MarkdownText({ text }: { text: string }) {
     return (
         <div className="aui-md-block group/text relative">
             <div className="rounded-lg px-2 py-1 transition-colors hover:bg-[var(--app-subtle-bg)]">
-                <div className={cn('aui-md min-w-0 max-w-full break-words text-[15px]')}>
+                <div className={cn('aui-md min-w-0 max-w-full break-words text-[length:var(--text-body)]')}>
                     <Markdown
                         remarkPlugins={MARKDOWN_PLUGINS}
                         components={defaultComponents}

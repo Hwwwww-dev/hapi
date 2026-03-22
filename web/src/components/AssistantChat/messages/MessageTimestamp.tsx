@@ -39,7 +39,7 @@ export function MessageTimestamp(props: {
         <time
             dateTime={date.toISOString()}
             title={date.toLocaleString()}
-            className={props.className ?? 'text-[10px] text-[var(--app-hint)] opacity-80'}
+            className={props.className ?? 'text-[length:var(--text-badge)] text-[var(--app-hint)] opacity-80'}
         >
             {text}
         </time>

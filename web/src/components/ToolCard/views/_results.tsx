@@ -193,7 +193,7 @@ function renderText(text: string, opts: { mode: 'markdown' | 'code' | 'auto'; la
     // Plain text → unified monospace pre-formatted style
     return (
         <CopyableContent text={text}>
-            <div className="text-sm text-[var(--app-fg)] font-mono whitespace-pre-wrap break-words">
+            <div className="text-[length:var(--text-body)] text-[var(--app-fg)] font-mono whitespace-pre-wrap break-words">
                 {text}
             </div>
         </CopyableContent>
@@ -388,7 +388,7 @@ const GrepResultView: ToolViewComponent = (props: ToolViewProps) => {
             <CopyableContent text={text}>
                 <div className="flex flex-col gap-0.5">
                     {lines.map((line, i) => (
-                        <div key={i} className="font-mono text-xs text-[var(--app-fg)] break-all">{line}</div>
+                        <div key={i} className="font-mono text-[length:var(--text-code)] text-[var(--app-fg)] break-all">{line}</div>
                     ))}
                 </div>
             </CopyableContent>
@@ -409,17 +409,17 @@ const GrepResultView: ToolViewComponent = (props: ToolViewProps) => {
                 {Array.from(groups.entries()).map(([file, matches]) => (
                     <div key={file} className="rounded-md border border-[var(--app-divider)] overflow-hidden">
                         <div className="flex items-center gap-1.5 bg-[var(--app-secondary-bg)] px-2 py-1">
-                            <span className="text-[10px]">{fileIcon(file)}</span>
+                            <span className="text-[length:var(--text-badge)]">{fileIcon(file)}</span>
                             <span className="font-mono text-xs text-[var(--app-hint)] truncate flex-1">{file}</span>
-                            <span className="shrink-0 text-[10px] text-[var(--app-hint)]">{matches.length}</span>
+                            <span className="shrink-0 text-[length:var(--text-badge)] text-[var(--app-hint)]">{matches.length}</span>
                         </div>
                         <div className="divide-y divide-[var(--app-divider)]">
                             {matches.map((m, i) => (
                                 <div key={i} className="flex items-baseline gap-2 px-2 py-0.5">
                                     {m.lineNum ? (
-                                        <span className="shrink-0 w-8 text-right font-mono text-[10px] text-[var(--app-hint)] select-none">{m.lineNum}</span>
+                                        <span className="shrink-0 w-8 text-right font-mono text-[length:var(--text-badge)] text-[var(--app-hint)] select-none">{m.lineNum}</span>
                                     ) : null}
-                                    <span className="font-mono text-xs text-[var(--app-fg)] break-all">{m.content}</span>
+                                    <span className="font-mono text-[length:var(--text-code)] text-[var(--app-fg)] break-all">{m.content}</span>
                                 </div>
                             ))}
                         </div>
@@ -456,8 +456,8 @@ const GlobResultView: ToolViewComponent = (props: ToolViewProps) => {
                     const name = line.split('/').pop() ?? line
                     return (
                         <div key={i} className="flex items-center gap-1.5">
-                            <span className="shrink-0 text-[11px]">{fileIcon(name)}</span>
-                            <span className="font-mono text-xs text-[var(--app-fg)] break-all">{line}</span>
+                            <span className="shrink-0 text-[length:var(--text-badge)]">{fileIcon(name)}</span>
+                            <span className="font-mono text-[length:var(--text-caption)] text-[var(--app-fg)] break-all">{line}</span>
                         </div>
                     )
                 })}
@@ -484,7 +484,7 @@ const ReadResultView: ToolViewComponent = (props: ToolViewProps) => {
                     <div className="mb-1.5 flex items-center gap-1.5 text-xs text-[var(--app-hint)] font-mono">
                         <span className="opacity-60">📄</span>
                         <span className="truncate">{basename(path)}</span>
-                        <span className="shrink-0 rounded-md bg-[var(--app-secondary-bg)] px-1 py-0.5 text-[10px]">{language}</span>
+                        <span className="shrink-0 rounded-md bg-[var(--app-secondary-bg)] px-1 py-0.5 text-[length:var(--text-badge)]">{language}</span>
                     </div>
                 ) : null}
                 <CodeBlock code={cleanContent} language={language} />
@@ -737,7 +737,7 @@ function formatUsageValue(key: string, value: string): string {
 export function AgentUsageBadges({ agentId, usage }: { agentId: string | null; usage: Record<string, string> | null }) {
     if (!agentId && !usage) return null
     return (
-        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+        <div className="flex flex-wrap items-center gap-1.5 text-[length:var(--text-badge)]">
             {usage && Object.entries(usage).map(([k, v]) => (
                 <span key={k} className="inline-flex items-center gap-1 rounded-full bg-[var(--app-secondary-bg)] px-2 py-0.5 text-[var(--app-hint)]">
                     <span>{USAGE_LABELS[k] ?? k}</span>

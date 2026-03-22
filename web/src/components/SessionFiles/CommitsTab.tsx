@@ -302,9 +302,9 @@ export function CommitsTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                         suffix={
                             (parsedSearch.keyword || parsedSearch.author || parsedSearch.hash) ? (
                                 <span className="flex items-center gap-1">
-                                    {parsedSearch.keyword && <span className="inline-flex items-center rounded px-1 py-px text-[10px] font-medium bg-blue-500/15 text-blue-600">K</span>}
-                                    {parsedSearch.author && <span className="inline-flex items-center rounded px-1 py-px text-[10px] font-medium bg-purple-500/15 text-purple-600">A</span>}
-                                    {parsedSearch.hash && <span className="inline-flex items-center rounded px-1 py-px text-[10px] font-medium bg-amber-500/15 text-amber-600">H</span>}
+                                    {parsedSearch.keyword && <span className="inline-flex items-center rounded px-1 py-px text-[length:var(--text-badge)] font-medium bg-blue-500/15 text-blue-600">K</span>}
+                                    {parsedSearch.author && <span className="inline-flex items-center rounded px-1 py-px text-[length:var(--text-badge)] font-medium bg-purple-500/15 text-purple-600">A</span>}
+                                    {parsedSearch.hash && <span className="inline-flex items-center rounded px-1 py-px text-[length:var(--text-badge)] font-medium bg-amber-500/15 text-amber-600">H</span>}
                                 </span>
                             ) : undefined
                         }
@@ -315,7 +315,7 @@ export function CommitsTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                                 <button
                                     key={tag}
                                     type="button"
-                                    className="rounded-md px-2 py-0.5 text-[11px] font-mono text-[var(--app-link)] hover:bg-[var(--app-subtle-bg)] transition-colors"
+                                    className="rounded-md px-2 py-0.5 text-[length:var(--text-caption)] font-mono text-[var(--app-link)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                                     onMouseDown={e => {
                                         e.preventDefault()
                                         const prefix = tag + ':'

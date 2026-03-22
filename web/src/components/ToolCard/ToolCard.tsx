@@ -123,7 +123,7 @@ function renderTaskSummary(block: ToolCallBlock, metadata: SessionMetadataSummar
                         style={{ width: `${progressPct}%` }}
                     />
                 </div>
-                <span className="shrink-0 text-[10px] tabular-nums text-[var(--app-hint)]">
+                <span className="shrink-0 text-[length:var(--text-badge)] tabular-nums text-[var(--app-hint)]">
                     {completedCount}/{total}
                 </span>
             </div>
@@ -134,7 +134,7 @@ function renderTaskSummary(block: ToolCallBlock, metadata: SessionMetadataSummar
                     const isActive = child.tool.state === 'running'
                     return (
                         <div key={child.id} className={`flex items-center gap-2 rounded-md px-2 py-1 ${isActive ? 'bg-amber-50 dark:bg-amber-950/20' : isError ? 'bg-red-50 dark:bg-red-950/20' : 'bg-[var(--app-secondary-bg)]'}`}>
-                            <span className="shrink-0 w-3 text-center text-[10px]">
+                            <span className="shrink-0 w-3 text-center text-[length:var(--text-badge)]">
                                 <TaskStateIcon state={child.tool.state} />
                             </span>
                             <span className={`min-w-0 flex-1 truncate font-mono text-xs ${isError ? 'text-red-600' : isActive ? 'text-amber-700 dark:text-amber-400' : 'text-[var(--app-hint)]'}`}>
@@ -334,7 +334,7 @@ function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metad
                     const label = formatTaskChildLabel(block, metadata)
                     return (
                         <div key={block.id} className={`flex items-start gap-2 rounded-md px-2 py-1.5 ${isActive ? 'bg-amber-50 dark:bg-amber-950/20' : isError ? 'bg-red-50 dark:bg-red-950/20' : 'bg-[var(--app-secondary-bg)]'}`}>
-                            <span className="shrink-0 w-3 text-center text-[10px] mt-0.5">
+                            <span className="shrink-0 w-3 text-center text-[length:var(--text-badge)] mt-0.5">
                                 <TaskStateIcon state={block.tool.state} />
                             </span>
                             <div className="min-w-0 flex-1">
@@ -342,7 +342,7 @@ function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metad
                                     {label}
                                 </span>
                                 {block.tool.result !== undefined && block.tool.result !== null ? (
-                                    <div className="mt-1 text-[10px] text-[var(--app-hint)] line-clamp-3 break-all">
+                                    <div className="mt-1 text-[length:var(--text-badge)] text-[var(--app-hint)] line-clamp-3 break-all">
                                         {typeof block.tool.result === 'string' ? block.tool.result : safeStringify(block.tool.result)}
                                     </div>
                                 ) : null}
@@ -383,7 +383,7 @@ function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metad
                 if (block.kind === 'user-text') {
                     return (
                         <div key={block.id} className="px-2 py-1 rounded-md bg-[var(--app-secondary-bg)]">
-                            <div className="text-[10px] text-[var(--app-hint)] mb-0.5">User</div>
+                            <div className="text-[length:var(--text-badge)] text-[var(--app-hint)] mb-0.5">User</div>
                             <div className="text-xs text-[var(--app-fg)]">{block.text}</div>
                         </div>
                     )
@@ -462,7 +462,6 @@ function ToolCardInner(props: ToolCardProps) {
         || ((permission.status === 'denied' || permission.status === 'canceled') && Boolean(permission.reason))
     ))
     const hasBody = showInline || showTaskResult || taskSummary !== null || showsPermissionFooter
-    const isMinimalWithResult = presentation.minimal && props.block.tool.state === 'completed' && props.block.tool.result !== undefined && props.block.tool.result !== null
     const stateColor = statusColorClass(props.block.tool.state)
     const { suppressFocusRing, onTriggerPointerDown, onTriggerKeyDown, onTriggerBlur } = usePointerFocusRing()
 
@@ -480,9 +479,6 @@ function ToolCardInner(props: ToolCardProps) {
 
                 <div className="flex items-center gap-2 shrink-0">
                     <ElapsedView from={runningFrom} active={props.block.tool.state === 'running'} />
-                    {isMinimalWithResult ? (
-                        <span className="rounded-md bg-[var(--app-secondary-bg)] px-1 py-0.5 text-[10px] text-[var(--app-hint)]">···</span>
-                    ) : null}
                     <span className={stateColor}>
                         <StatusIcon state={props.block.tool.state} />
                     </span>

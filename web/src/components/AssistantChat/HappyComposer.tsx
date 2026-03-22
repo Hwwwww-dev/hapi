@@ -279,6 +279,13 @@ export function HappyComposer(props: {
         void messageQueue.flush()
     }, [messageQueue, hasText, trimmed, composerCtx])
 
+    const handleEnqueue = useCallback(() => {
+        if (!hasText) return
+        messageQueue.enqueue(trimmed)
+        composerCtx.setText('')
+        void messageQueue.flush()
+    }, [hasText, trimmed, messageQueue, composerCtx])
+
     const handleSwitch = useCallback(async () => {
         if (switchDisabled || !onSwitchToRemote) return
         haptic('light')
@@ -715,6 +722,7 @@ export function HappyComposer(props: {
 
                         <ComposerButtons
                             canSend={canSend}
+                            hasContent={hasText}
                             controlsDisabled={controlsDisabled}
                             showSettingsButton={showSettingsButton}
                             onSettingsToggle={handleSettingsToggle}
@@ -736,6 +744,7 @@ export function HappyComposer(props: {
                             onVoiceMicToggle={onVoiceMicToggle}
                             onAddAttachment={composerCtx.addAttachment}
                             onSend={handleSendMessage}
+                            onEnqueue={handleEnqueue}
                         />
                     </div>
                 </form>

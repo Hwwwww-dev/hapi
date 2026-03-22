@@ -20,7 +20,7 @@ export function SimpleMarkdown({ content, className }: { content: string; classN
                             return <CodeBlock code={text} language={match[1]} />
                         }
                         return (
-                            <code className="rounded bg-[var(--app-secondary-bg)] px-1 py-0.5 text-[0.85em] font-mono" {...props}>
+                            <code className="rounded bg-[var(--app-secondary-bg)] px-1 py-0.5 text-[length:var(--text-code)] font-mono" {...props}>
                                 {children}
                             </code>
                         )

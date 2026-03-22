@@ -242,7 +242,7 @@ const SessionItem = memo(function SessionItem(props: {
                             {sessionName}
                         </div>
                     </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1 text-[11px]">
+                    <div className="flex shrink-0 flex-col items-end gap-1 text-[length:var(--text-caption)]">
                         <div className="flex items-center gap-1">
                             <SessionSourceBadge source={s.metadata?.source} className="shrink-0" />
                         </div>
@@ -274,7 +274,7 @@ const SessionItem = memo(function SessionItem(props: {
                         </div>
                     </div>
                 </div>
-                <div className="ml-2 text-[10px] leading-4 text-[var(--app-hint)] space-y-0.5">
+                <div className="ml-2 text-[length:var(--text-badge)] leading-4 text-[var(--app-hint)] space-y-0.5">
                     <div className="flex items-center gap-2">
                         <span className="inline-flex items-center gap-1">
                             <span aria-hidden="true">❖</span>
@@ -294,12 +294,12 @@ const SessionItem = memo(function SessionItem(props: {
                     </div>
                 </div>
                 {relativeSessionPath ? (
-                    <div className="break-all ml-2 text-[11px] leading-4 text-[var(--app-hint)]">
+                    <div className="break-all ml-2 text-[length:var(--text-caption)] leading-4 text-[var(--app-hint)]">
                         {relativeSessionPath}
                     </div>
                 ) : null}
                 {sessionTimes ? (
-                    <div className="ml-2 text-[11px] leading-4 text-[var(--app-hint)]">
+                    <div className="ml-2 text-[length:var(--text-caption)] leading-4 text-[var(--app-hint)]">
                         {sessionTimes}
                     </div>
                 ) : null}
@@ -331,7 +331,7 @@ const SessionItem = memo(function SessionItem(props: {
                                 <span className="truncate font-medium">{getSessionTitle(child)}</span>
                             </div>
                             {child.metadata?.nativeSessionId ? (
-                                <div className="pl-4 font-mono text-[10px] text-[var(--app-hint)] truncate">
+                                <div className="pl-4 font-mono text-[length:var(--text-badge)] text-[var(--app-hint)] truncate">
                                     <span className="font-semibold text-[var(--app-fg)] mr-1">{getNativeOriginLabel(child)}</span>
                                 </div>
                             ) : null}
@@ -565,12 +565,12 @@ export function SessionList(props: {
                                         <span className="truncate font-medium text-sm sm:text-base" title={group.directory}>
                                             {group.displayName}
                                         </span>
-                                        <span className="shrink-0 rounded-full bg-[var(--app-secondary-bg)] px-2 py-0.5 text-[11px] text-[var(--app-hint)]">
+                                        <span className="shrink-0 rounded-full bg-[var(--app-secondary-bg)] px-2 py-0.5 text-[length:var(--text-caption)] text-[var(--app-hint)]">
                                             {countLabel}
                                         </span>
                                     </div>
                                     {group.directory !== 'Other' ? (
-                                        <div className="truncate text-[11px] text-[var(--app-hint)]">
+                                        <div className="truncate text-[length:var(--text-caption)] text-[var(--app-hint)]">
                                             {group.directory}
                                         </div>
                                     ) : null}

@@ -40,7 +40,7 @@ export function MessageQueuePreview(props: {
                         key={item.id}
                         className="group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-[var(--app-hover)] transition-colors"
                     >
-                        <span className="mt-0.5 shrink-0 text-[10px] tabular-nums text-[var(--app-hint)]">
+                        <span className="mt-0.5 shrink-0 text-[length:var(--text-badge)] tabular-nums text-[var(--app-hint)]">
                             {index + 1}
                         </span>
                         <button

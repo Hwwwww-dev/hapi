@@ -69,6 +69,7 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
     const onLoadMoreRef = useRef(props.onLoadMore)
     const handleLoadMoreRef = useRef<() => void>(() => {})
     const atBottomRef = useRef(true)
+    const scrollingToBottomRef = useRef(false)
     const onAtBottomChangeRef = useRef(props.onAtBottomChange)
     const onFlushPendingRef = useRef(props.onFlushPending)
     const forceScrollTokenRef = useRef(props.forceScrollToken)
@@ -113,10 +114,14 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
                 const isNearBottom = distanceFromBottom < THRESHOLD_PX
 
                 if (isNearBottom) {
+                    scrollingToBottomRef.current = false // Clear guard once we've arrived
                     if (!autoScrollEnabledRef.current) setAutoScrollEnabled(true)
-                } else if (autoScrollEnabledRef.current) {
+                } else if (autoScrollEnabledRef.current && !scrollingToBottomRef.current) {
                     setAutoScrollEnabled(false)
                 }
+
+                // Suppress atBottom flips during programmatic smooth-scroll
+                if (scrollingToBottomRef.current) return
 
                 if (isNearBottom !== atBottomRef.current) {
                     atBottomRef.current = isNearBottom
@@ -139,6 +144,7 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
     const scrollToBottom = useCallback(() => {
         const viewport = viewportRef.current
         if (viewport) {
+            scrollingToBottomRef.current = true
             viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
         }
         setAutoScrollEnabled(true)
