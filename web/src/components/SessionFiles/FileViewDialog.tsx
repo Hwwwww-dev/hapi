@@ -44,30 +44,32 @@ function resolveLanguage(path: string): string | undefined {
 export function DiffDisplay(props: { diffContent: string }) {
     const lines = props.diffContent.split('\n')
     return (
-        <div className="overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-bg)]">
-            {lines.map((line, index) => {
-                const isAdd = line.startsWith('+') && !line.startsWith('+++')
-                const isRemove = line.startsWith('-') && !line.startsWith('---')
-                const isHunk = line.startsWith('@@')
-                const isHeader = line.startsWith('+++') || line.startsWith('---')
-                const className = [
-                    'whitespace-pre-wrap px-3 py-0.5 text-[length:var(--text-code)] font-mono',
-                    isAdd ? 'bg-[var(--app-diff-added-bg)] text-[var(--app-diff-added-text)]' : '',
-                    isRemove ? 'bg-[var(--app-diff-removed-bg)] text-[var(--app-diff-removed-text)]' : '',
-                    isHunk ? 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)] font-semibold' : '',
-                    isHeader ? 'text-[var(--app-hint)] font-semibold' : ''
-                ].filter(Boolean).join(' ')
-                const style = isAdd
-                    ? { borderLeft: '2px solid var(--app-git-staged-color)' }
-                    : isRemove
-                        ? { borderLeft: '2px solid var(--app-git-deleted-color)' }
-                        : undefined
-                return (
-                    <div key={`${index}-${line}`} className={className} style={style}>
-                        {line || ' '}
-                    </div>
-                )
-            })}
+        <div className="overflow-x-auto overflow-y-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-bg)]">
+            <div className="min-w-full w-max">
+                {lines.map((line, index) => {
+                    const isAdd = line.startsWith('+') && !line.startsWith('+++')
+                    const isRemove = line.startsWith('-') && !line.startsWith('---')
+                    const isHunk = line.startsWith('@@')
+                    const isHeader = line.startsWith('+++') || line.startsWith('---')
+                    const className = [
+                        'whitespace-pre px-3 py-0.5 text-[length:var(--text-code)] font-mono',
+                        isAdd ? 'bg-[var(--app-diff-added-bg)] text-[var(--app-diff-added-text)]' : '',
+                        isRemove ? 'bg-[var(--app-diff-removed-bg)] text-[var(--app-diff-removed-text)]' : '',
+                        isHunk ? 'text-[var(--app-hint)] font-semibold' : '',
+                        isHeader ? 'text-[var(--app-hint)] font-semibold' : ''
+                    ].filter(Boolean).join(' ')
+                    const style = isAdd
+                        ? { borderLeft: '2px solid var(--app-git-staged-color)' }
+                        : isRemove
+                            ? { borderLeft: '2px solid var(--app-git-deleted-color)' }
+                            : undefined
+                    return (
+                        <div key={`${index}-${line}`} className={className} style={style}>
+                            {line || ' '}
+                        </div>
+                    )
+                })}
+            </div>
         </div>
     )
 }
@@ -164,9 +166,9 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
     const diffErrorMessage = diffError ? t('git.diffUnavailable', { error: diffError }) : null
 
     return (
-        <div className="flex flex-col h-full min-h-0">
+        <div className="flex flex-col h-full min-h-0 text-[length:var(--text-body)]">
             {/* File path bar */}
-            <div className="shrink-0 px-3 py-2 flex items-center gap-2 border-b border-[var(--app-divider)]">
+            <div className="shrink-0 px-3 py-2 flex items-center gap-2 border-b border-[var(--app-divider)] max-sm:px-2.5 max-sm:py-1.5 max-sm:gap-1.5">
                 <FileIcon fileName={fileName} size={16} />
                 <span className="min-w-0 flex-1 truncate text-[length:var(--text-caption)] text-[var(--app-hint)] font-mono">{filePath}</span>
                 <button
@@ -181,35 +183,35 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
 
             {/* Diff/File toggle */}
             {diffContent ? (
-                <div className="shrink-0 px-3 py-2 flex items-center gap-2 border-b border-[var(--app-divider)]">
+                <div className="shrink-0 px-3 py-2 flex items-center gap-2 border-b border-[var(--app-divider)] max-sm:px-2.5 max-sm:py-1.5 max-sm:gap-1.5">
                     <button type="button" onClick={() => setDisplayMode('diff')}
-                        className={`rounded-md px-3 py-1 text-xs font-semibold ${effectiveMode === 'diff' ? 'bg-[var(--app-button)] text-[var(--app-button-text)] opacity-80' : 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)]'}`}>
+                        className={`rounded-md px-3 py-1 text-[length:var(--text-caption)] font-semibold max-sm:px-2.5 max-sm:py-0.5 ${effectiveMode === 'diff' ? 'bg-[var(--app-button)] text-[var(--app-button-text)] opacity-80' : 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)]'}`}>
                         {t('git.diff')}
                     </button>
                     <button type="button" onClick={() => setDisplayMode('file')}
-                        className={`rounded-md px-3 py-1 text-xs font-semibold ${effectiveMode === 'file' ? 'bg-[var(--app-button)] text-[var(--app-button-text)] opacity-80' : 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)]'}`}>
+                        className={`rounded-md px-3 py-1 text-[length:var(--text-caption)] font-semibold max-sm:px-2.5 max-sm:py-0.5 ${effectiveMode === 'file' ? 'bg-[var(--app-button)] text-[var(--app-button-text)] opacity-80' : 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)]'}`}>
                         {t('git.file')}
                     </button>
                 </div>
             ) : null}
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 max-sm:p-3">
                 {diffErrorMessage ? (
-                    <div className="mb-3 rounded-md bg-amber-500/10 p-2 text-xs text-[var(--app-hint)]">{diffErrorMessage}</div>
+                    <div className="mb-3 rounded-md bg-amber-500/10 p-2 text-[length:var(--text-caption)] text-[var(--app-hint)]">{diffErrorMessage}</div>
                 ) : null}
                 {!filePath ? (
-                    <div className="text-sm text-[var(--app-hint)]">{t('git.noFilePath')}</div>
+                    <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{t('git.noFilePath')}</div>
                 ) : loading ? (
                     <FileContentSkeleton />
                 ) : fileError ? (
-                    <div className="text-sm text-[var(--app-hint)]">{fileError}</div>
+                    <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{fileError}</div>
                 ) : binaryFile ? (
-                    <div className="text-sm text-[var(--app-hint)]">{t('git.binaryFile')}</div>
+                    <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{t('git.binaryFile')}</div>
                 ) : effectiveMode === 'diff' && diffContent ? (
                     <DiffDisplay diffContent={diffContent} />
                 ) : effectiveMode === 'diff' && diffError ? (
-                    <div className="text-sm text-[var(--app-hint)]">{diffError}</div>
+                    <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{diffError}</div>
                 ) : effectiveMode === 'file' ? (
                     decodedContent ? (
                         <div className="relative">
@@ -220,15 +222,15 @@ export function FileViewContent({ api, sessionId, filePath, commitHash, staged }
                                     {contentCopied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
                                 </button>
                             ) : null}
-                            <pre className="shiki overflow-auto rounded-md bg-[var(--app-code-bg)] p-3 pr-8 text-[length:var(--text-code)] font-mono">
+                            <pre className="shiki overflow-auto rounded-md bg-[var(--app-code-bg)] p-3 pr-8 text-[length:var(--text-code)] font-mono max-sm:p-2.5 max-sm:pr-7">
                                 <code>{highlighted ?? decodedContent}</code>
                             </pre>
                         </div>
                     ) : (
-                        <div className="text-sm text-[var(--app-hint)]">{t('git.fileEmpty')}</div>
+                        <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{t('git.fileEmpty')}</div>
                     )
                 ) : (
-                    <div className="text-sm text-[var(--app-hint)]">{t('git.noChanges')}</div>
+                    <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{t('git.noChanges')}</div>
                 )}
             </div>
         </div>
@@ -264,7 +266,7 @@ export function FileViewDialog({ api, sessionId, filePath, commitHash, staged, o
             {/* Panel — centered dialog */}
             <div className="relative flex flex-col bg-[var(--app-bg)] rounded-xl w-full max-w-2xl max-h-[88dvh] shadow-xl animate-fade-in-scale">
                 {/* Header */}
-                <div className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-[var(--app-border)]">
+                <div className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-[var(--app-border)] max-sm:px-3 max-sm:py-2 max-sm:gap-1.5">
                     <button
                         type="button"
                         onClick={onClose}
@@ -274,8 +276,8 @@ export function FileViewDialog({ api, sessionId, filePath, commitHash, staged, o
                         <IconClose style={{ fontSize: 16 }} />
                     </button>
                     <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold">{fileName}</div>
-                        {commitHash && <div className="truncate text-xs text-[var(--app-hint)] font-mono">{commitHash.slice(0, 8)}</div>}
+                        <div className="truncate text-[length:var(--text-body)] font-semibold">{fileName}</div>
+                        {commitHash && <div className="truncate text-[length:var(--text-caption)] text-[var(--app-hint)] font-mono">{commitHash.slice(0, 8)}</div>}
                     </div>
                 </div>
 

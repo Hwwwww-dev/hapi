@@ -14,7 +14,7 @@ export function CodexPatchView(props: ToolViewProps) {
             {files.map((file) => {
                 const display = resolveDisplayPath(file, props.metadata)
                 return (
-                    <div key={file} className="text-sm text-[var(--app-fg)] font-mono break-all">
+                    <div key={file} className="text-[length:var(--text-body)] text-[var(--app-fg)] font-mono break-all">
                         {basename(display)}
                     </div>
                 )

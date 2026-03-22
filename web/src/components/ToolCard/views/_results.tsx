@@ -193,7 +193,7 @@ function renderText(text: string, opts: { mode: 'markdown' | 'code' | 'auto'; la
     // Plain text → unified monospace pre-formatted style
     return (
         <CopyableContent text={text}>
-            <div className="text-[length:var(--text-body)] text-[var(--app-fg)] font-mono whitespace-pre-wrap break-words">
+            <div className="text-[length:var(--text-code)] text-[var(--app-fg)] font-mono whitespace-pre overflow-x-auto">
                 {text}
             </div>
         </CopyableContent>
@@ -266,7 +266,7 @@ const BashResultView: ToolViewComponent = (props: ToolViewProps) => {
     const result = props.block.tool.result
 
     if (result === undefined || result === null) {
-        return <div className="text-sm text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
+        return <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
     }
 
     if (typeof result === 'string') {
@@ -274,7 +274,7 @@ const BashResultView: ToolViewComponent = (props: ToolViewProps) => {
         const display = toolUseError.isToolUseError ? (toolUseError.errorMessage ?? '') : result
         return (
             <>
-                <CodeBlock code={display} language="text" />
+                <CodeBlock code={display} language="text" preClassName="shiki m-0 w-max min-w-full p-2 pr-8 text-[11px] font-mono max-sm:p-1.5 max-sm:pr-7 max-sm:text-[10px]" />
                 <RawJsonDevOnly value={result} />
             </>
         )
@@ -285,8 +285,8 @@ const BashResultView: ToolViewComponent = (props: ToolViewProps) => {
         return (
             <>
                 <div className="flex flex-col gap-2">
-                    {stdio.stdout ? <CodeBlock code={stdio.stdout} language="text" /> : null}
-                    {stdio.stderr ? <CodeBlock code={stdio.stderr} language="text" /> : null}
+                    {stdio.stdout ? <CodeBlock code={stdio.stdout} language="text" preClassName="shiki m-0 w-max min-w-full p-2 pr-8 text-[11px] font-mono max-sm:p-1.5 max-sm:pr-7 max-sm:text-[10px]" /> : null}
+                    {stdio.stderr ? <CodeBlock code={stdio.stderr} language="text" preClassName="shiki m-0 w-max min-w-full p-2 pr-8 text-[11px] font-mono max-sm:p-1.5 max-sm:pr-7 max-sm:text-[10px]" /> : null}
                 </div>
                 <RawJsonDevOnly value={result} />
             </>
@@ -297,7 +297,7 @@ const BashResultView: ToolViewComponent = (props: ToolViewProps) => {
     if (text) {
         return (
             <>
-                {renderText(text, { mode: 'code', language: 'text' })}
+                <CodeBlock code={text} language="text" preClassName="shiki m-0 w-max min-w-full p-2 pr-8 text-[11px] font-mono max-sm:p-1.5 max-sm:pr-7 max-sm:text-[10px]" />
                 <RawJsonDevOnly value={result} />
             </>
         )
@@ -305,7 +305,7 @@ const BashResultView: ToolViewComponent = (props: ToolViewProps) => {
 
     return (
         <>
-            <div className="text-sm text-[var(--app-hint)]">(no output)</div>
+            <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">(no output)</div>
             <RawJsonDevOnly value={result} />
         </>
     )
@@ -315,7 +315,7 @@ const MarkdownResultView: ToolViewComponent = (props: ToolViewProps) => {
     const result = props.block.tool.result
 
     if (result === undefined || result === null) {
-        return <div className="text-sm text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
+        return <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
     }
 
     const text = extractTextFromResult(result)
@@ -330,7 +330,7 @@ const MarkdownResultView: ToolViewComponent = (props: ToolViewProps) => {
 
     return (
         <>
-            <div className="text-sm text-[var(--app-hint)]">(no output)</div>
+            <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">(no output)</div>
             <RawJsonDevOnly value={result} />
         </>
     )
@@ -365,14 +365,14 @@ const GrepResultView: ToolViewComponent = (props: ToolViewProps) => {
     const result = props.block.tool.result
 
     if (result === undefined || result === null) {
-        return <div className="text-sm text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
+        return <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
     }
 
     const text = extractTextFromResult(result)
     if (!text || text.trim().length === 0) {
         return (
             <>
-                <div className="text-sm text-[var(--app-hint)]">(no matches)</div>
+                <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">(no matches)</div>
                 <RawJsonDevOnly value={result} />
             </>
         )
@@ -410,7 +410,7 @@ const GrepResultView: ToolViewComponent = (props: ToolViewProps) => {
                     <div key={file} className="rounded-md border border-[var(--app-divider)] overflow-hidden">
                         <div className="flex items-center gap-1.5 bg-[var(--app-secondary-bg)] px-2 py-1">
                             <span className="text-[length:var(--text-badge)]">{fileIcon(file)}</span>
-                            <span className="font-mono text-xs text-[var(--app-hint)] truncate flex-1">{file}</span>
+                            <span className="font-mono text-[length:var(--text-caption)] text-[var(--app-hint)] truncate flex-1">{file}</span>
                             <span className="shrink-0 text-[length:var(--text-badge)] text-[var(--app-hint)]">{matches.length}</span>
                         </div>
                         <div className="divide-y divide-[var(--app-divider)]">
@@ -434,14 +434,14 @@ const GlobResultView: ToolViewComponent = (props: ToolViewProps) => {
     const result = props.block.tool.result
 
     if (result === undefined || result === null) {
-        return <div className="text-sm text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
+        return <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
     }
 
     const text = extractTextFromResult(result)
     if (!text || text.trim().length === 0) {
         return (
             <>
-                <div className="text-sm text-[var(--app-hint)]">(no files)</div>
+                <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">(no files)</div>
                 <RawJsonDevOnly value={result} />
             </>
         )
@@ -451,16 +451,18 @@ const GlobResultView: ToolViewComponent = (props: ToolViewProps) => {
 
     return (
         <CopyableContent text={text}>
-            <div className="flex flex-col gap-0.5">
-                {lines.map((line, i) => {
-                    const name = line.split('/').pop() ?? line
-                    return (
-                        <div key={i} className="flex items-center gap-1.5">
-                            <span className="shrink-0 text-[length:var(--text-badge)]">{fileIcon(name)}</span>
-                            <span className="font-mono text-[length:var(--text-caption)] text-[var(--app-fg)] break-all">{line}</span>
-                        </div>
-                    )
-                })}
+            <div className="rounded-md bg-[var(--app-code-bg)] px-2 py-2 max-sm:px-1.5 max-sm:py-1.5">
+                <div className="flex flex-col gap-0.5">
+                    {lines.map((line, i) => {
+                        const name = line.split('/').pop() ?? line
+                        return (
+                            <div key={i} className="flex items-center gap-1.5">
+                                <span className="shrink-0 text-[length:var(--text-badge)]">{fileIcon(name)}</span>
+                                <span className="font-mono text-[length:var(--text-code)] text-[var(--app-fg)] break-all">{line}</span>
+                            </div>
+                        )
+                    })}
+                </div>
             </div>
         </CopyableContent>
     )
@@ -470,7 +472,7 @@ const ReadResultView: ToolViewComponent = (props: ToolViewProps) => {
     const result = props.block.tool.result
 
     if (result === undefined || result === null) {
-        return <div className="text-sm text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
+        return <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
     }
 
     const file = extractReadFileContent(result)
@@ -481,13 +483,13 @@ const ReadResultView: ToolViewComponent = (props: ToolViewProps) => {
         return (
             <>
                 {path ? (
-                    <div className="mb-1.5 flex items-center gap-1.5 text-xs text-[var(--app-hint)] font-mono">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-[length:var(--text-caption)] text-[var(--app-hint)] font-mono overflow-x-auto">
                         <span className="opacity-60">📄</span>
                         <span className="truncate">{basename(path)}</span>
                         <span className="shrink-0 rounded-md bg-[var(--app-secondary-bg)] px-1 py-0.5 text-[length:var(--text-badge)]">{language}</span>
                     </div>
                 ) : null}
-                <CodeBlock code={cleanContent} language={language} />
+                <CodeBlock code={cleanContent} language={language} preClassName="shiki m-0 w-max min-w-full p-2 pr-8 text-[11px] font-mono max-sm:p-1.5 max-sm:pr-7 max-sm:text-[10px]" />
                 <RawJsonDevOnly value={result} />
             </>
         )
@@ -505,7 +507,7 @@ const ReadResultView: ToolViewComponent = (props: ToolViewProps) => {
 
     return (
         <>
-            <div className="text-sm text-[var(--app-hint)]">(no output)</div>
+            <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">(no output)</div>
             <RawJsonDevOnly value={result} />
         </>
     )
@@ -526,13 +528,13 @@ const MutationResultView: ToolViewComponent = (props: ToolViewProps) => {
     if (result === undefined || result === null) {
         if (state === 'completed') {
             return (
-                <div className="flex items-center gap-1.5 text-xs text-[var(--app-badge-success-text)]">
+                <div className="flex items-center gap-1.5 text-[length:var(--text-caption)] text-[var(--app-badge-success-text)]">
                     <span>✓</span>
                     <span>{label}</span>
                 </div>
             )
         }
-        return <div className="text-sm text-[var(--app-hint)]">{placeholderForState(state)}</div>
+        return <div className="text-[length:var(--text-code)] text-[var(--app-hint)]">{placeholderForState(state)}</div>
     }
 
     const text = extractTextFromResult(result)
@@ -541,7 +543,7 @@ const MutationResultView: ToolViewComponent = (props: ToolViewProps) => {
     if (state === 'error' && typeof text === 'string' && text.trim().length > 0) {
         return (
             <>
-                <div className="text-sm text-red-600">
+                <div className="text-[length:var(--text-body)] text-red-600">
                     {renderText(text, { mode: 'code' })}
                 </div>
                 <RawJsonDevOnly value={result} />
@@ -575,13 +577,13 @@ const CodexPatchResultView: ToolViewComponent = (props: ToolViewProps) => {
 
     if (result === undefined || result === null) {
         return props.block.tool.state === 'completed'
-            ? <div className="text-sm text-[var(--app-hint)]">Done</div>
-            : <div className="text-sm text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
+            ? <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">Done</div>
+            : <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
     }
 
     return (
         <>
-            <div className="text-sm text-[var(--app-hint)]">(no output)</div>
+            <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">(no output)</div>
             <RawJsonDevOnly value={result} />
         </>
     )
@@ -590,7 +592,7 @@ const CodexPatchResultView: ToolViewComponent = (props: ToolViewProps) => {
 const CodexReasoningResultView: ToolViewComponent = (props: ToolViewProps) => {
     const result = props.block.tool.result
     if (result === undefined || result === null) {
-        return <div className="text-sm text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
+        return <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
     }
 
     const text = extractTextFromResult(result)
@@ -605,7 +607,7 @@ const CodexReasoningResultView: ToolViewComponent = (props: ToolViewProps) => {
 
     return (
         <>
-            <div className="text-sm text-[var(--app-hint)]">(no output)</div>
+            <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">(no output)</div>
             <RawJsonDevOnly value={result} />
         </>
     )
@@ -615,8 +617,8 @@ const CodexDiffResultView: ToolViewComponent = (props: ToolViewProps) => {
     const result = props.block.tool.result
     if (result === undefined || result === null) {
         return props.block.tool.state === 'completed'
-            ? <div className="text-sm text-[var(--app-hint)]">Done</div>
-            : <div className="text-sm text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
+            ? <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">Done</div>
+            : <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
     }
 
     const text = extractTextFromResult(result)
@@ -631,7 +633,7 @@ const CodexDiffResultView: ToolViewComponent = (props: ToolViewProps) => {
 
     return (
         <>
-            <div className="text-sm text-[var(--app-hint)]">Done</div>
+            <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">Done</div>
             <RawJsonDevOnly value={result} />
         </>
     )
@@ -640,7 +642,7 @@ const CodexDiffResultView: ToolViewComponent = (props: ToolViewProps) => {
 const TodoWriteResultView: ToolViewComponent = (props: ToolViewProps) => {
     const todos = extractTodoChecklist(props.block.tool.input, props.block.tool.result)
     if (todos.length === 0) {
-        return <div className="text-sm text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
+        return <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
     }
 
     return <ChecklistList items={todos} />
@@ -650,7 +652,7 @@ const GenericResultView: ToolViewComponent = (props: ToolViewProps) => {
     const result = props.block.tool.result
 
     if (result === undefined || result === null) {
-        return <div className="text-sm text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
+        return <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{placeholderForState(props.block.tool.state)}</div>
     }
 
     // Detect codex bash output format and render accordingly
@@ -659,7 +661,7 @@ const GenericResultView: ToolViewComponent = (props: ToolViewProps) => {
         if (parsed) {
             return (
                 <>
-                    <div className="text-xs text-[var(--app-hint)] mb-2">
+                    <div className="text-[length:var(--text-caption)] text-[var(--app-hint)] mb-2">
                         {parsed.exitCode !== null && `Exit code: ${parsed.exitCode}`}
                         {parsed.exitCode !== null && parsed.wallTime && ' · '}
                         {parsed.wallTime && `Wall time: ${parsed.wallTime}`}
@@ -754,13 +756,13 @@ const TaskResultView: ToolViewComponent = (props: ToolViewProps) => {
     if (result === undefined || result === null) {
         if (state === 'running') {
             return (
-                <div className="flex items-center gap-2 text-xs text-amber-600">
+                <div className="flex items-center gap-2 text-[length:var(--text-caption)] text-amber-600">
                     <span className="animate-pulse">●</span>
                     <span>Running…</span>
                 </div>
             )
         }
-        return <div className="text-sm text-[var(--app-hint)]">{placeholderForState(state)}</div>
+        return <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{placeholderForState(state)}</div>
     }
 
     const text = extractTextFromResult(result)
@@ -782,7 +784,7 @@ const TaskResultView: ToolViewComponent = (props: ToolViewProps) => {
 
     return (
         <>
-            <div className="text-sm text-[var(--app-hint)]">(no output)</div>
+            <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">(no output)</div>
             <RawJsonDevOnly value={result} />
         </>
     )
@@ -792,12 +794,12 @@ const SkillResultView: ToolViewComponent = (props: ToolViewProps) => {
     const { state, result } = props.block.tool
 
     if (result === undefined || result === null) {
-        return <div className="text-sm text-[var(--app-hint)]">{placeholderForState(state)}</div>
+        return <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{placeholderForState(state)}</div>
     }
 
     const text = extractTextFromResult(result)
     if (!text || text.trim().length === 0) {
-        return <div className="text-sm text-[var(--app-hint)]">(no content)</div>
+        return <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">(no content)</div>
     }
 
     return (
@@ -805,9 +807,9 @@ const SkillResultView: ToolViewComponent = (props: ToolViewProps) => {
             <Collapse bordered={false} defaultActiveKey={text.length <= 300 ? ['skill-output'] : []} className="toolcard-collapse rounded-lg border border-[var(--app-divider)]">
                 <CollapseItem
                     name="skill-output"
-                    header={<span className="text-xs text-[var(--app-hint)]">Skill output{text.length > 300 ? ` (${Math.round(text.length / 100) / 10}K chars)` : ''}</span>}
+                    header={<span className="text-[length:var(--text-caption)] text-[var(--app-hint)]">Skill output{text.length > 300 ? ` (${Math.round(text.length / 100) / 10}K chars)` : ''}</span>}
                 >
-                <div className="p-3">
+                <div className="p-3 text-[length:var(--text-code)]">
                     <MarkdownRenderer content={text} />
                 </div>
             </CollapseItem>
