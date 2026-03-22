@@ -283,7 +283,7 @@ export function HappyComposer(props: {
         if (!hasText) return
         messageQueue.enqueue(trimmed)
         composerCtx.setText('')
-        void messageQueue.flush()
+        setShowContinueHint(false)
     }, [hasText, trimmed, messageQueue, composerCtx])
 
     const handleSwitch = useCallback(async () => {
@@ -346,19 +346,13 @@ export function HappyComposer(props: {
             }
         }
 
-        // Ctrl/Cmd+Enter → send or enqueue+flush
+        // Ctrl/Cmd+Enter → send or enqueue
         if (key === 'Enter' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault()
-            // Queue has items or thread is running → enqueue current + flush
-            if (messageQueue.queue.length > 0 || threadIsRunning) {
-                if (hasText) {
-                    messageQueue.enqueue(trimmed)
-                    composerCtx.setText('')
-                }
-                void messageQueue.flush()
+            if (threadIsRunning) {
+                handleEnqueue()
                 return
             }
-            // Normal send
             if (canSend) {
                 handleSendMessage()
             }

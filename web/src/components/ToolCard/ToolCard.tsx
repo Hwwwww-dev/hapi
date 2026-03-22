@@ -183,27 +183,27 @@ function renderToolInput(block: ToolCallBlock): ReactNode {
             <div className="flex flex-col gap-3">
                 {subagentType && (
                     <div>
-                        <div className="mb-1 text-xs text-[var(--app-hint)]">subagent_type</div>
-                        <span className="rounded-full bg-[var(--app-secondary-bg)] px-2.5 py-0.5 text-xs font-medium text-[var(--app-fg)]">
+                        <div className="mb-1 text-[length:var(--text-caption)] text-[var(--app-hint)]">subagent_type</div>
+                        <span className="rounded-full bg-[var(--app-secondary-bg)] px-2.5 py-0.5 text-[length:var(--text-caption)] font-medium text-[var(--app-fg)]">
                             {subagentType}
                         </span>
                     </div>
                 )}
                 {description && (
                     <div>
-                        <div className="mb-1 text-xs text-[var(--app-hint)]">description</div>
-                        <span className="text-sm text-[var(--app-fg)]">{description}</span>
+                        <div className="mb-1 text-[length:var(--text-caption)] text-[var(--app-hint)]">description</div>
+                        <span className="text-[length:var(--text-body)] text-[var(--app-fg)]">{description}</span>
                     </div>
                 )}
                 {prompt !== null && (
                     <div>
-                        <div className="mb-1 text-xs text-[var(--app-hint)]">prompt</div>
+                        <div className="mb-1 text-[length:var(--text-caption)] text-[var(--app-hint)]">prompt</div>
                         {prompt ? (
                             <div className="rounded-lg border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] p-3">
                                 <MarkdownRenderer content={prompt} />
                             </div>
                         ) : (
-                            <span className="text-xs text-[var(--app-hint)]">(empty)</span>
+                            <span className="text-[length:var(--text-caption)] text-[var(--app-hint)]">(empty)</span>
                         )}
                     </div>
                 )}
@@ -240,7 +240,7 @@ function renderToolInput(block: ToolCallBlock): ReactNode {
                     <div className="flex flex-col gap-2">
                         {rendered}
                         {edits.length > 3 ? (
-                            <div className="text-xs text-[var(--app-hint)]">
+                            <div className="text-[length:var(--text-caption)] text-[var(--app-hint)]">
                                 (+{edits.length - 3} more edits)
                             </div>
                         ) : null}
@@ -256,13 +256,35 @@ function renderToolInput(block: ToolCallBlock): ReactNode {
         if (filePath && content !== null) {
             return (
                 <div className="flex flex-col gap-2">
-                    <div className="text-xs text-[var(--app-hint)] font-mono break-all">
+                    <div className="text-[length:var(--text-caption)] text-[var(--app-hint)] font-mono break-all">
                         {filePath}
                     </div>
                     <CodeBlock code={content} language="text" />
                 </div>
             )
         }
+    }
+
+    if (toolName === 'Read' && isObject(input)) {
+        const filePath = getInputStringAny(input, ['file_path', 'path'])
+        const offset = typeof input.offset === 'number' ? input.offset : null
+        const limit = typeof input.limit === 'number' ? input.limit : null
+        const pages = getInputString(input, 'pages')
+
+        return (
+            <div className="flex flex-col gap-2">
+                {filePath ? (
+                    <div className="rounded-md bg-[var(--app-code-bg)] px-2 py-2 text-[length:var(--text-code)] text-[var(--app-hint)] font-mono break-all max-sm:px-1.5 max-sm:py-1.5">
+                        {filePath}
+                    </div>
+                ) : null}
+                <div className="flex flex-wrap gap-1.5 text-[length:var(--text-caption)]">
+                    {offset !== null ? <span className="rounded-md bg-[var(--app-secondary-bg)] px-2 py-1 text-[var(--app-hint)]">offset {offset}</span> : null}
+                    {limit !== null ? <span className="rounded-md bg-[var(--app-secondary-bg)] px-2 py-1 text-[var(--app-hint)]">limit {limit}</span> : null}
+                    {pages ? <span className="rounded-md bg-[var(--app-secondary-bg)] px-2 py-1 text-[var(--app-hint)]">pages {pages}</span> : null}
+                </div>
+            </div>
+        )
     }
 
     if (toolName === 'CodexDiff' && isObject(input) && typeof input.unified_diff === 'string') {
@@ -280,7 +302,7 @@ function renderToolInput(block: ToolCallBlock): ReactNode {
             ? commandArray.filter((part) => typeof part === 'string').join(' ')
             : getInputStringAny(input, ['command', 'cmd'])
         if (cmd) {
-            return <CodeBlock code={cmd} language="bash" />
+            return <CodeBlock code={cmd} language="bash" preClassName="shiki m-0 whitespace-pre-wrap break-words p-2 pr-8 text-[length:var(--text-code)] font-mono" />
         }
     }
 
@@ -517,7 +539,7 @@ function ToolCardInner(props: ToolCardProps) {
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
                         <DialogHeader>
-                            <DialogTitle className="break-all">{toolTitle}</DialogTitle>
+                            <DialogTitle className="break-all text-base sm:text-lg">{toolTitle}</DialogTitle>
                         </DialogHeader>
                         {(() => {
                             const isQuestionToolWithAnswers = isQuestionTool
@@ -525,11 +547,11 @@ function ToolCardInner(props: ToolCardProps) {
                                 && Object.keys(permission.answers).length > 0
 
                             return (
-                                <div className="toolcard-dialog mt-3 flex max-h-[75vh] flex-col gap-4 overflow-y-auto scrollbar-hide">
+                                <div className="toolcard-dialog mt-3 flex max-h-[75vh] flex-col gap-4 overflow-y-auto scrollbar-hide max-sm:mt-2 max-sm:max-h-[70vh] max-sm:gap-3">
                                     <Collapse bordered={false} activeKey={['input']} className="toolcard-collapse shrink-0">
                                         <CollapseItem
                                             name="input"
-                                            header={<span className="text-xs text-[var(--app-hint)]">{isQuestionToolWithAnswers ? t('tool.questionsAnswers') : t('tool.input')}</span>}
+                                            header={<span className="text-[length:var(--text-body)] text-[var(--app-hint)]">{isQuestionToolWithAnswers ? t('tool.questionsAnswers') : t('tool.input')}</span>}
                                         >
                                             {FullToolView
                                                 ? <FullToolView block={props.block} metadata={props.metadata} />
@@ -541,7 +563,7 @@ function ToolCardInner(props: ToolCardProps) {
                                         <Collapse bordered={false} className="toolcard-collapse shrink-0">
                                             <CollapseItem
                                                 name="task-steps"
-                                                header={<span className="text-xs text-[var(--app-hint)]">{t('tool.taskSteps')} ({props.block.children.length})</span>}
+                                                header={<span className="text-[length:var(--text-body)] text-[var(--app-hint)]">{t('tool.taskSteps')} ({props.block.children.length})</span>}
                                             >
                                                 <TaskChildrenList children={props.block.children} metadata={props.metadata} />
                                             </CollapseItem>
@@ -551,7 +573,7 @@ function ToolCardInner(props: ToolCardProps) {
                                         <Collapse bordered={false} defaultActiveKey={presentation.minimal ? [] : ['result']} className="toolcard-collapse shrink-0">
                                             <CollapseItem
                                                 name="result"
-                                                header={<span className="text-xs text-[var(--app-hint)]">{t('tool.result')}</span>}
+                                                header={<span className="text-[length:var(--text-body)] text-[var(--app-hint)]">{t('tool.result')}</span>}
                                             >
                                                 <ResultToolView block={props.block} metadata={props.metadata} />
                                             </CollapseItem>
@@ -561,7 +583,7 @@ function ToolCardInner(props: ToolCardProps) {
                                         <Collapse bordered={false} className="toolcard-collapse shrink-0">
                                             <CollapseItem
                                                 name="raw-result"
-                                                header={<span className="text-xs font-medium text-[var(--app-hint)]">{t('tool.rawResult')}</span>}
+                                                header={<span className="text-[length:var(--text-body)] font-medium text-[var(--app-hint)]">{t('tool.rawResult')}</span>}
                                             >
                                                 <CodeBlock code={safeStringify(props.block.tool.result)} language="json" />
                                             </CollapseItem>
@@ -586,7 +608,7 @@ function ToolCardInner(props: ToolCardProps) {
                         <Collapse bordered={false} className="toolcard-collapse mt-3">
                             <CollapseItem
                                 name="task-result"
-                                header={<span className="text-xs text-[var(--app-hint)]">{t('tool.result')}</span>}
+                                header={<span className="text-[length:var(--text-body)] text-[var(--app-hint)]">{t('tool.result')}</span>}
                             >
                                 <ResultToolView block={props.block} metadata={props.metadata} />
                             </CollapseItem>

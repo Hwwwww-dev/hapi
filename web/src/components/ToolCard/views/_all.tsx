@@ -33,19 +33,19 @@ function AgentInputView({ block }: ToolViewProps) {
         <div className="flex flex-col gap-3">
             {subagentType && (
                 <div>
-                    <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">subagent_type</div>
-                    <span className="rounded-md bg-[var(--app-secondary-bg)] px-2 py-1 font-mono text-xs text-[var(--app-fg)]">{subagentType}</span>
+                    <div className="mb-1 text-[length:var(--text-caption)] font-medium text-[var(--app-hint)]">subagent_type</div>
+                    <span className="rounded-md bg-[var(--app-secondary-bg)] px-2 py-1 font-mono text-[length:var(--text-caption)] text-[var(--app-fg)]">{subagentType}</span>
                 </div>
             )}
             {description && (
                 <div>
-                    <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">description</div>
-                    <div className="text-sm text-[var(--app-fg)]">{description}</div>
+                    <div className="mb-1 text-[length:var(--text-caption)] font-medium text-[var(--app-hint)]">description</div>
+                    <div className="text-[length:var(--text-body)] text-[var(--app-fg)]">{description}</div>
                 </div>
             )}
             {prompt && (
                 <div>
-                    <div className="mb-1 text-xs font-medium text-[var(--app-hint)]">prompt</div>
+                    <div className="mb-1 text-[length:var(--text-caption)] font-medium text-[var(--app-hint)]">prompt</div>
                     <CodeBlock code={prompt} language="text" />
                 </div>
             )}

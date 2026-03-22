@@ -51,18 +51,18 @@ export function DiffView(props: {
                     onKeyDown={onTriggerKeyDown}
                     onBlur={onTriggerBlur}
                 >
-                    <div className="overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)] hover:bg-[var(--app-secondary-bg)] transition-colors">
+                    <div className="overflow-hidden rounded-md border border-[var(--app-border)] transition-colors">
                         {props.filePath ? (
-                            <div className="border-b border-[var(--app-border)] bg-[var(--app-subtle-bg)] px-2 py-1 text-[length:var(--text-caption)] text-[var(--app-hint)] truncate">
+                            <div className="border-b border-[var(--app-border)] px-2 py-1 text-[length:var(--text-caption)] text-[var(--app-hint)] truncate">
                                 {props.filePath}
                             </div>
                         ) : null}
                         <div className="px-2 py-2">
                             <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0 font-mono text-xs text-[var(--app-hint)] truncate">
+                                <div className="min-w-0 font-mono text-[length:var(--text-caption)] text-[var(--app-hint)] truncate">
                                     {props.filePath ? stats.label : subtitle}
                                 </div>
-                                <div className="shrink-0 text-xs text-[var(--app-link)]">
+                                <div className="shrink-0 text-[length:var(--text-caption)] text-[var(--app-link)]">
                                     {t('diff.view')}
                                 </div>
                             </div>
@@ -72,7 +72,7 @@ export function DiffView(props: {
             </DialogTrigger>
             <DialogContent className="max-w-4xl">
                 <DialogHeader>
-                    <DialogTitle className="break-all">{title}</DialogTitle>
+                    <DialogTitle className="break-all text-base">{title}</DialogTitle>
                     <DialogDescription className="font-mono break-all">
                         {stats.label}
                     </DialogDescription>
@@ -93,14 +93,14 @@ function DiffInlineView(props: {
     const diff = useMemo(() => diffLines(props.oldString, props.newString), [props.oldString, props.newString])
 
     return (
-        <div className="overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-subtle-bg)]">
+        <div className="overflow-x-auto overflow-y-hidden rounded-md border border-[var(--app-border)]">
             {props.filePath ? (
-                <div className="border-b border-[var(--app-border)] bg-[var(--app-subtle-bg)] px-2 py-1 text-[length:var(--text-caption)] text-[var(--app-hint)] truncate">
+                <div className="border-b border-[var(--app-border)] px-2 py-1 text-[length:var(--text-caption)] text-[var(--app-hint)] truncate">
                     {props.filePath}
                 </div>
             ) : null}
 
-            <div className="font-mono text-[length:var(--text-code)]">
+            <div className="min-w-full w-max font-mono text-[length:var(--text-code)]">
                 {diff.map((part, i) => {
                     const lines = part.value.split('\n')
                     if (lines.length > 0 && lines[lines.length - 1] === '') {
@@ -116,7 +116,7 @@ function DiffInlineView(props: {
                     return (
                         <div key={i} className={className}>
                             {lines.map((line, j) => (
-                                <div key={j} className="whitespace-pre-wrap px-2">
+                                <div key={j} className="whitespace-pre px-2">
                                     {prefix} {line}
                                 </div>
                             ))}

@@ -1,3 +1,4 @@
+import { forwardRef, useImperativeHandle, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
@@ -10,6 +11,7 @@ const archiveSessionMock = vi.fn(async () => undefined)
 const switchSessionMock = vi.fn(async () => undefined)
 const setPermissionModeMock = vi.fn(async () => undefined)
 const setModelModeMock = vi.fn(async () => undefined)
+const happyThreadScrollToBottomMock = vi.fn()
 
 vi.mock('@tanstack/react-router', () => ({
     useNavigate: () => vi.fn()
@@ -20,7 +22,26 @@ vi.mock('@/components/AssistantChat/HappyComposer', () => ({
 }))
 
 vi.mock('@/components/AssistantChat/HappyThread', () => ({
-    HappyThread: () => null
+    HappyThread: forwardRef(function HappyThreadMock(props: {
+        onAtBottomChange: (atBottom: boolean) => void
+    }, ref) {
+        useImperativeHandle(ref, () => ({
+            scrollToBottom: () => {
+                happyThreadScrollToBottomMock()
+            }
+        }))
+
+        return (
+            <div>
+                <button type="button" onClick={() => props.onAtBottomChange(false)}>
+                    离开底部
+                </button>
+                <button type="button" onClick={() => props.onAtBottomChange(true)}>
+                    回到底部
+                </button>
+            </div>
+        )
+    })
 }))
 
 vi.mock('@/components/SessionHeader', () => ({
@@ -146,6 +167,44 @@ function renderChat(session: Session, apiOverrides: Record<string, unknown> = {}
     return { api }
 }
 
+function renderChatWithPendingCounter() {
+    const onAtBottomChange = vi.fn()
+
+    function TestHarness() {
+        const [pendingCount, setPendingCount] = useState(2)
+
+        return (
+            <I18nProvider>
+                <div data-testid="pending-count">{pendingCount}</div>
+                <SessionChat
+                    api={{ resumeSession: vi.fn(async () => 'session-1') } as any}
+                    session={createSession({ active: true })}
+                    messages={[]}
+                    messagesWarning={null}
+                    hasMoreMessages={false}
+                    isLoadingMessages={false}
+                    isLoadingMoreMessages={false}
+                    isSending={false}
+                    pendingCount={pendingCount}
+                    messagesVersion={0}
+                    totalMessages={null}
+                    onBack={vi.fn()}
+                    onRefresh={vi.fn()}
+                    onLoadMore={vi.fn(async () => undefined)}
+                    onSend={vi.fn()}
+                    onFlushPending={() => setPendingCount(0)}
+                    onAtBottomChange={onAtBottomChange}
+                />
+            </I18nProvider>
+        )
+    }
+
+    localStorage.setItem('hapi-lang', 'zh-CN')
+    render(<TestHarness />)
+
+    return { onAtBottomChange }
+}
+
 describe('SessionChat connection controls', () => {
     it('shows inactive hint and lets users connect or refresh manually', async () => {
         const onRefresh = vi.fn()
@@ -195,5 +254,28 @@ describe('SessionChat connection controls', () => {
         fireEvent.click(screen.getByRole('button', { name: '取消连接' }))
 
         await waitFor(() => expect(archiveSessionMock).toHaveBeenCalled())
+    })
+
+    it('clears pending count immediately when manually returning to bottom', async () => {
+        const { onAtBottomChange } = renderChatWithPendingCounter()
+
+        expect(screen.getByTestId('pending-count')).toHaveTextContent('2')
+
+        fireEvent.click(screen.getByRole('button', { name: '离开底部' }))
+        fireEvent.click(screen.getByRole('button', { name: '回到底部' }))
+
+        await waitFor(() => expect(screen.getByTestId('pending-count')).toHaveTextContent('0'))
+        expect(onAtBottomChange).toHaveBeenLastCalledWith(true)
+    })
+
+    it('clears pending count immediately when clicking scroll-to-bottom', async () => {
+        const { onAtBottomChange } = renderChatWithPendingCounter()
+
+        fireEvent.click(screen.getByRole('button', { name: '离开底部' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Scroll to bottom' }))
+
+        await waitFor(() => expect(screen.getByTestId('pending-count')).toHaveTextContent('0'))
+        expect(onAtBottomChange).toHaveBeenLastCalledWith(true)
+        expect(happyThreadScrollToBottomMock).toHaveBeenCalledTimes(1)
     })
 })

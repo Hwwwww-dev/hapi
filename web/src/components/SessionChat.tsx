@@ -299,15 +299,16 @@ export const SessionChat = memo(function SessionChat(props: {
             seqSnapshotRef.current = maxSeq
         } else if (value) {
             seqSnapshotRef.current = 0
+            props.onFlushPending()
         }
         setAtBottom(value)
         props.onAtBottomChange(value)
-    }, [props.onAtBottomChange, props.messages])
+    }, [props.onAtBottomChange, props.onFlushPending, props.messages])
 
     const handleScrollToBottom = useCallback(() => {
-        seqSnapshotRef.current = 0
+        handleAtBottomChange(true)
         threadRef.current?.scrollToBottom()
-    }, [])
+    }, [handleAtBottomChange])
 
     const handleResume = useCallback(async () => {
         try {

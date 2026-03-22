@@ -31,7 +31,7 @@ export function MultiEditView(props: ToolViewProps) {
                 />
             ))}
             {edits.length > MAX_COMPACT_EDITS ? (
-                <div className="text-xs text-[var(--app-hint)]">
+                <div className="text-[length:var(--text-caption)] text-[var(--app-hint)]">
                     (+{edits.length - MAX_COMPACT_EDITS} more edits)
                 </div>
             ) : null}

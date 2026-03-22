@@ -330,10 +330,23 @@ body {
 /* ── Mobile responsive typography ── */
 @media (max-width: 640px) {
     :root {
-        --text-body: 14px;
-        --text-code: 12px;
-        --text-caption: 11px;
-        --text-badge: 9px;
+        --text-body: 13px;
+        --text-code: 11px;
+        --text-caption: 10px;
+        --text-badge: 8px;
+    }
+
+    .toolcard-collapse .arco-collapse-item-header {
+        padding: 5px 8px !important;
+        padding-left: 24px !important;
+    }
+
+    .toolcard-collapse .arco-collapse-item-content-box {
+        padding: 6px;
+    }
+
+    .toolcard-dialog {
+        gap: 12px;
     }
 }
 

@@ -58,17 +58,17 @@ function renderOtherAnswers(
             {otherAnswers.map((answer, i) => (
                 <div
                     key={`other-${i}`}
-                    className="rounded-md border border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-2"
+                    className="rounded-md border border-emerald-500 bg-emerald-50 px-2 py-2 dark:bg-emerald-950/30"
                 >
                     <div className="flex items-start gap-2">
-                        <span className="shrink-0 text-sm text-emerald-600">
+                        <span className="shrink-0 text-[length:var(--text-body)] text-emerald-600">
                             {isMulti ? '☑' : '●'}
                         </span>
                         <div className="min-w-0 flex-1">
-                            <div className="text-sm text-emerald-700 dark:text-emerald-300 font-medium break-words">
+                            <div className="text-[length:var(--text-body)] font-medium break-words text-emerald-700 dark:text-emerald-300">
                                 {answer}
                             </div>
-                            <div className="mt-0.5 text-xs text-[var(--app-hint)]">
+                            <div className="mt-0.5 text-[length:var(--text-caption)] text-[var(--app-hint)]">
                                 (custom answer)
                             </div>
                         </div>
@@ -94,12 +94,12 @@ function renderFreeformAnswers(
             {cleaned.map((answer, i) => (
                 <div
                     key={i}
-                    className="rounded-md border border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-2"
+                    className="rounded-md border border-emerald-500 bg-emerald-50 px-2 py-2 dark:bg-emerald-950/30"
                 >
                     <div className="flex items-start gap-2">
-                        <span className="shrink-0 text-sm text-emerald-600">●</span>
+                        <span className="shrink-0 text-[length:var(--text-body)] text-emerald-600">●</span>
                         <div className="min-w-0 flex-1">
-                            <div className="text-sm text-emerald-700 dark:text-emerald-300 font-medium break-words">
+                            <div className="text-[length:var(--text-body)] font-medium break-words text-emerald-700 dark:text-emerald-300">
                                 {answer}
                             </div>
                         </div>
@@ -132,9 +132,9 @@ export function AskUserQuestionView(props: ToolViewProps) {
                 const isMulti = q.multiSelect
 
                 return (
-                    <div key={idx} className="rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] p-3">
+                    <div key={idx} className="rounded-md border border-[var(--app-border)] bg-[var(--app-bg)] p-3 max-sm:p-2.5">
                         {q.question ? (
-                            <div className="text-sm text-[var(--app-fg)] break-words">
+                            <div className="text-[length:var(--text-body)] text-[var(--app-fg)] break-words">
                                 {q.question}
                             </div>
                         ) : null}
@@ -156,7 +156,7 @@ export function AskUserQuestionView(props: ToolViewProps) {
                                             <div className="flex items-start gap-2">
                                                 {hasAnswers && (
                                                     <span className={cn(
-                                                        "shrink-0 text-sm",
+                                                        "shrink-0 text-[length:var(--text-body)]",
                                                         isSelected
                                                             ? "text-emerald-600"
                                                             : "text-[var(--app-hint)]"
@@ -166,7 +166,7 @@ export function AskUserQuestionView(props: ToolViewProps) {
                                                 )}
                                                 <div className="min-w-0 flex-1">
                                                     <div className={cn(
-                                                        "text-sm break-words",
+                                                        "text-[length:var(--text-body)] break-words",
                                                         isSelected
                                                             ? "text-emerald-700 dark:text-emerald-300 font-medium"
                                                             : "text-[var(--app-fg)]"
@@ -174,7 +174,7 @@ export function AskUserQuestionView(props: ToolViewProps) {
                                                         {opt.label}
                                                     </div>
                                                     {opt.description ? (
-                                                        <div className="mt-0.5 text-xs text-[var(--app-hint)] break-words">
+                                                        <div className="mt-0.5 text-[length:var(--text-caption)] text-[var(--app-hint)] break-words">
                                                             {opt.description}
                                                         </div>
                                                     ) : null}
