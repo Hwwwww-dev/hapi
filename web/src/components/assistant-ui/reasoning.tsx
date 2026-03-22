@@ -26,7 +26,7 @@ function ShimmerDot() {
  */
 export const Reasoning: FC<{ text: string }> = ({ text }) => {
     return (
-        <div className={cn('aui-reasoning-content min-w-0 max-w-full break-words text-sm text-[var(--app-hint)]')}>
+        <div className={cn('aui-reasoning-content min-w-0 max-w-full break-words text-[length:var(--text-caption)] text-[var(--app-hint)]')}>
             <Markdown
                 remarkPlugins={MARKDOWN_PLUGINS}
                 components={defaultComponents}
@@ -73,13 +73,13 @@ export const ReasoningGroup: FC<PropsWithChildren<{
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
-                    'flex items-center gap-1.5 text-xs font-medium',
+                    'flex items-center gap-1.5 text-[length:var(--text-caption)] font-medium',
                     'text-[var(--app-hint)] hover:text-[var(--app-fg)]',
                     'transition-colors cursor-pointer select-none'
                 )}
             >
                 <IconRight
-                    style={{ fontSize: 12 }}
+                    style={{ fontSize: 'var(--icon-xs)' }}
                     className={cn(
                         'transition-transform duration-200',
                         isOpen ? 'rotate-90' : ''
@@ -102,7 +102,7 @@ export const ReasoningGroup: FC<PropsWithChildren<{
                 <div className="pl-4 pt-2 border-l-2 border-[var(--app-border)] ml-0.5">
                     {children}
                     {isTruncated ? (
-                        <div className="mt-2 text-xs text-[var(--app-hint)]">
+                        <div className="mt-2 text-[length:var(--text-caption)] text-[var(--app-hint)]">
                             {t('chat.reasoning.truncated')}
                         </div>
                     ) : null}

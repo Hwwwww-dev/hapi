@@ -36,7 +36,7 @@ export function Toast({ title, body, onClose, className, variant, ...props }: To
                         onClick={handleClose}
                         aria-label="Dismiss"
                     >
-                        <IconClose style={{ fontSize: 12 }} />
+                        <IconClose style={{ fontSize: 'var(--icon-xs)' }} />
                     </button>
                 ) : null}
             </div>

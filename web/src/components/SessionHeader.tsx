@@ -86,7 +86,7 @@ export function SessionHeader(props: {
                         onClick={props.onBack}
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
                     >
-                        <IconLeft style={{ fontSize: 20 }} />
+                        <IconLeft style={{ fontSize: 'var(--icon-xl)' }} />
                     </button>
 
                     {/* Session info */}
@@ -129,7 +129,7 @@ export function SessionHeader(props: {
                             className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
                             title={t('session.title')}
                         >
-                            <IconBranch style={{ fontSize: 18 }} />
+                            <IconBranch style={{ fontSize: 'var(--icon-lg)' }} />
                         </button>
                     ) : null}
 
@@ -145,7 +145,7 @@ export function SessionHeader(props: {
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
                         title={t('session.more')}
                     >
-                        <IconMoreVertical style={{ fontSize: 18 }} />
+                        <IconMoreVertical style={{ fontSize: 'var(--icon-lg)' }} />
                     </button>
                     )}
                 </div>

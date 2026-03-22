@@ -77,15 +77,15 @@ function formatTaskChildLabel(child: ToolCallBlock, metadata: SessionMetadataSum
 
 function TaskStateIcon(props: { state: ToolCallBlock['tool']['state'] }) {
     if (props.state === 'completed') {
-        return <IconCheck className="text-emerald-600" style={{ fontSize: 12 }} />
+        return <IconCheck className="text-emerald-600" style={{ fontSize: 'var(--icon-xs)' }} />
     }
     if (props.state === 'error') {
-        return <IconClose className="text-red-600" style={{ fontSize: 12 }} />
+        return <IconClose className="text-red-600" style={{ fontSize: 'var(--icon-xs)' }} />
     }
     if (props.state === 'pending') {
-        return <IconLock className="text-amber-600" style={{ fontSize: 12 }} />
+        return <IconLock className="text-amber-600" style={{ fontSize: 'var(--icon-xs)' }} />
     }
-    return <IconLoading className="text-amber-600 animate-spin" style={{ fontSize: 12 }} />
+    return <IconLoading className="text-amber-600 animate-spin" style={{ fontSize: 'var(--icon-xs)' }} />
 }
 
 function getTaskSummaryChildren(block: ToolCallBlock): {
@@ -318,15 +318,15 @@ function renderToolInput(block: ToolCallBlock): ReactNode {
 
 function StatusIcon(props: { state: ToolCallBlock['tool']['state'] }) {
     if (props.state === 'completed') {
-        return <IconCheckCircleFill style={{ fontSize: 14 }} />
+        return <IconCheckCircleFill style={{ fontSize: 'var(--icon-sm)' }} />
     }
     if (props.state === 'error') {
-        return <IconCloseCircleFill style={{ fontSize: 14 }} />
+        return <IconCloseCircleFill style={{ fontSize: 'var(--icon-sm)' }} />
     }
     if (props.state === 'pending') {
-        return <IconLock style={{ fontSize: 14 }} />
+        return <IconLock style={{ fontSize: 'var(--icon-sm)' }} />
     }
-    return <IconLoading className="animate-spin" style={{ fontSize: 14 }} />
+    return <IconLoading className="animate-spin" style={{ fontSize: 'var(--icon-sm)' }} />
 }
 
 function statusColorClass(state: ToolCallBlock['tool']['state']): string {
@@ -337,7 +337,7 @@ function statusColorClass(state: ToolCallBlock['tool']['state']): string {
 }
 
 function DetailsIcon() {
-    return <IconRight style={{ fontSize: 16 }} />
+    return <IconRight style={{ fontSize: 'var(--icon-md)' }} />
 }
 
 /**
@@ -360,7 +360,7 @@ function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metad
                                 <TaskStateIcon state={block.tool.state} />
                             </span>
                             <div className="min-w-0 flex-1">
-                                <span className={`font-mono text-xs ${isError ? 'text-red-600' : isActive ? 'text-amber-700 dark:text-amber-400' : 'text-[var(--app-fg)]'}`}>
+                                <span className={`font-mono text-[length:var(--text-body)] ${isError ? 'text-red-600' : isActive ? 'text-amber-700 dark:text-amber-400' : 'text-[var(--app-fg)]'}`}>
                                     {label}
                                 </span>
                                 {block.tool.result !== undefined && block.tool.result !== null ? (
@@ -386,7 +386,7 @@ function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metad
                                 <Collapse bordered={false} className="toolcard-collapse">
                                     <CollapseItem
                                         name="agent-text"
-                                        header={<span className="truncate text-xs text-[var(--app-hint)]">{block.text.split('\n')[0].slice(0, 80).trim()}…</span>}
+                                        header={<span className="truncate text-[length:var(--text-caption)] text-[var(--app-hint)]">{block.text.split('\n')[0].slice(0, 80).trim()}…</span>}
                                     >
                                         <div className="overflow-x-auto">
                                             <MarkdownRenderer content={block.text} />
@@ -406,7 +406,7 @@ function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metad
                     return (
                         <div key={block.id} className="px-2 py-1 rounded-md bg-[var(--app-secondary-bg)]">
                             <div className="text-[length:var(--text-badge)] text-[var(--app-hint)] mb-0.5">User</div>
-                            <div className="text-xs text-[var(--app-fg)]">{block.text}</div>
+                            <div className="text-[length:var(--text-body)] text-[var(--app-fg)]">{block.text}</div>
                         </div>
                     )
                 }
@@ -539,7 +539,7 @@ function ToolCardInner(props: ToolCardProps) {
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
                         <DialogHeader>
-                            <DialogTitle className="break-all text-base sm:text-lg">{toolTitle}</DialogTitle>
+                            <DialogTitle className="break-all text-[length:var(--text-title)] font-medium">{toolTitle}</DialogTitle>
                         </DialogHeader>
                         {(() => {
                             const isQuestionToolWithAnswers = isQuestionTool
@@ -548,10 +548,10 @@ function ToolCardInner(props: ToolCardProps) {
 
                             return (
                                 <div className="toolcard-dialog mt-3 flex max-h-[75vh] flex-col gap-4 overflow-y-auto scrollbar-hide max-sm:mt-2 max-sm:max-h-[70vh] max-sm:gap-3">
-                                    <Collapse bordered={false} activeKey={['input']} className="toolcard-collapse shrink-0">
+                                    <Collapse bordered={false} activeKey={['input']} className="toolcard-collapse toolcard-collapse--input shrink-0">
                                         <CollapseItem
                                             name="input"
-                                            header={<span className="text-[length:var(--text-body)] text-[var(--app-hint)]">{isQuestionToolWithAnswers ? t('tool.questionsAnswers') : t('tool.input')}</span>}
+                                            header={<span className="text-[length:var(--text-caption)] sm:text-[length:var(--text-body)] text-[var(--app-hint)]">{isQuestionToolWithAnswers ? t('tool.questionsAnswers') : t('tool.input')}</span>}
                                         >
                                             {FullToolView
                                                 ? <FullToolView block={props.block} metadata={props.metadata} />
@@ -560,30 +560,30 @@ function ToolCardInner(props: ToolCardProps) {
                                         </CollapseItem>
                                     </Collapse>
                                     {isTaskOrAgent && props.block.children.length > 0 ? (
-                                        <Collapse bordered={false} className="toolcard-collapse shrink-0">
+                                        <Collapse bordered={false} className="toolcard-collapse toolcard-collapse--steps shrink-0">
                                             <CollapseItem
                                                 name="task-steps"
-                                                header={<span className="text-[length:var(--text-body)] text-[var(--app-hint)]">{t('tool.taskSteps')} ({props.block.children.length})</span>}
+                                                header={<span className="text-[length:var(--text-caption)] sm:text-[length:var(--text-body)] text-[var(--app-hint)]">{t('tool.taskSteps')} ({props.block.children.length})</span>}
                                             >
                                                 <TaskChildrenList children={props.block.children} metadata={props.metadata} />
                                             </CollapseItem>
                                         </Collapse>
                                     ) : null}
                                     {!isQuestionToolWithAnswers && (
-                                        <Collapse bordered={false} defaultActiveKey={presentation.minimal ? [] : ['result']} className="toolcard-collapse shrink-0">
+                                        <Collapse bordered={false} defaultActiveKey={presentation.minimal ? [] : ['result']} className="toolcard-collapse toolcard-collapse--result shrink-0">
                                             <CollapseItem
                                                 name="result"
-                                                header={<span className="text-[length:var(--text-body)] text-[var(--app-hint)]">{t('tool.result')}</span>}
+                                                header={<span className="text-[length:var(--text-caption)] sm:text-[length:var(--text-body)] text-[var(--app-hint)]">{t('tool.result')}</span>}
                                             >
                                                 <ResultToolView block={props.block} metadata={props.metadata} />
                                             </CollapseItem>
                                         </Collapse>
                                     )}
                                     {import.meta.env.DEV && props.block.tool.result != null && (
-                                        <Collapse bordered={false} className="toolcard-collapse shrink-0">
+                                        <Collapse bordered={false} className="toolcard-collapse toolcard-collapse--raw shrink-0">
                                             <CollapseItem
                                                 name="raw-result"
-                                                header={<span className="text-[length:var(--text-body)] font-medium text-[var(--app-hint)]">{t('tool.rawResult')}</span>}
+                                                header={<span className="text-[length:var(--text-caption)] sm:text-[length:var(--text-body)] font-medium text-[var(--app-hint)]">{t('tool.rawResult')}</span>}
                                             >
                                                 <CodeBlock code={safeStringify(props.block.tool.result)} language="json" />
                                             </CollapseItem>

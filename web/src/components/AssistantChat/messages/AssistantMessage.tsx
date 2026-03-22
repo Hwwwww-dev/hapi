@@ -10,7 +10,7 @@ export const HappyAssistantMessage = memo(function HappyAssistantMessage({ block
     return (
         <div className="px-1 min-w-0 max-w-full">
             <div className="flex flex-col gap-2">
-                <MarkdownText text={block.text} />
+                <MarkdownText text={block.text} size="chat" />
                 <MessageTimestamp value={new Date(block.createdAt)} />
             </div>
         </div>

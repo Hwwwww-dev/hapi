@@ -7,7 +7,7 @@ import { RouterProvider, createMemoryHistory } from '@tanstack/react-router'
 import '@arco-design/web-react/dist/css/arco.css'
 import './index.css'
 import { registerSW } from 'virtual:pwa-register'
-import { initializeFontScale } from '@/hooks/useFontScale'
+import { initializeBaseFontSize } from '@/hooks/useBaseFontSize'
 import { getTelegramWebApp, isTelegramEnvironment, loadTelegramSdk } from './hooks/useTelegram'
 import { queryClient } from './lib/query-client'
 import { createAppRouter } from './router'
@@ -36,9 +36,8 @@ function getInitialPath(): string {
 }
 
 async function bootstrap() {
-    initializeFontScale()
+    initializeBaseFontSize()
 
-    // Only load Telegram SDK in Telegram environment (with 3s timeout)
     const isTelegram = isTelegramEnvironment()
     if (isTelegram) {
         await loadTelegramSdk()

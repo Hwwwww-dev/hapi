@@ -12,7 +12,7 @@ export function MessageStatusIndicator(props: {
     return (
         <span className="inline-flex items-center gap-1">
             <span className="text-red-500">
-                <IconExclamationCircleFill style={{ fontSize: 14 }} />
+                <IconExclamationCircleFill style={{ fontSize: 'var(--icon-sm)' }} />
             </span>
             {props.onRetry ? (
                 <button

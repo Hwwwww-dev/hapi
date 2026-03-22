@@ -101,14 +101,14 @@ export function CliOutputBlock(props: { text: string }) {
                                 <div className="flex items-center justify-between gap-3">
                                     <div className="min-w-0 flex items-center gap-2">
                                         <div className="shrink-0 flex h-4 w-4 items-center justify-center text-[var(--app-hint)] leading-none">
-                                            <IconCommand style={{ fontSize: 16 }} />
+                                            <IconCommand style={{ fontSize: 'var(--icon-md)' }} />
                                         </div>
                                         <CardTitle className="min-w-0 text-[length:var(--text-body)] font-medium leading-tight break-words">
                                             {commandName ?? t('terminal.commandName')}
                                         </CardTitle>
                                     </div>
                                     <span className="text-[var(--app-hint)]">
-                                        <IconRight style={{ fontSize: 16 }} />
+                                        <IconRight style={{ fontSize: 'var(--icon-md)' }} />
                                     </span>
                                 </div>
                             </div>
@@ -116,11 +116,11 @@ export function CliOutputBlock(props: { text: string }) {
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
                         <DialogHeader>
-                            <DialogTitle>{t('terminal.commandName')}</DialogTitle>
+                            <DialogTitle className="text-[length:var(--text-body)] font-medium">{t('terminal.commandName')}</DialogTitle>
                         </DialogHeader>
-                        <div className="mt-3 max-h-[75vh] overflow-auto">
+                        <div className="mt-2 max-h-[75vh] overflow-auto max-sm:mt-1.5">
                             <div className="min-w-0 max-w-full overflow-x-auto overflow-y-hidden">
-                                <pre className="m-0 w-max min-w-full bg-[var(--app-code-bg)] p-2 text-[length:var(--text-code)] font-mono">
+                                <pre className="m-0 w-max min-w-full bg-[var(--app-code-bg)] p-2 text-[length:var(--text-code)] font-mono max-sm:p-1.5">
                                     {content}
                                 </pre>
                             </div>

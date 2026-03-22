@@ -14,7 +14,7 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
         : defaultComponents
 
     return (
-        <div className={cn('aui-md min-w-0 max-w-full break-words text-[length:var(--text-code)]', props.className)}>
+        <div className={cn('aui-md min-w-0 max-w-full break-words text-[length:var(--text-body)]', props.className)}>
             <Markdown
                 remarkPlugins={MARKDOWN_PLUGINS}
                 components={mergedComponents}

@@ -70,7 +70,7 @@ function SessionsPage() {
             >
                 <div className="bg-[var(--app-bg)] pt-[env(safe-area-inset-top)]">
                     <div className="mx-auto w-full max-w-content flex items-center justify-between px-3 py-2">
-                        <div className="text-xs text-[var(--app-hint)]">
+                        <div className="text-[length:var(--text-caption)] text-[var(--app-hint)]">
                             {t('sessions.count', { n: sessions.length, m: projectCount })}
                         </div>
                         <div className="flex items-center gap-2">
@@ -106,7 +106,7 @@ function SessionsPage() {
                 <div className="flex-1 min-h-0 overflow-y-auto desktop-scrollbar-left bg-[var(--app-bg)]">
                     {error ? (
                         <div className="mx-auto w-full max-w-content px-3 py-2">
-                            <div className="text-sm text-red-600">{error}</div>
+                            <div className="text-[length:var(--text-body)] text-red-600">{error}</div>
                         </div>
                     ) : null}
                     <SessionList
@@ -159,7 +159,7 @@ function SessionPage() {
     if (!session || !api) {
         return (
             <div className="flex-1 flex items-center justify-center p-4">
-                <LoadingState label="Loading session…" className="text-sm" />
+                <LoadingState label="Loading session…" className="text-[length:var(--text-body)]" />
             </div>
         )
     }
@@ -368,7 +368,7 @@ function NewSessionPage() {
                         onClick={goBack}
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
                     >
-                        <IconLeft style={{ fontSize: 20 }} />
+                        <IconLeft style={{ fontSize: 'var(--icon-xl)' }} />
                     </button>
                 )}
                 <div className="flex-1 font-semibold">{t('newSession.title')}</div>

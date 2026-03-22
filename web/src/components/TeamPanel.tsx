@@ -39,7 +39,7 @@ export function TeamPanel(props: { teamState: TeamState }) {
                 onClick={() => setExpanded(!expanded)}
                 className="flex w-full items-center gap-2 rounded-md bg-[var(--app-subtle-bg)] px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-subtle-bg-hover)]"
             >
-                <IconUserGroup className="shrink-0" style={{ fontSize: 14 }} />
+                <IconUserGroup className="shrink-0" style={{ fontSize: 'var(--icon-sm)' }} />
                 <span className="font-medium text-[var(--app-fg)]">
                     Team: {teamState.teamName}
                 </span>
@@ -50,7 +50,7 @@ export function TeamPanel(props: { teamState: TeamState }) {
                 </span>
                 <IconDown
                     className={`ml-auto shrink-0 text-[var(--app-hint)] transition-transform ${expanded ? 'rotate-180' : ''}`}
-                    style={{ fontSize: 12 }}
+                    style={{ fontSize: 'var(--icon-xs)' }}
                 />
             </button>
 

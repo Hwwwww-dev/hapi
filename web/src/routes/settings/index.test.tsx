@@ -9,14 +9,22 @@ vi.mock('@hapi/protocol', () => ({
     PROTOCOL_VERSION: 1,
 }))
 
-// Mock the router hooks
 vi.mock('@tanstack/react-router', () => ({
     useNavigate: () => vi.fn(),
     useRouter: () => ({ history: { back: vi.fn() } }),
     useLocation: () => '/settings',
 }))
 
-// Mock useFontScale hook
+vi.mock('@/hooks/useBaseFontSize', () => ({
+    useBaseFontSize: () => ({ baseFontSize: 'md', setBaseFontSize: vi.fn() }),
+    getBaseFontSizeOptions: () => [
+        { value: 'sm', labelKey: 'settings.display.baseFontSize.small' },
+        { value: 'md', labelKey: 'settings.display.baseFontSize.medium' },
+        { value: 'lg', labelKey: 'settings.display.baseFontSize.large' },
+        { value: 'xl', labelKey: 'settings.display.baseFontSize.extraLarge' },
+    ],
+}))
+
 vi.mock('@/hooks/useFontScale', () => ({
     useFontScale: () => ({ fontScale: 1, setFontScale: vi.fn() }),
     getFontScaleOptions: () => [
@@ -35,7 +43,6 @@ vi.mock('@/hooks/useTerminalFontSize', () => ({
     ],
 }))
 
-// Mock useTheme hook
 vi.mock('@/hooks/useTheme', () => ({
     useAppearance: () => ({ appearance: 'system', setAppearance: vi.fn() }),
     getAppearanceOptions: () => [
@@ -45,7 +52,6 @@ vi.mock('@/hooks/useTheme', () => ({
     ],
 }))
 
-// Mock languages
 vi.mock('@/lib/languages', () => ({
     getElevenLabsSupportedLanguages: () => [
         { code: null, name: 'Auto-detect' },
@@ -76,7 +82,6 @@ function renderWithSpyT(ui: React.ReactElement) {
 describe('SettingsPage', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        // Mock localStorage
         const localStorageMock = {
             getItem: vi.fn(() => 'en'),
             setItem: vi.fn(),
@@ -93,7 +98,7 @@ describe('SettingsPage', () => {
     it('displays the App Version with correct value', () => {
         renderWithProviders(<SettingsPage />)
         expect(screen.getAllByText('App Version').length).toBeGreaterThanOrEqual(1)
-        expect(screen.getAllByText(__APP_VERSION__).length).toBeGreaterThanOrEqual(1)
+        expect(screen.getAllByText('0.16.2-Base').length).toBeGreaterThanOrEqual(1)
     })
 
     it('displays the Protocol Version with correct value', () => {
@@ -133,6 +138,12 @@ describe('SettingsPage', () => {
         const calledKeys = spyT.mock.calls.map((call) => call[0])
         expect(calledKeys).toContain('settings.display.appearance')
         expect(calledKeys).toContain('settings.display.appearance.system')
+    })
+
+    it('renders the Base Font Size setting', () => {
+        renderWithProviders(<SettingsPage />)
+        expect(screen.getAllByText('Base Font Size').length).toBeGreaterThanOrEqual(1)
+        expect(screen.getAllByText('Standard').length).toBeGreaterThanOrEqual(1)
     })
 
     it('renders the Terminal Font Size setting', () => {

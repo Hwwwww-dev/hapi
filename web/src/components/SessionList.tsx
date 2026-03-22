@@ -238,7 +238,7 @@ const SessionItem = memo(function SessionItem(props: {
             >
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2">
-                        <div className="truncate text-sm font-medium sm:text-base ml-2">
+                        <div className="truncate text-[length:var(--text-body)] font-medium ml-2">
                             {sessionName}
                         </div>
                     </div>
@@ -261,7 +261,7 @@ const SessionItem = memo(function SessionItem(props: {
                                 if (!progress) return null
                                 return (
                                     <span className="flex items-center gap-1 rounded-full bg-[var(--app-secondary-bg)] px-2 py-0.5 text-[var(--app-hint)]">
-                                        <IconBulb style={{ fontSize: 12 }} />
+                                        <IconBulb style={{ fontSize: 'var(--icon-xs)' }} />
                                         {progress.completed}/{progress.total}
                                     </span>
                                 )
@@ -309,7 +309,7 @@ const SessionItem = memo(function SessionItem(props: {
                 <button
                     type="button"
                     onClick={() => setChildrenExpanded(v => !v)}
-                    className="flex w-full items-center gap-2 rounded-lg border border-dashed border-[var(--app-divider)] px-3 py-1.5 text-left text-xs text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)]"
+                    className="flex w-full items-center gap-2 rounded-lg border border-dashed border-[var(--app-divider)] px-3 py-1.5 text-left text-[length:var(--text-caption)] text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)]"
                     aria-label={childrenExpanded ? 'Collapse subagents' : 'Expand subagents'}
                 >
                     <span>{childrenExpanded ? '▾' : '▸'}</span>
@@ -324,7 +324,7 @@ const SessionItem = memo(function SessionItem(props: {
                             key={child.id}
                             type="button"
                             onClick={() => props.onSelect(child.id)}
-                            className={`flex w-full flex-col gap-1 rounded-lg border px-3 py-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] ${child.id === props.selectedSessionId ? 'border-[var(--app-link)] bg-[var(--app-secondary-bg)]' : child.active ? (child.thinking ? 'bg-[var(--app-status-thinking-bg)] border-[var(--app-status-thinking-border)]' : 'bg-[var(--app-status-active-bg)] border-[var(--app-status-active-border)]') : 'border-[var(--app-divider)] bg-[var(--app-bg)] hover:bg-[var(--app-secondary-bg)]'}`}
+                            className={`flex w-full flex-col gap-1 rounded-lg border px-3 py-2 text-left text-[length:var(--text-caption)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] ${child.id === props.selectedSessionId ? 'border-[var(--app-link)] bg-[var(--app-secondary-bg)]' : child.active ? (child.thinking ? 'bg-[var(--app-status-thinking-bg)] border-[var(--app-status-thinking-border)]' : 'bg-[var(--app-status-active-bg)] border-[var(--app-status-active-border)]') : 'border-[var(--app-divider)] bg-[var(--app-bg)] hover:bg-[var(--app-secondary-bg)]'}`}
                         >
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-[var(--app-hint)] shrink-0">↳</span>
@@ -456,9 +456,9 @@ export function SessionList(props: {
         <div className="mx-auto w-full max-w-content flex flex-col">
             {renderHeader ? (
                 <div className="flex items-center justify-between px-3 py-2">
-                    <div className="text-xs text-[var(--app-hint)]">
-                        {t('sessions.count', { n: visibleSessionCount, m: groups.length })}
-                    </div>
+                                            <div className="text-[length:var(--text-caption)] text-[var(--app-hint)]">
+                                                {t('sessions.count', { n: visibleSessionCount, m: groups.length })}
+                                            </div>
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
@@ -467,7 +467,7 @@ export function SessionList(props: {
                             title={t('session.chat.refresh')}
                             aria-busy={props.isLoading}
                         >
-                            <IconRefresh className={props.isLoading ? 'animate-spin' : ''} style={{ fontSize: 16 }} />
+                            <IconRefresh className={props.isLoading ? 'animate-spin' : ''} style={{ fontSize: 'var(--icon-md)' }} />
                         </button>
                         <button
                             type="button"
@@ -475,7 +475,7 @@ export function SessionList(props: {
                             className="session-list-new-button rounded-full p-1.5 text-[var(--app-link)] transition-colors"
                             title={t('sessions.new')}
                         >
-                            <IconPlus style={{ fontSize: 20 }} />
+                            <IconPlus style={{ fontSize: 'var(--icon-xl)' }} />
                         </button>
                     </div>
                 </div>
@@ -494,7 +494,7 @@ export function SessionList(props: {
                                     role="tab"
                                     aria-selected={selected}
                                     onClick={() => onAgentTabChange?.(tab)}
-                                    className={`relative rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors ${selected ? 'bg-[var(--app-button)] text-[var(--app-button-text)]' : 'text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]'}`}
+                                    className={`relative rounded-full px-3 py-1.5 text-[length:var(--text-body)] font-medium whitespace-nowrap transition-colors ${selected ? 'bg-[var(--app-button)] text-[var(--app-button-text)]' : 'text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]'}`}
                                 >
                                     {label}
                                 </button>
@@ -512,7 +512,7 @@ export function SessionList(props: {
                 {isOnlineTab ? (
                     /* Online tab: flat list of active sessions */
                     onlineSessions.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-[var(--app-divider)] px-4 py-6 text-center text-sm text-[var(--app-hint)]">
+                        <div className="rounded-2xl border border-dashed border-[var(--app-divider)] px-4 py-6 text-center text-[length:var(--text-body)] text-[var(--app-hint)]">
                             {t('sessions.emptyOnline')}
                         </div>
                     ) : (
@@ -537,7 +537,7 @@ export function SessionList(props: {
                     /* Normal tabs: grouped by directory */
                     <>
                         {groups.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-[var(--app-divider)] px-4 py-6 text-center text-sm text-[var(--app-hint)]">
+                            <div className="rounded-2xl border border-dashed border-[var(--app-divider)] px-4 py-6 text-center text-[length:var(--text-body)] text-[var(--app-hint)]">
                                 {t('sessions.empty')}
                             </div>
                         ) : null}
@@ -555,14 +555,14 @@ export function SessionList(props: {
                             >
                                 <IconRight
                                     className={`text-[var(--app-hint)] transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`}
-                                    style={{ fontSize: 16 }}
+                                    style={{ fontSize: 'var(--icon-md)' }}
                                 />
                                 <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${group.hasActiveSession ? 'bg-[var(--app-secondary-bg)] text-[var(--app-link)]' : 'bg-[var(--app-secondary-bg)] text-[var(--app-hint)]'}`}>
-                                    <IconFolder style={{ fontSize: 16 }} />
+                                    <IconFolder style={{ fontSize: 'var(--icon-md)' }} />
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2 min-w-0">
-                                        <span className="truncate font-medium text-sm sm:text-base" title={group.directory}>
+                                        <span className="truncate font-medium text-[length:var(--text-body)]" title={group.directory}>
                                             {group.displayName}
                                         </span>
                                         <span className="shrink-0 rounded-full bg-[var(--app-secondary-bg)] px-2 py-0.5 text-[length:var(--text-caption)] text-[var(--app-hint)]">
@@ -598,7 +598,7 @@ export function SessionList(props: {
                                             type="button"
                                             onClick={() => { void props.loadMoreForDirectory?.(group.directory) }}
                                             disabled={isLoadingMore}
-                                            className="w-full rounded-xl border border-dashed border-[var(--app-divider)] px-3 py-2 text-xs text-[var(--app-hint)] transition-colors hover:bg-[var(--app-divider)] disabled:opacity-50"
+                                            className="w-full rounded-xl border border-dashed border-[var(--app-divider)] px-3 py-2 text-[length:var(--text-caption)] text-[var(--app-hint)] transition-colors hover:bg-[var(--app-divider)] disabled:opacity-50"
                                         >
                                             {isLoadingMore ? t('sessions.loadingMore') : t('sessions.loadMore')}
                                         </button>

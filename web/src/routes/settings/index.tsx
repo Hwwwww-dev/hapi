@@ -2,7 +2,7 @@ import { Select } from '@arco-design/web-react'
 import { useTranslation, type Locale } from '@/lib/use-translation'
 import { useAppGoBack } from '@/hooks/useAppGoBack'
 import { getElevenLabsSupportedLanguages, getLanguageDisplayName } from '@/lib/languages'
-import { getFontScaleOptions, useFontScale, type FontScale } from '@/hooks/useFontScale'
+import { getBaseFontSizeOptions, useBaseFontSize, type BaseFontSize } from '@/hooks/useBaseFontSize'
 import { getTerminalFontSizeOptions, useTerminalFontSize, type TerminalFontSize } from '@/hooks/useTerminalFontSize'
 import { useAppearance, getAppearanceOptions, type AppearancePreference } from '@/hooks/useTheme'
 import { PROTOCOL_VERSION } from '@hapi/protocol'
@@ -16,10 +16,26 @@ const locales: { value: Locale; nativeLabel: string }[] = [
 
 const voiceLanguages = getElevenLabsSupportedLanguages()
 
+function toLocale(value: string): Locale {
+    return value === 'en' || value === 'zh-CN' ? value : 'en'
+}
+
+function toAppearance(value: string): AppearancePreference {
+    return value === 'light' || value === 'dark' || value === 'system' ? value : 'system'
+}
+
+function toBaseFontSize(value: string): BaseFontSize {
+    return value === 'sm' || value === 'md' || value === 'lg' || value === 'xl' ? value : 'md'
+}
+
+function toTerminalFontSize(value: string): TerminalFontSize {
+    return value === '9' ? 9 : value === '11' ? 11 : value === '15' ? 15 : value === '17' ? 17 : 13
+}
+
 export default function SettingsPage() {
     const { t, locale, setLocale } = useTranslation()
     const goBack = useAppGoBack()
-    const { fontScale, setFontScale } = useFontScale()
+    const { baseFontSize, setBaseFontSize } = useBaseFontSize()
     const { terminalFontSize, setTerminalFontSize } = useTerminalFontSize()
     const { appearance, setAppearance } = useAppearance()
 
@@ -27,7 +43,7 @@ export default function SettingsPage() {
         return localStorage.getItem('hapi-voice-lang')
     })
 
-    const fontScaleOptions = getFontScaleOptions()
+    const baseFontSizeOptions = getBaseFontSizeOptions()
     const terminalFontSizeOptions = getTerminalFontSizeOptions()
     const appearanceOptions = getAppearanceOptions()
 
@@ -50,7 +66,7 @@ export default function SettingsPage() {
                         onClick={goBack}
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
                     >
-                        <IconLeft style={{ fontSize: 20 }} />
+                        <IconLeft style={{ fontSize: 'var(--icon-xl)' }} />
                     </button>
                     <div className="flex-1 font-semibold">{t('settings.title')}</div>
                 </div>
@@ -58,7 +74,6 @@ export default function SettingsPage() {
 
             <div className="flex-1 overflow-y-auto">
                 <div className="mx-auto w-full max-w-content">
-                    {/* Language section */}
                     <div className="border-b border-[var(--app-divider)]">
                         <div className="px-3 py-2 text-xs font-semibold text-[var(--app-hint)] uppercase tracking-wide">
                             {t('settings.language.title')}
@@ -66,7 +81,7 @@ export default function SettingsPage() {
                         <SettingsRow label={t('settings.language.label')}>
                             <Select
                                 value={locale}
-                                onChange={(val: string) => setLocale(val as Locale)}
+                                onChange={(val: string) => setLocale(toLocale(val))}
                                 size="small"
                                 getPopupContainer={(node) => node.parentElement ?? document.body}
                             >
@@ -77,7 +92,6 @@ export default function SettingsPage() {
                         </SettingsRow>
                     </div>
 
-                    {/* Display section */}
                     <div className="border-b border-[var(--app-divider)]">
                         <div className="px-3 py-2 text-xs font-semibold text-[var(--app-hint)] uppercase tracking-wide">
                             {t('settings.display.title')}
@@ -85,7 +99,7 @@ export default function SettingsPage() {
                         <SettingsRow label={t('settings.display.appearance')}>
                             <Select
                                 value={appearance}
-                                onChange={(val: string) => setAppearance(val as AppearancePreference)}
+                                onChange={(val: string) => setAppearance(toAppearance(val))}
                                 size="small"
                                 getPopupContainer={(node) => node.parentElement ?? document.body}
                             >
@@ -94,33 +108,32 @@ export default function SettingsPage() {
                                 ))}
                             </Select>
                         </SettingsRow>
-                        <SettingsRow label={t('settings.display.fontSize')}>
+                        <SettingsRow label={t('settings.display.baseFontSize')}>
                             <Select
-                                value={fontScale}
-                                onChange={(val: string) => setFontScale(val as FontScale)}
+                                value={baseFontSize}
+                                onChange={(val: string) => setBaseFontSize(toBaseFontSize(val))}
                                 size="small"
                                 getPopupContainer={(node) => node.parentElement ?? document.body}
                             >
-                                {fontScaleOptions.map((opt) => (
-                                    <Select.Option key={opt.value} value={opt.value}>{opt.label}</Select.Option>
+                                {baseFontSizeOptions.map((opt) => (
+                                    <Select.Option key={opt.value} value={opt.value}>{t(opt.labelKey)}</Select.Option>
                                 ))}
                             </Select>
                         </SettingsRow>
                         <SettingsRow label={t('settings.display.terminalFontSize')}>
                             <Select
-                                value={terminalFontSize}
-                                onChange={(val: string) => setTerminalFontSize(val as TerminalFontSize)}
+                                value={String(terminalFontSize)}
+                                onChange={(val: string) => setTerminalFontSize(toTerminalFontSize(val))}
                                 size="small"
                                 getPopupContainer={(node) => node.parentElement ?? document.body}
                             >
                                 {terminalFontSizeOptions.map((opt) => (
-                                    <Select.Option key={opt.value} value={opt.value}>{opt.label}</Select.Option>
+                                    <Select.Option key={opt.value} value={String(opt.value)}>{opt.label}</Select.Option>
                                 ))}
                             </Select>
                         </SettingsRow>
                     </div>
 
-                    {/* Voice Assistant section */}
                     <div className="border-b border-[var(--app-divider)]">
                         <div className="px-3 py-2 text-xs font-semibold text-[var(--app-hint)] uppercase tracking-wide">
                             {t('settings.voice.title')}
@@ -142,7 +155,6 @@ export default function SettingsPage() {
                         </SettingsRow>
                     </div>
 
-                    {/* About section */}
                     <div className="border-b border-[var(--app-divider)]">
                         <div className="px-3 py-2 text-xs font-semibold text-[var(--app-hint)] uppercase tracking-wide">
                             {t('settings.about.title')}

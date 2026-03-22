@@ -273,7 +273,7 @@ export function FileViewDialog({ api, sessionId, filePath, commitHash, staged, o
                         className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] hover:text-[var(--app-fg)] transition-colors"
                         aria-label="Close"
                     >
-                        <IconClose style={{ fontSize: 16 }} />
+                        <IconClose style={{ fontSize: 'var(--icon-md)' }} />
                     </button>
                     <div className="min-w-0 flex-1">
                         <div className="truncate text-[length:var(--text-body)] font-semibold">{fileName}</div>

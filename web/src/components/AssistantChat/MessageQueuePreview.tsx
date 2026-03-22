@@ -57,7 +57,7 @@ export function MessageQueuePreview(props: {
                                 onRemove(item.id)
                             }}
                         >
-                            <IconClose style={{ fontSize: 12 }} />
+                            <IconClose style={{ fontSize: 'var(--icon-xs)' }} />
                         </button>
                     </div>
                 ))}

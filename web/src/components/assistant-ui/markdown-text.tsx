@@ -240,13 +240,14 @@ export const defaultComponents = memoizeMarkdownComponents({
     img: Image,
 } as const)
 
-export function MarkdownText({ text }: { text: string }) {
+export function MarkdownText({ text, size = 'body' }: { text: string; size?: 'body' | 'chat' }) {
     const { copied, copy } = useCopyToClipboard()
+    const sizeClass = size === 'chat' ? 'text-[length:var(--text-chat-body)]' : 'text-[length:var(--text-body)]'
 
     return (
         <div className="aui-md-block group/text relative">
             <div className="rounded-lg px-2 py-1 transition-colors hover:bg-[var(--app-subtle-bg)]">
-                <div className={cn('aui-md min-w-0 max-w-full break-words text-[length:var(--text-body)]')}>
+                <div className={cn('aui-md min-w-0 max-w-full break-words', sizeClass)}>
                     <Markdown
                         remarkPlugins={MARKDOWN_PLUGINS}
                         components={defaultComponents}

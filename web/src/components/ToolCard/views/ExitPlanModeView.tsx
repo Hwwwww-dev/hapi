@@ -7,5 +7,5 @@ export function ExitPlanModeView(props: ToolViewProps) {
     if (!isObject(input)) return null
     const plan = typeof input.plan === 'string' ? input.plan : null
     if (!plan) return null
-    return <MarkdownRenderer content={plan} />
+    return <MarkdownRenderer content={plan} className="text-[length:var(--text-body)]" />
 }

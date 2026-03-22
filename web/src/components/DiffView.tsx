@@ -53,11 +53,11 @@ export function DiffView(props: {
                 >
                     <div className="overflow-hidden rounded-md border border-[var(--app-border)] transition-colors">
                         {props.filePath ? (
-                            <div className="border-b border-[var(--app-border)] px-2 py-1 text-[length:var(--text-caption)] text-[var(--app-hint)] truncate">
+                            <div className="border-b border-[var(--app-border)] px-2 py-1 text-[length:var(--text-caption)] text-[var(--app-hint)] truncate max-sm:px-1.5 max-sm:py-0.5">
                                 {props.filePath}
                             </div>
                         ) : null}
-                        <div className="px-2 py-2">
+                        <div className="px-2 py-2 max-sm:px-1.5 max-sm:py-1.5">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="min-w-0 font-mono text-[length:var(--text-caption)] text-[var(--app-hint)] truncate">
                                     {props.filePath ? stats.label : subtitle}
@@ -70,14 +70,14 @@ export function DiffView(props: {
                     </div>
                 </button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-4xl diffview-dialog">
                 <DialogHeader>
-                    <DialogTitle className="break-all text-base">{title}</DialogTitle>
-                    <DialogDescription className="font-mono break-all">
+                    <DialogTitle className="break-all text-[length:var(--text-body)] font-medium">{title}</DialogTitle>
+                    <DialogDescription className="font-mono break-all text-[length:var(--text-caption)]">
                         {stats.label}
                     </DialogDescription>
                 </DialogHeader>
-                <div className="mt-3 max-h-[75vh] overflow-auto">
+                <div className="mt-2 max-h-[75vh] overflow-auto max-sm:mt-1.5">
                     {DiffInline}
                 </div>
             </DialogContent>
@@ -93,9 +93,9 @@ function DiffInlineView(props: {
     const diff = useMemo(() => diffLines(props.oldString, props.newString), [props.oldString, props.newString])
 
     return (
-        <div className="overflow-x-auto overflow-y-hidden rounded-md border border-[var(--app-border)]">
+        <div className="diffview-inline overflow-x-auto overflow-y-hidden rounded-md border border-[var(--app-border)]">
             {props.filePath ? (
-                <div className="border-b border-[var(--app-border)] px-2 py-1 text-[length:var(--text-caption)] text-[var(--app-hint)] truncate">
+                <div className="border-b border-[var(--app-border)] px-2 py-1 text-[length:var(--text-caption)] text-[var(--app-hint)] truncate max-sm:px-1.5 max-sm:py-0.5">
                     {props.filePath}
                 </div>
             ) : null}
@@ -116,7 +116,7 @@ function DiffInlineView(props: {
                     return (
                         <div key={i} className={className}>
                             {lines.map((line, j) => (
-                                <div key={j} className="whitespace-pre px-2">
+                                <div key={j} className="whitespace-pre px-2 max-sm:px-1.5">
                                     {prefix} {line}
                                 </div>
                             ))}

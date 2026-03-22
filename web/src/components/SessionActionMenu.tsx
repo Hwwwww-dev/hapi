@@ -156,7 +156,7 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
         >
             <div
                 id={headingId}
-                className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--app-hint)]"
+                className="px-3 py-1.5 text-[length:var(--text-badge)] font-semibold uppercase tracking-wide text-[var(--app-hint)]"
             >
                 {t('session.more')}
             </div>
@@ -169,7 +169,7 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
                 {onRefresh ? (
                     <Menu.Item key="refresh" disabled={actionBusy}>
                         <div className="flex items-center gap-3">
-                            <IconRefresh className="text-[var(--app-hint)]" style={{ fontSize: 18 }} />
+                            <IconRefresh className="text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-lg)' }} />
                             {t('session.chat.refresh')}
                         </div>
                     </Menu.Item>
@@ -178,7 +178,7 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
                 {onConnectionToggle ? (
                     <Menu.Item key="connection" disabled={actionBusy}>
                         <div className="flex items-center gap-3">
-                            <IconLink className="text-[var(--app-hint)]" style={{ fontSize: 18 }} />
+                            <IconLink className="text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-lg)' }} />
                             {sessionActive ? t('session.chat.disconnect') : t('session.chat.connect')}
                         </div>
                     </Menu.Item>
@@ -186,7 +186,7 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
 
                 <Menu.Item key="rename">
                     <div className="flex items-center gap-3">
-                        <IconEdit className="text-[var(--app-hint)]" style={{ fontSize: 18 }} />
+                        <IconEdit className="text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-lg)' }} />
                         {t('session.action.rename')}
                     </div>
                 </Menu.Item>
@@ -194,7 +194,7 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
                 {sessionActive && !onConnectionToggle ? (
                     <Menu.Item key="archive" className="!text-red-500">
                         <div className="flex items-center gap-3">
-                            <IconLink className="text-red-500" style={{ fontSize: 18 }} />
+                            <IconLink className="text-red-500" style={{ fontSize: 'var(--icon-lg)' }} />
                             {t('session.chat.disconnect')}
                         </div>
                     </Menu.Item>
@@ -203,7 +203,7 @@ export function SessionActionMenu(props: SessionActionMenuProps) {
                 {!sessionActive ? (
                     <Menu.Item key="delete" className="!text-red-500">
                         <div className="flex items-center gap-3">
-                            <IconDelete className="text-red-500" style={{ fontSize: 18 }} />
+                            <IconDelete className="text-red-500" style={{ fontSize: 'var(--icon-lg)' }} />
                             {t('session.action.delete')}
                         </div>
                     </Menu.Item>

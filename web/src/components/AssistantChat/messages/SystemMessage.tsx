@@ -14,11 +14,11 @@ export const HappySystemMessage = memo(function HappySystemMessage({ block }: { 
         return (
             <div className="py-1">
                 <div className="mx-auto w-fit max-w-[92%]">
-                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-3 py-1 text-xs text-[var(--app-hint)]">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--app-divider)] bg-[var(--app-secondary-bg)] px-3 py-1 text-[length:var(--text-caption)] text-[var(--app-hint)]">
                         {presentation.icon ? <span aria-hidden="true">{presentation.icon}</span> : null}
                         <span>{text}</span>
                         <span aria-hidden="true">·</span>
-                        <MessageTimestamp value={createdAt} className="text-[10px] text-[var(--app-hint)] opacity-80" />
+                        <MessageTimestamp value={createdAt} className="text-[length:var(--text-badge)] text-[var(--app-hint)] opacity-80" />
                     </div>
                 </div>
             </div>
@@ -27,12 +27,12 @@ export const HappySystemMessage = memo(function HappySystemMessage({ block }: { 
 
     return (
         <div className="py-1">
-            <div className="mx-auto w-fit max-w-[92%] px-2 text-center text-xs text-[var(--app-hint)] opacity-80">
+            <div className="mx-auto w-fit max-w-[92%] px-2 text-center text-[length:var(--text-caption)] text-[var(--app-hint)] opacity-80">
                 <span className="inline-flex items-center gap-1">
                     {presentation.icon ? <span aria-hidden="true">{presentation.icon}</span> : null}
                     <span>{text}</span>
                     <span aria-hidden="true">·</span>
-                    <MessageTimestamp value={createdAt} className="text-[10px] text-[var(--app-hint)] opacity-80" />
+                    <MessageTimestamp value={createdAt} className="text-[length:var(--text-badge)] text-[var(--app-hint)] opacity-80" />
                 </span>
             </div>
         </div>
