@@ -340,8 +340,8 @@ export function CommitsTab({ api, sessionId, ahead, currentBranch, onRefresh }: 
                         placeholder={[t('git.dateSince'), t('git.dateUntil')]}
                         onChange={(_dateStrings, dates) => {
                             if (dates && dates[0] && dates[1]) {
-                                setDateSince(dates[0].format('YYYY-MM-DD'))
-                                setDateUntil(dates[1].format('YYYY-MM-DD'))
+                                setDateSince(dates[0].format('YYYY-MM-DD') + ' 00:00:00')
+                                setDateUntil(dates[1].format('YYYY-MM-DD') + ' 23:59:59')
                             } else {
                                 setDateSince('')
                                 setDateUntil('')
