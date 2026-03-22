@@ -288,19 +288,21 @@ body {
     --app-code-bg: var(--color-fill-2, #f2f3f5);
     --app-inline-code-bg: var(--color-fill-2, rgba(0, 0, 0, 0.06));
 
+    --app-ui-scale: 1;
+
     /* ── Typography scale (rich-text rendering baseline) ── */
-    --text-body: 15px;
-    --text-code: 13px;
-    --text-caption: 12px;
-    --text-badge: 10px;
-    --text-chat-body: 16px;
-    --text-title: 18px;
-    --text-title-lg: 24px;
-    --icon-xs: 12px;
-    --icon-sm: 14px;
-    --icon-md: 16px;
-    --icon-lg: 18px;
-    --icon-xl: 20px;
+    --text-body: calc(15px * var(--app-ui-scale));
+    --text-code: calc(13px * var(--app-ui-scale));
+    --text-caption: calc(12px * var(--app-ui-scale));
+    --text-badge: calc(10px * var(--app-ui-scale));
+    --text-chat-body: calc(16px * var(--app-ui-scale));
+    --text-title: calc(18px * var(--app-ui-scale));
+    --text-title-lg: calc(24px * var(--app-ui-scale));
+    --icon-xs: calc(12px * var(--app-ui-scale));
+    --icon-sm: calc(14px * var(--app-ui-scale));
+    --icon-md: calc(16px * var(--app-ui-scale));
+    --icon-lg: calc(18px * var(--app-ui-scale));
+    --icon-xl: calc(20px * var(--app-ui-scale));
 
     /* Diff colors (light) */
     --app-diff-added-bg: #e6ffed;
@@ -406,102 +408,6 @@ body {
 
 /* ── Mobile responsive typography ── */
 @media (max-width: 640px) {
-    :root {
-        --text-body: 13px;
-        --text-code: 11px;
-        --text-caption: 10px;
-        --text-badge: 8px;
-        --text-chat-body: 14px;
-        --text-title: 16px;
-        --text-title-lg: 20px;
-        --icon-xs: 10px;
-        --icon-sm: 12px;
-        --icon-md: 14px;
-        --icon-lg: 16px;
-        --icon-xl: 18px;
-    }
-
-    .toolcard-collapse .arco-collapse-item-header {
-        padding: 5px 8px !important;
-        padding-left: 24px !important;
-    }
-
-    .toolcard-collapse .arco-collapse-item-content-box {
-        padding: 6px;
-    }
-
-    .toolcard-dialog {
-        gap: 12px;
-    }
-
-    .toolcard-dialog .toolcard-collapse .arco-collapse-item-header .arco-collapse-item-header-title {
-        font-size: var(--text-caption) !important;
-    }
-
-    .toolcard-dialog .toolcard-collapse--input .arco-collapse-item-content-box,
-    .toolcard-dialog .toolcard-collapse--steps .arco-collapse-item-content-box,
-    .toolcard-dialog .toolcard-collapse--result .arco-collapse-item-content-box,
-    .toolcard-dialog .toolcard-collapse--raw .arco-collapse-item-content-box {
-        padding: 4px;
-    }
-
-    .toolcard-dialog .toolcard-collapse--raw .arco-collapse-item-content-box {
-        padding-left: 3px;
-        padding-right: 3px;
-    }
-
-    .toolcard-dialog .toolcard-collapse--input .arco-collapse-item-content-box pre,
-    .toolcard-dialog .toolcard-collapse--input .arco-collapse-item-content-box code,
-    .toolcard-dialog .toolcard-collapse--steps .arco-collapse-item-content-box pre,
-    .toolcard-dialog .toolcard-collapse--steps .arco-collapse-item-content-box code,
-    .toolcard-dialog .toolcard-collapse--result .arco-collapse-item-content-box pre,
-    .toolcard-dialog .toolcard-collapse--result .arco-collapse-item-content-box code,
-    .toolcard-dialog .toolcard-collapse--raw .arco-collapse-item-content-box pre,
-    .toolcard-dialog .toolcard-collapse--raw .arco-collapse-item-content-box code {
-        font-size: max(10px, calc(var(--text-code) - 1px)) !important;
-        line-height: 1.45 !important;
-    }
-
-    .toolcard-dialog .toolcard-collapse--steps .arco-collapse-item-content-box [class*="text-[length:var(--text-body)]"],
-    .toolcard-dialog .toolcard-collapse--result .arco-collapse-item-content-box [class*="text-[length:var(--text-body)]"],
-    .toolcard-dialog .toolcard-collapse--raw .arco-collapse-item-content-box [class*="text-[length:var(--text-body)]"] {
-        font-size: calc(var(--text-body) - 1px) !important;
-    }
-
-    .toolcard-dialog .toolcard-collapse--steps .arco-collapse-item-content-box [class*="text-[length:var(--text-caption)]"],
-    .toolcard-dialog .toolcard-collapse--result .arco-collapse-item-content-box [class*="text-[length:var(--text-caption)]"],
-    .toolcard-dialog .toolcard-collapse--raw .arco-collapse-item-content-box [class*="text-[length:var(--text-caption)]"] {
-        font-size: max(9px, calc(var(--text-caption) - 1px)) !important;
-    }
-
-    .toolcard-dialog .toolcard-collapse--steps .arco-collapse-item-content-box [class*="text-[length:var(--text-code)]"],
-    .toolcard-dialog .toolcard-collapse--result .arco-collapse-item-content-box [class*="text-[length:var(--text-code)]"],
-    .toolcard-dialog .toolcard-collapse--raw .arco-collapse-item-content-box [class*="text-[length:var(--text-code)]"] {
-        font-size: max(10px, calc(var(--text-code) - 1px)) !important;
-        line-height: 1.45 !important;
-    }
-
-    .toolcard-dialog .toolcard-collapse--steps .arco-collapse-item-content-box [class*="text-[length:var(--text-badge)]"],
-    .toolcard-dialog .toolcard-collapse--result .arco-collapse-item-content-box [class*="text-[length:var(--text-badge)]"],
-    .toolcard-dialog .toolcard-collapse--raw .arco-collapse-item-content-box [class*="text-[length:var(--text-badge)]"] {
-        font-size: max(8px, calc(var(--text-badge) - 1px)) !important;
-    }
-
-    .diffview-dialog .arco-modal-header .arco-modal-title,
-    .diffview-inline [class*="text-[length:var(--text-code)]"] {
-        font-size: max(10px, calc(var(--text-code) - 1px));
-        line-height: 1.45;
-    }
-
-    .diffview-dialog [class*="text-[length:var(--text-caption)]"],
-    .diffview-inline [class*="text-[length:var(--text-caption)]"] {
-        font-size: max(9px, calc(var(--text-caption) - 1px));
-    }
-
-    .diffview-inline .whitespace-pre {
-        padding-left: 6px;
-        padding-right: 6px;
-    }
 }
 
 .font-size-caption {
@@ -753,12 +659,16 @@ body {
 .aui-md-codeblock .shiki,
 .aui-md-codeblock .shiki span {
     background-color: transparent !important;
+    font-size: var(--text-code) !important;
+    line-height: 1.45 !important;
 }
 
 /* Shiki dual theme colors */
 .shiki,
 .shiki span {
     color: var(--shiki-light) !important;
+    font-size: var(--text-code) !important;
+    line-height: 1.45 !important;
     font-style: var(--shiki-light-font-style) !important;
     font-weight: var(--shiki-light-font-weight) !important;
     text-decoration: var(--shiki-light-text-decoration) !important;

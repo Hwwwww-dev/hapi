@@ -360,7 +360,7 @@ function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metad
                                 <TaskStateIcon state={block.tool.state} />
                             </span>
                             <div className="min-w-0 flex-1">
-                                <span className={`font-mono text-xs ${isError ? 'text-red-600' : isActive ? 'text-amber-700 dark:text-amber-400' : 'text-[var(--app-fg)]'}`}>
+                                <span className={`font-mono text-[length:var(--text-body)] ${isError ? 'text-red-600' : isActive ? 'text-amber-700 dark:text-amber-400' : 'text-[var(--app-fg)]'}`}>
                                     {label}
                                 </span>
                                 {block.tool.result !== undefined && block.tool.result !== null ? (
@@ -386,7 +386,7 @@ function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metad
                                 <Collapse bordered={false} className="toolcard-collapse">
                                     <CollapseItem
                                         name="agent-text"
-                                        header={<span className="truncate text-xs text-[var(--app-hint)]">{block.text.split('\n')[0].slice(0, 80).trim()}…</span>}
+                                        header={<span className="truncate text-[length:var(--text-caption)] text-[var(--app-hint)]">{block.text.split('\n')[0].slice(0, 80).trim()}…</span>}
                                     >
                                         <div className="overflow-x-auto">
                                             <MarkdownRenderer content={block.text} />
@@ -406,7 +406,7 @@ function TaskChildrenList({ children, metadata }: { children: ChatBlock[]; metad
                     return (
                         <div key={block.id} className="px-2 py-1 rounded-md bg-[var(--app-secondary-bg)]">
                             <div className="text-[length:var(--text-badge)] text-[var(--app-hint)] mb-0.5">User</div>
-                            <div className="text-xs text-[var(--app-fg)]">{block.text}</div>
+                            <div className="text-[length:var(--text-body)] text-[var(--app-fg)]">{block.text}</div>
                         </div>
                     )
                 }

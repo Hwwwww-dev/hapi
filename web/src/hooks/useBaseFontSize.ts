@@ -2,14 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 
 export type BaseFontSize = 'sm' | 'md' | 'lg' | 'xl'
 
-type TypographyScale = {
-    body: string
-    code: string
-    caption: string
-    badge: string
-    chatBody: string
-}
-
 const BASE_FONT_SIZE_OPTIONS = [
     { value: 'sm', labelKey: 'settings.display.baseFontSize.small' },
     { value: 'md', labelKey: 'settings.display.baseFontSize.medium' },
@@ -17,11 +9,11 @@ const BASE_FONT_SIZE_OPTIONS = [
     { value: 'xl', labelKey: 'settings.display.baseFontSize.extraLarge' },
 ] as const satisfies ReadonlyArray<{ value: BaseFontSize; labelKey: string }>
 
-const BASE_FONT_SIZE_SCALE: Record<BaseFontSize, TypographyScale> = {
-    sm: { body: '14px', code: '12px', caption: '11px', badge: '9px', chatBody: '15px' },
-    md: { body: '15px', code: '13px', caption: '12px', badge: '10px', chatBody: '16px' },
-    lg: { body: '16px', code: '14px', caption: '13px', badge: '11px', chatBody: '17px' },
-    xl: { body: '17px', code: '15px', caption: '14px', badge: '12px', chatBody: '18px' },
+const BASE_FONT_SIZE_SCALE: Record<BaseFontSize, number> = {
+    sm: 0.7,
+    md: 1,
+    lg: 1.2,
+    xl: 1.5,
 }
 
 export const DEFAULT_BASE_FONT_SIZE: BaseFontSize = 'md'
@@ -69,14 +61,7 @@ function parseBaseFontSize(raw: string | null): BaseFontSize {
 
 function applyBaseFontSize(size: BaseFontSize): void {
     if (!isBrowser()) return
-
-    const scale = BASE_FONT_SIZE_SCALE[size]
-    const rootStyle = document.documentElement.style
-    rootStyle.setProperty('--text-body', scale.body)
-    rootStyle.setProperty('--text-code', scale.code)
-    rootStyle.setProperty('--text-caption', scale.caption)
-    rootStyle.setProperty('--text-badge', scale.badge)
-    rootStyle.setProperty('--text-chat-body', scale.chatBody)
+    document.documentElement.style.setProperty('--app-ui-scale', String(BASE_FONT_SIZE_SCALE[size]))
 }
 
 export function getBaseFontSizeOptions(): ReadonlyArray<{ value: BaseFontSize; labelKey: string }> {
