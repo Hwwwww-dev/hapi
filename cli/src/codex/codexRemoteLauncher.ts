@@ -400,7 +400,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
                 const callId = asString(msg.call_id ?? msg.callId);
                 const name = asString(msg.name);
                 if (callId && name) {
-                    session.sendCodexMessage({
+                    session.sendAgentMessage({
                         type: 'tool-call',
                         name,
                         callId,
@@ -412,7 +412,7 @@ class CodexRemoteLauncher extends RemoteLauncherBase {
             if (msgType === 'function_call_end') {
                 const callId = asString(msg.call_id ?? msg.callId);
                 if (callId) {
-                    session.sendCodexMessage({
+                    session.sendAgentMessage({
                         type: 'tool-call-result',
                         callId,
                         output: msg.output,
