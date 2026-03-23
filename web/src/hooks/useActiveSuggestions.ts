@@ -193,7 +193,10 @@ export function useActiveSuggestions(
 
     useEffect(() => {
         syncRef.current?.setValue(query)
-    }, [query, handler, clampSelection, autoSelectFirst, allowEmptyQuery])
+        // Note: handler is intentionally excluded — handlerRef.current is used inside ValueSync
+        // so re-triggering on handler changes is unnecessary and can cause infinite re-render loops
+        // when handler reference is unstable (e.g. pathExistence pending from slow RPC)
+    }, [query, clampSelection, autoSelectFirst, allowEmptyQuery])
 
     // If no query return empty suggestions
     if (query === null || (!allowEmptyQuery && query === '')) {

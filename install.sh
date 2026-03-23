@@ -3,11 +3,15 @@
 
   APP_NAME="${1:-myhapi}"
   INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
+  OS="$(uname -s)"
 
-  if [[ "$(uname -s)" != "Linux" ]]; then
-      echo "错误：这个脚本只支持 Linux"
-      exit 1
-  fi
+  case "$OS" in
+      Linux|Darwin) ;;
+      *)
+          echo "错误：这个脚本只支持 Linux 和 macOS"
+          exit 1
+          ;;
+  esac
 
   if ! [[ "$APP_NAME" =~ ^[a-zA-Z0-9._-]+$ ]]; then
       echo "错误：命令名只能包含字母、数字、点、下划线、横杠"
@@ -33,6 +37,7 @@
       exit 1
   fi
 
+  echo "==> 系统: $OS ($(uname -m))"
   echo "==> 仓库目录: $REPO_ROOT"
   echo "==> 命令名称: $APP_NAME"
   echo "==> 安装目录: $INSTALL_DIR"
@@ -44,11 +49,18 @@
   bun run build:single-exe
 
   BIN_PATH=""
-  CANDIDATES=(
-      "$REPO_ROOT/cli/dist-exe/bun-linux-x64-baseline/hapi"
-      "$REPO_ROOT/cli/dist-exe/bun-linux-arm64/hapi"
-      "$REPO_ROOT/cli/dist-exe/bun-linux-x64-modern/hapi"
-  )
+  if [[ "$OS" == "Darwin" ]]; then
+      CANDIDATES=(
+          "$REPO_ROOT/cli/dist-exe/bun-darwin-arm64/hapi"
+          "$REPO_ROOT/cli/dist-exe/bun-darwin-x64/hapi"
+      )
+  else
+      CANDIDATES=(
+          "$REPO_ROOT/cli/dist-exe/bun-linux-x64-baseline/hapi"
+          "$REPO_ROOT/cli/dist-exe/bun-linux-arm64/hapi"
+          "$REPO_ROOT/cli/dist-exe/bun-linux-x64-modern/hapi"
+      )
+  fi
 
   for f in "${CANDIDATES[@]}"; do
       if [[ -f "$f" ]]; then

@@ -179,7 +179,8 @@ export function NewSession(props: {
             }))
     }, [verifiedPaths])
 
-    const activeQuery = (!isDirectoryFocused || suppressSuggestions) ? null : directory
+    // Directory autocomplete disabled — will be replaced by in-browser filtering in DirectoryPickerDialog
+    const activeQuery = null as string | null
 
     const [suggestions, selectedIndex, moveUp, moveDown, clearSuggestions] = useActiveSuggestions(
         activeQuery,

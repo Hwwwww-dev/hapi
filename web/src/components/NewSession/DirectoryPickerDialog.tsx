@@ -21,14 +21,22 @@ export function DirectoryPickerDialog(props: {
     const [currentPath, setCurrentPath] = useState<string | null>(props.initialPath)
     const [newDirectoryName, setNewDirectoryName] = useState('')
     const [localError, setLocalError] = useState<string | null>(null)
+    const [filterText, setFilterText] = useState('')
+    const [showHidden, setShowHidden] = useState(false)
 
     useEffect(() => {
         if (props.open) {
             setCurrentPath(props.initialPath)
             setNewDirectoryName('')
             setLocalError(null)
+            setFilterText('')
         }
     }, [props.open, props.initialPath])
+
+    // Reset filter when navigating to a different directory
+    useEffect(() => {
+        setFilterText('')
+    }, [currentPath])
 
     const { entries, error, isLoading, refetch } = useMachineDirectory(
         props.api,
@@ -42,10 +50,27 @@ export function DirectoryPickerDialog(props: {
         error: createError
     } = useCreateMachineDirectory(props.api)
 
-    const directories = useMemo(
-        () => entries.filter((entry) => entry.type === 'directory'),
-        [entries]
-    )
+    const directories = useMemo(() => {
+        let dirs = entries.filter((entry) => entry.type === 'directory')
+
+        // Hide dotfiles unless toggled on
+        if (!showHidden) {
+            dirs = dirs.filter((entry) => !entry.name.startsWith('.'))
+        }
+
+        // Apply search filter
+        if (filterText.trim()) {
+            const lowered = filterText.trim().toLowerCase()
+            dirs = dirs.filter((entry) => entry.name.toLowerCase().includes(lowered))
+        }
+
+        return dirs
+    }, [entries, showHidden, filterText])
+
+    const hiddenCount = useMemo(() => {
+        if (showHidden) return 0
+        return entries.filter((e) => e.type === 'directory' && e.name.startsWith('.')).length
+    }, [entries, showHidden])
 
     const isRoot = currentPath ? isRootPath(currentPath, props.machinePlatform) : true
     const effectiveError = localError ?? createError ?? error
@@ -115,6 +140,32 @@ export function DirectoryPickerDialog(props: {
                             </Button>
                         </div>
 
+                        <div className="flex gap-2 items-center">
+                            <Input
+                                placeholder={t('newSession.directoryPicker.filterPlaceholder')}
+                                value={filterText}
+                                onChange={(val) => setFilterText(val)}
+                                size="small"
+                                allowClear
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowHidden((v) => !v)}
+                                className={`shrink-0 rounded-md px-2 py-1 text-xs transition-colors ${
+                                    showHidden
+                                        ? 'bg-[var(--app-button)] text-[var(--app-button-text)]'
+                                        : 'bg-[var(--app-subtle-bg)] text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)]'
+                                }`}
+                                title={showHidden
+                                    ? t('newSession.directoryPicker.hideHidden')
+                                    : t('newSession.directoryPicker.showHidden')
+                                }
+                            >
+                                {showHidden ? t('newSession.directoryPicker.hideHidden') : t('newSession.directoryPicker.showHidden')}
+                                {!showHidden && hiddenCount > 0 ? ` (${hiddenCount})` : ''}
+                            </button>
+                        </div>
+
                         <form onSubmit={handleCreateDirectory} className="flex flex-col gap-2">
                             <label className="text-xs font-medium text-[var(--app-hint)]" htmlFor="new-session-picker-name">
                                 {t('newSession.directoryPicker.newName')}
@@ -147,7 +198,10 @@ export function DirectoryPickerDialog(props: {
                                 </div>
                             ) : directories.length === 0 ? (
                                 <div className="p-3 text-sm text-[var(--app-hint)]">
-                                    {t('newSession.directoryPicker.empty')}
+                                    {filterText.trim()
+                                        ? t('newSession.directoryPicker.noMatch')
+                                        : t('newSession.directoryPicker.empty')
+                                    }
                                 </div>
                             ) : (
                                 directories.map((entry) => {
