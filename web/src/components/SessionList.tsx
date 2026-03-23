@@ -9,6 +9,7 @@ import { SessionActionMenu } from '@/components/SessionActionMenu'
 import { SessionSourceBadge } from '@/components/SessionSourceBadge'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { AgentIcon } from '@/components/AgentIcon'
 import { SESSION_AGENT_TABS, type SessionAgentTab, formatFlavorName } from '@/lib/agentFlavorUtils'
 import { getSessionModelLabel } from '@/lib/sessionModelLabel'
 import { useTranslation } from '@/lib/use-translation'
@@ -261,7 +262,7 @@ const SessionItem = memo(function SessionItem(props: {
                                 if (!progress) return null
                                 return (
                                     <span className="flex items-center gap-1 rounded-full bg-[var(--app-secondary-bg)] px-2 py-0.5 text-[var(--app-hint)]">
-                                        <IconBulb style={{ fontSize: 'var(--icon-xs)' }} />
+                                        <IconBulb style={{ fontSize: 'var(--icon-sm)' }} />
                                         {progress.completed}/{progress.total}
                                     </span>
                                 )
@@ -277,7 +278,7 @@ const SessionItem = memo(function SessionItem(props: {
                 <div className="ml-2 text-[length:var(--text-badge)] leading-4 text-[var(--app-hint)] space-y-0.5">
                     <div className="flex items-center gap-2">
                         <span className="inline-flex items-center gap-1">
-                            <span aria-hidden="true">❖</span>
+                            <AgentIcon flavor={s.metadata?.flavor} size="var(--icon-sm)" />
                             {getAgentLabel(s)}
                         </span>
                         {nativeSessionId ? (
@@ -467,7 +468,7 @@ export function SessionList(props: {
                             title={t('session.chat.refresh')}
                             aria-busy={props.isLoading}
                         >
-                            <IconRefresh className={props.isLoading ? 'animate-spin' : ''} style={{ fontSize: 'var(--icon-md)' }} />
+                            <IconRefresh className={props.isLoading ? 'animate-spin' : ''} style={{ fontSize: 'var(--icon-lg)' }} />
                         </button>
                         <button
                             type="button"
@@ -475,7 +476,7 @@ export function SessionList(props: {
                             className="session-list-new-button rounded-full p-1.5 text-[var(--app-link)] transition-colors"
                             title={t('sessions.new')}
                         >
-                            <IconPlus style={{ fontSize: 'var(--icon-xl)' }} />
+                            <IconPlus style={{ fontSize: 'var(--icon-2xl)' }} />
                         </button>
                     </div>
                 </div>
@@ -494,8 +495,9 @@ export function SessionList(props: {
                                     role="tab"
                                     aria-selected={selected}
                                     onClick={() => onAgentTabChange?.(tab)}
-                                    className={`relative rounded-full px-3 py-1.5 text-[length:var(--text-body)] font-medium whitespace-nowrap transition-colors ${selected ? 'bg-[var(--app-button)] text-[var(--app-button-text)]' : 'text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]'}`}
+                                    className={`relative flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[length:var(--text-body)] font-medium whitespace-nowrap transition-colors ${selected ? 'bg-[var(--app-button)] text-[var(--app-button-text)]' : 'text-[var(--app-hint)] hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]'}`}
                                 >
+                                    <AgentIcon flavor={tab === 'online' ? 'online' : tab} size="var(--icon-sm)" />
                                     {label}
                                 </button>
                             )
@@ -555,10 +557,10 @@ export function SessionList(props: {
                             >
                                 <IconRight
                                     className={`text-[var(--app-hint)] transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`}
-                                    style={{ fontSize: 'var(--icon-md)' }}
+                                    style={{ fontSize: 'var(--icon-lg)' }}
                                 />
                                 <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${group.hasActiveSession ? 'bg-[var(--app-secondary-bg)] text-[var(--app-link)]' : 'bg-[var(--app-secondary-bg)] text-[var(--app-hint)]'}`}>
-                                    <IconFolder style={{ fontSize: 'var(--icon-md)' }} />
+                                    <IconFolder style={{ fontSize: 'var(--icon-lg)' }} />
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2 min-w-0">
@@ -570,7 +572,7 @@ export function SessionList(props: {
                                         </span>
                                     </div>
                                     {group.directory !== 'Other' ? (
-                                        <div className="truncate text-[length:var(--text-caption)] text-[var(--app-hint)]">
+                                        <div className="mt-0.5 break-all text-[length:var(--text-caption)] text-[var(--app-hint)]">
                                             {group.directory}
                                         </div>
                                     ) : null}

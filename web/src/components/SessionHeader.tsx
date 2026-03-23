@@ -2,6 +2,7 @@ import { useId, useMemo, useRef, useState } from 'react'
 import { getExplicitSessionTitle, getSessionPathFallbackTitle, type Session } from '@/types/api'
 import type { ApiClient } from '@/api/client'
 import { formatFlavorName } from '@/lib/agentFlavorUtils'
+import { AgentIcon } from '@/components/AgentIcon'
 import { isTelegramApp } from '@/hooks/useTelegram'
 import { useSessionActions } from '@/hooks/mutations/useSessionActions'
 import { SessionActionMenu } from '@/components/SessionActionMenu'
@@ -101,8 +102,8 @@ export function SessionHeader(props: {
                             <SessionSourceBadge source={session.metadata?.source} className="shrink-0 mt-0.5" />
                         </div>
                         <div className="flex flex-wrap items-center gap-x-2 text-[length:var(--text-badge)] text-[var(--app-hint)]">
-                            <span className="inline-flex items-center gap-0.5 shrink-0">
-                                <span aria-hidden="true">❖</span>
+                            <span className="inline-flex items-center gap-1 shrink-0">
+                                <AgentIcon flavor={session.metadata?.flavor} size="var(--icon-sm)" />
                                 {formatFlavorName(session.metadata?.flavor)}
                             </span>
                             {modelLabel ? (

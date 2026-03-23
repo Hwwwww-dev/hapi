@@ -303,6 +303,7 @@ body {
     --icon-md: calc(16px * var(--app-ui-scale));
     --icon-lg: calc(18px * var(--app-ui-scale));
     --icon-xl: calc(20px * var(--app-ui-scale));
+    --icon-2xl: calc(24px * var(--app-ui-scale));
 
     /* Diff colors (light) */
     --app-diff-added-bg: #e6ffed;

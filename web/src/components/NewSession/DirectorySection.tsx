@@ -85,16 +85,16 @@ export function DirectorySection(props: {
             ) : null}
 
             {props.recentPaths.length > 0 && (
-                <div className="flex flex-col gap-1 mt-1">
+                <div className="flex flex-col gap-1 mt-1 min-w-0">
                     <span className="text-xs text-[var(--app-hint)]">{t('newSession.recent')}:</span>
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-col gap-1 min-w-0">
                         {props.recentPaths.map((path) => (
                             <button
                                 key={path}
                                 type="button"
                                 onClick={() => props.onPathClick(path)}
                                 disabled={props.isDisabled}
-                                className="rounded-lg bg-[var(--app-subtle-bg)] px-2 py-1 text-xs text-[var(--app-fg)] hover:bg-[var(--app-secondary-bg)] transition-colors truncate max-w-[200px] disabled:opacity-50"
+                                className="rounded-lg bg-[var(--app-subtle-bg)] px-2 py-1 text-xs text-[var(--app-fg)] hover:bg-[var(--app-secondary-bg)] transition-colors truncate text-left w-full min-w-0 disabled:opacity-50"
                                 title={path}
                             >
                                 {path}
