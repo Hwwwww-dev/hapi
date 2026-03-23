@@ -40,18 +40,31 @@ function mergeGroups(
                 offset: mainCount,
             })
         } else {
-            // Incremental auto-refresh: upsert by id, preserve sort order
-            const existingIds = new Set(prev.sessions.map(s => s.id))
-            const newSessions = g.sessions.filter(s => !existingIds.has(s.id))
-            const updated = prev.sessions.map(s => {
+            // Incremental auto-refresh: upsert by id, remove stale sessions, preserve loaded-more sessions
+            const incomingIds = new Set(g.sessions.map(s => s.id))
+            // Keep sessions that are in the fresh response OR were loaded via "load more" (beyond server's default page)
+            const retained = prev.sessions.filter(s => incomingIds.has(s.id))
+            const retainedIds = new Set(retained.map(s => s.id))
+            const newSessions = g.sessions.filter(s => !retainedIds.has(s.id))
+            const updated = retained.map(s => {
                 const fresh = g.sessions.find(f => f.id === s.id)
                 return fresh ?? s
             })
+            const mainCount = [...updated, ...newSessions].filter(s => !s.metadata?.parentNativeSessionId).length
             next.set(g.directory, {
                 ...prev,
                 sessions: sortSessions([...updated, ...newSessions]),
                 total: g.total,
+                offset: mainCount,
             })
+        }
+    }
+
+    // Remove groups no longer present in server response
+    const incomingDirs = new Set(incoming.map(g => g.directory))
+    for (const dir of next.keys()) {
+        if (!incomingDirs.has(dir)) {
+            next.delete(dir)
         }
     }
 
