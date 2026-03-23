@@ -132,10 +132,11 @@ export function SessionHeader(props: {
                             className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
                             title={t('session.title')}
                         >
-                            <IconBranch style={{ fontSize: 'var(--icon-lg)' }} />
+                            <IconBranch style={{ fontSize: 'var(--icon-xl)' }} />
                         </button>
                     ) : null}
 
+                    {/* New session button — hidden for now
                     <button
                         type="button"
                         onClick={() => navigate({ to: '/sessions/new' })}
@@ -144,6 +145,7 @@ export function SessionHeader(props: {
                     >
                         <IconPlus style={{ fontSize: 'var(--icon-md)' }} />
                     </button>
+                    */}
 
                     {!props.readOnly && (
                     <button
@@ -157,7 +159,7 @@ export function SessionHeader(props: {
                         className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
                         title={t('session.more')}
                     >
-                        <IconMoreVertical style={{ fontSize: 'var(--icon-lg)' }} />
+                        <IconMoreVertical style={{ fontSize: 'var(--icon-xl)' }} />
                     </button>
                     )}
                 </div>

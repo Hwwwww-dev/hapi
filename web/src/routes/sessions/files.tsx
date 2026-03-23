@@ -139,7 +139,7 @@ export default function FilesPage() {
                     <div className="min-w-0 flex-1">
                         <div className="truncate font-semibold">{t('files.header.git')}</div>
                         <div className="flex items-center gap-1.5 text-[length:var(--text-caption)] text-[var(--app-hint)]">
-                            <IconBranch style={{ fontSize: 'var(--icon-md)' }} />
+                            <IconBranch style={{ fontSize: 'var(--icon-xl)' }} />
                             <span className="truncate">{branchLabel}</span>
                         </div>
                     </div>
@@ -151,7 +151,7 @@ export default function FilesPage() {
                                 className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
                                 title={t('files.header.actions')}
                             >
-                                <IconTool style={{ fontSize: 'var(--icon-lg)' }} />
+                                <IconTool style={{ fontSize: 'var(--icon-xl)' }} />
                             </button>
                             {actionsOpen ? (
                                 <div className="absolute right-0 top-full z-20 mt-1 min-w-[120px] overflow-hidden rounded-lg border border-[var(--app-border)] bg-[var(--app-bg)] p-1 shadow-lg">
@@ -167,7 +167,7 @@ export default function FilesPage() {
                                             <div className="flex items-center gap-3">
                                                 {gitActionLoading === 'fetch'
                                                     ? <span className="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin text-[var(--app-hint)]" />
-                                                    : <IconSync className="text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-lg)' }} />}
+                                                    : <IconSync className="text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-xl)' }} />}
                                                 {t('git.fetch')}
                                             </div>
                                         </Menu.Item>
@@ -175,7 +175,7 @@ export default function FilesPage() {
                                             <div className="flex items-center gap-3">
                                                 {gitActionLoading === 'pull'
                                                     ? <span className="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin text-[var(--app-hint)]" />
-                                                    : <IconArrowDown className="text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-lg)' }} />}
+                                                    : <IconArrowDown className="text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-xl)' }} />}
                                                 {t('git.pull')}
                                             </div>
                                         </Menu.Item>
@@ -183,13 +183,13 @@ export default function FilesPage() {
                                             <div className="flex items-center gap-3">
                                                 {gitActionLoading === 'push'
                                                     ? <span className="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin text-[var(--app-hint)]" />
-                                                    : <IconArrowDown className="rotate-180 text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-lg)' }} />}
+                                                    : <IconArrowDown className="rotate-180 text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-xl)' }} />}
                                                 {t('git.push')}
                                             </div>
                                         </Menu.Item>
                                         <Menu.Item key="stash" disabled={anyActionLoading}>
                                             <div className="flex items-center gap-3">
-                                                <IconStorage className="text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-lg)' }} />
+                                                <IconStorage className="text-[var(--app-hint)]" style={{ fontSize: 'var(--icon-xl)' }} />
                                                 {t('git.stash')}
                                             </div>
                                         </Menu.Item>
@@ -198,7 +198,7 @@ export default function FilesPage() {
                             ) : null}
                         </div>
                         <button type="button" onClick={() => void handleRefreshAll()} className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]" title={t('files.header.refresh')}>
-                            <IconSync className={refreshing || gitLoading ? 'animate-spin' : ''} style={{ fontSize: 'var(--icon-lg)' }} />
+                            <IconSync className={refreshing || gitLoading ? 'animate-spin' : ''} style={{ fontSize: 'var(--icon-xl)' }} />
                         </button>
                     </div>
                 </div>

@@ -82,7 +82,7 @@ function SessionsPage() {
                                 title={t('session.chat.refresh')}
                                 aria-busy={isLoading}
                             >
-                                <IconSync className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                <IconSync className={isLoading ? 'animate-spin' : ''} style={{ fontSize: 'var(--icon-xl)' }} />
                             </button>
                             <button
                                 type="button"
@@ -90,7 +90,7 @@ function SessionsPage() {
                                 className="p-1.5 rounded-full text-[var(--app-hint)] hover:text-[var(--app-fg)] hover:bg-[var(--app-subtle-bg)] transition-colors"
                                 title={t('settings.title')}
                             >
-                                <IconSettings className="h-5 w-5" />
+                                <IconSettings style={{ fontSize: 'var(--icon-xl)' }} />
                             </button>
                             <button
                                 type="button"
@@ -98,7 +98,7 @@ function SessionsPage() {
                                 className="session-list-new-button p-1.5 rounded-full text-[var(--app-link)] transition-colors"
                                 title={t('sessions.new')}
                             >
-                                <IconPlus className="h-5 w-5" />
+                                <IconPlus style={{ fontSize: 'var(--icon-2xl)' }} />
                             </button>
                         </div>
                     </div>

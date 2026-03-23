@@ -61,6 +61,12 @@ body {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
 }
 
+/* Arco icons: SVGs have no intrinsic width/height, so fontSize has no effect unless we bind to 1em */
+.arco-icon {
+    width: 1em;
+    height: 1em;
+}
+
 /* Popup typography only */
 .arco-menu,
 .arco-dropdown-menu,
@@ -304,6 +310,7 @@ body {
     --icon-lg: calc(18px * var(--app-ui-scale));
     --icon-xl: calc(20px * var(--app-ui-scale));
     --icon-2xl: calc(24px * var(--app-ui-scale));
+    --icon-3xl: calc(28px * var(--app-ui-scale));
 
     /* Diff colors (light) */
     --app-diff-added-bg: #e6ffed;

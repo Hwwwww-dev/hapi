@@ -14,9 +14,9 @@ import {
     IconLoading,
 } from '@arco-design/web-react/icon'
 
-const iconSizeLg = { fontSize: 'var(--icon-lg)' }
-const iconSizeMd = { fontSize: 'var(--icon-md)' }
-const iconSizeSm = { fontSize: 'var(--icon-sm)' }
+const iconSizeLg = { fontSize: 'var(--icon-xl)' }
+const iconSizeMd = { fontSize: 'var(--icon-xl)' }
+const iconSizeSm = { fontSize: 'var(--icon-xl)' }
 
 function UnifiedButton(props: {
     canSend: boolean

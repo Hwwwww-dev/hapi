@@ -468,7 +468,7 @@ export function SessionList(props: {
                             title={t('session.chat.refresh')}
                             aria-busy={props.isLoading}
                         >
-                            <IconRefresh className={props.isLoading ? 'animate-spin' : ''} style={{ fontSize: 'var(--icon-lg)' }} />
+                            <IconRefresh className={props.isLoading ? 'animate-spin' : ''} style={{ fontSize: 'var(--icon-xl)' }} />
                         </button>
                         <button
                             type="button"
