@@ -12,7 +12,8 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { getSessionModelLabel } from '@/lib/sessionModelLabel'
 import { useTranslation } from '@/lib/use-translation'
 import { notify } from '@/lib/notify'
-import { IconBranch, IconMoreVertical, IconLeft } from '@arco-design/web-react/icon'
+import { IconBranch, IconMoreVertical, IconLeft, IconPlus } from '@arco-design/web-react/icon'
+import { useNavigate } from '@tanstack/react-router'
 
 function getSessionTitle(session: Session): string {
     return getExplicitSessionTitle(session) ?? getSessionPathFallbackTitle(session)
@@ -30,6 +31,7 @@ export function SessionHeader(props: {
     readOnly?: boolean
 }) {
     const { t } = useTranslation()
+    const navigate = useNavigate()
     const { session, api, onSessionDeleted } = props
     const title = useMemo(() => getSessionTitle(session), [session])
     const worktreeBranch = session.metadata?.worktree?.branch
@@ -133,6 +135,15 @@ export function SessionHeader(props: {
                             <IconBranch style={{ fontSize: 'var(--icon-lg)' }} />
                         </button>
                     ) : null}
+
+                    <button
+                        type="button"
+                        onClick={() => navigate({ to: '/sessions/new' })}
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
+                        title={t('session.newSession')}
+                    >
+                        <IconPlus style={{ fontSize: 'var(--icon-md)' }} />
+                    </button>
 
                     {!props.readOnly && (
                     <button

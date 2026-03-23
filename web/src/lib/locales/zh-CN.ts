@@ -79,6 +79,7 @@ export default {
   // Session header
   'session.title': '文件',
   'session.more': '更多操作',
+  'session.newSession': '新建会话',
 
   // Session actions
   'session.action.rename': '重命名',
@@ -597,4 +598,14 @@ export default {
   'dialog.git.deleteBranch.confirming': '删除中…',
   'notify.git.tagCreateOk': '标签已创建',
   'notify.git.tagDeleteOk': '标签已删除',
+
+  // Error boundary
+  'errorBoundary.title': '出错了',
+  'errorBoundary.description': '聊天区域渲染时发生了意外错误。你可以尝试重新加载此视图。',
+  'errorBoundary.details': '错误详情',
+  'errorBoundary.reload': '重新加载',
+
+  // Composer shortcut hint
+  'composer.shortcutHint.mac': '\u2318+Enter',
+  'composer.shortcutHint.other': 'Ctrl+Enter',
 } as const

@@ -169,36 +169,36 @@ export function StatusBar(props: {
         : null
 
     return (
-        <div className="flex items-center justify-between px-2 pb-1">
-            <div className="flex items-baseline gap-3">
-                <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-y-0.5 px-2 pb-1 overflow-hidden">
+            <div className="flex items-baseline gap-3 min-w-0 overflow-hidden">
+                <div className="flex items-center gap-1.5 min-w-0">
                     <span
-                        className={`h-2 w-2 rounded-full ${connectionStatus.dotColor} ${connectionStatus.isPulsing ? 'animate-pulse' : ''}`}
+                        className={`h-2 w-2 shrink-0 rounded-full ${connectionStatus.dotColor} ${connectionStatus.isPulsing ? 'animate-pulse' : ''}`}
                     />
-                    <span className={`text-xs ${connectionStatus.color}`}>
+                    <span className={`text-xs truncate ${connectionStatus.color}`}>
                         {connectionStatus.isPulsing ? <WavyText text={connectionStatus.text} /> : connectionStatus.text}
                     </span>
                 </div>
                 {contextWarning ? (
-                    <span className="text-[length:var(--text-badge)] text-[var(--app-hint)]">
+                    <span className="text-[length:var(--text-badge)] text-[var(--app-hint)] whitespace-nowrap">
                         <span className={contextWarning.color}>{contextWarning.percent}%</span> {contextWarning.label}
                     </span>
                 ) : null}
                 {props.totalMessages != null && props.messageCount != null ? (
-                    <span className="text-[length:var(--text-badge)] text-[var(--app-hint)] tabular-nums">
+                    <span className="text-[length:var(--text-badge)] text-[var(--app-hint)] tabular-nums whitespace-nowrap">
                         {t('misc.messageCount', { current: props.messageCount, total: props.totalMessages })}
                     </span>
                 ) : null}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
                 {collaborationModeLabel ? (
-                    <span className="text-xs text-blue-500">
+                    <span className="text-xs text-blue-500 truncate">
                         {collaborationModeLabel}
                     </span>
                 ) : null}
                 {displayPermissionMode ? (
-                    <span className={`text-xs ${permissionModeColor}`}>
+                    <span className={`text-xs truncate ${permissionModeColor}`}>
                         {permissionModeLabel}
                     </span>
                 ) : null}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import type { ChatBlock, ToolCallBlock } from '@/chat/types'
 import { getEventPresentation, isPillEvent } from '@/chat/presentation'
 import { MarkdownRenderer } from '@/components/MarkdownRenderer'
@@ -229,7 +229,7 @@ function HappyNestedBlockList(props: {
     )
 }
 
-export function HappyToolMessage({ block }: { block: ToolCallBlock }) {
+export const HappyToolMessage = memo(function HappyToolMessage({ block }: { block: ToolCallBlock }) {
     const ctx = useHappyChatContext()
 
     const isTask = block.tool.name === 'Task' || block.tool.name === 'Agent'
@@ -256,4 +256,4 @@ export function HappyToolMessage({ block }: { block: ToolCallBlock }) {
             ) : null}
         </div>
     )
-}
+})

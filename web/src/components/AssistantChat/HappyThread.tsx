@@ -103,7 +103,7 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
         const viewport = viewportRef.current
         if (!viewport) return
 
-        const THRESHOLD_PX = 120
+        const THRESHOLD_PX = 200
         let rafId: number | null = null
 
         const handleScroll = () => {

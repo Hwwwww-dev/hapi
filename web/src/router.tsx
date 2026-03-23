@@ -36,6 +36,7 @@ import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message
 import { getTabFlavor, getTabActive, loadAgentTab, saveAgentTab, type SessionAgentTab } from '@/lib/agentFlavorUtils'
 import { notify } from '@/lib/notify'
 import { IconLeft, IconPlus, IconSync, IconSettings } from '@arco-design/web-react/icon'
+import { ChatErrorBoundary } from '@/components/ChatErrorBoundary'
 const FilesPage = lazy(() => import('@/routes/sessions/files'))
 const FilePage = lazy(() => import('@/routes/sessions/file'))
 const TerminalPage = lazy(() => import('@/routes/sessions/terminal'))
@@ -151,6 +152,7 @@ function SessionsIndexPage() {
 function SessionPage() {
     const { api } = useAppContext()
     const { sessionId } = useParams({ from: '/sessions/$sessionId' })
+    const { t } = useTranslation()
     const {
         session,
         refetch: refetchSession,
@@ -159,7 +161,7 @@ function SessionPage() {
     if (!session || !api) {
         return (
             <div className="flex-1 flex items-center justify-center p-4">
-                <LoadingState label="Loading session…" className="text-[length:var(--text-body)]" />
+                <LoadingState label={t('loading.session')} className="text-[length:var(--text-body)]" />
             </div>
         )
     }
@@ -318,6 +320,7 @@ function SessionPageContent(props: {
 function SessionDetailRoute() {
     const pathname = useLocation({ select: location => location.pathname })
     const { sessionId } = useParams({ from: '/sessions/$sessionId' })
+    const { t } = useTranslation()
     const basePath = `/sessions/${sessionId}`
     const isChat = pathname === basePath || pathname === `${basePath}/`
 
@@ -327,7 +330,9 @@ function SessionDetailRoute() {
     return (
         <>
             <div className={isChat ? 'contents' : 'hidden'}>
-                <SessionPage />
+                <ChatErrorBoundary t={t}>
+                    <SessionPage />
+                </ChatErrorBoundary>
             </div>
             {!isChat && <Outlet />}
         </>

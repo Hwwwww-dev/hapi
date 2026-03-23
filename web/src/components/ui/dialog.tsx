@@ -1,13 +1,14 @@
 import * as React from 'react'
-import { Modal } from '@arco-design/web-react'
+import { createPortal } from 'react-dom'
+import { IconClose } from '@arco-design/web-react/icon'
 import { cn } from '@/lib/utils'
 
 /* ────────────────────────────────────────────────────────
- * Adapter layer: exposes the same API as the old Radix Dialog
- * so ALL consumers (including DiffView, ToolCard, LoginPrompt,
- * CliOutputBlock, etc.) work without any changes.
+ * Custom Dialog layer — same API as the old Arco Modal adapter
+ * so ALL consumers work without any changes.
  *
- * Internally uses Arco Design Modal.
+ * Styled to match FileViewDialog: custom overlay + centered panel
+ * with close button in the top-right corner.
  * ──────────────────────────────────────────────────────── */
 
 interface DialogContextValue {
@@ -53,7 +54,6 @@ export function DialogTrigger({ asChild, children }: DialogTriggerProps) {
     if (asChild && React.isValidElement(children)) {
         return React.cloneElement(children as React.ReactElement<{ onClick?: React.MouseEventHandler }>, {
             onClick: (...args: unknown[]) => {
-                // call original onClick if present
                 const original = (children as React.ReactElement<{ onClick?: (...a: unknown[]) => void }>).props.onClick
                 if (typeof original === 'function') original(...args)
                 setOpen(true)
@@ -74,25 +74,56 @@ export const DialogContent = React.forwardRef<HTMLDivElement, React.HTMLAttribut
     ({ className, children, ...props }, ref) => {
         const { open, setOpen } = React.useContext(DialogCtx)
 
-        return (
-            <Modal
-                visible={open}
-                onCancel={() => setOpen(false)}
-                footer={null}
-                closable={false}
-                maskClosable
-                mountOnEnter
-                unmountOnExit
-                alignCenter
-                className={cn(
-                    'max-w-lg rounded-xl bg-[var(--app-secondary-bg)] p-4 shadow-2xl animate-fade-in-scale',
-                    className
-                )}
-                style={{ padding: 0, width: 'calc(100vw - 32px)' }}
-                {...(props as Record<string, unknown>)}
-            >
-                <div ref={ref} className="max-h-[80vh] overflow-y-auto">{children}</div>
-            </Modal>
+        // Close on Escape
+        React.useEffect(() => {
+            if (!open) return
+            function onKey(e: KeyboardEvent) {
+                if (e.key === 'Escape') setOpen(false)
+            }
+            document.addEventListener('keydown', onKey)
+            return () => document.removeEventListener('keydown', onKey)
+        }, [open, setOpen])
+
+        // Prevent body scroll while open
+        React.useEffect(() => {
+            if (!open) return
+            const prev = document.body.style.overflow
+            document.body.style.overflow = 'hidden'
+            return () => { document.body.style.overflow = prev }
+        }, [open])
+
+        if (!open) return null
+
+        return createPortal(
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+                {/* Backdrop */}
+                <div className="absolute inset-0 bg-black/50 animate-backdrop-fade" onClick={() => setOpen(false)} />
+
+                {/* Panel */}
+                <div
+                    ref={ref}
+                    className={cn(
+                        'relative flex flex-col bg-[var(--app-bg)] rounded-xl w-full max-h-[85dvh] shadow-xl animate-fade-in-scale',
+                        'max-w-lg',
+                        className
+                    )}
+                    {...props}
+                >
+                    {/* Close button — top right */}
+                    <button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full text-[var(--app-hint)] hover:bg-[var(--app-subtle-bg)] hover:text-[var(--app-fg)] transition-colors"
+                        aria-label="Close"
+                    >
+                        <IconClose style={{ fontSize: 'var(--icon-md)' }} />
+                    </button>
+
+                    {/* Content */}
+                    <div className="overflow-y-auto p-4">{children}</div>
+                </div>
+            </div>,
+            document.body
         )
     }
 )
@@ -101,7 +132,7 @@ DialogContent.displayName = 'DialogContent'
 /* ── DialogHeader ── */
 
 export const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-    <div className={cn('flex flex-col space-y-1.5 text-center sm:text-left', className)} {...props} />
+    <div className={cn('flex flex-col space-y-1.5 text-center sm:text-left pr-8', className)} {...props} />
 )
 
 /* ── DialogTitle ── */

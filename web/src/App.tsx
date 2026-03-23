@@ -222,11 +222,9 @@ function AppInner() {
     }, [api, queryClient, selectedSessionId, startSync, endSync])
 
     const handleSseDisconnect = useCallback((reason: string) => {
-        // Only show reconnecting banner if we've already connected once
-        if (!isFirstConnectRef.current) {
-            setSseDisconnected(true)
-            setSseDisconnectReason(reason)
-        }
+        // Show reconnecting banner on any disconnect, including first connection failure
+        setSseDisconnected(true)
+        setSseDisconnectReason(reason)
     }, [])
 
     const handleSseEvent = useCallback(() => {}, [])

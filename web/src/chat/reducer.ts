@@ -57,9 +57,14 @@ export function reduceChatBlocks(
     // "Approved" / error cards stuck at the bottom of the list.  Their state is
     // already merged into the tool block by reduceTimeline when the tool-call
     // message IS in the window, so standalone cards are unnecessary.
-    const oldestMessageTime = normalized.length > 0
-        ? Math.min(...normalized.map(m => m.createdAt))
-        : null
+    let oldestMessageTime: number | null = null
+    if (normalized.length > 0) {
+        let min = normalized[0].createdAt
+        for (let i = 1; i < normalized.length; i++) {
+            if (normalized[i].createdAt < min) min = normalized[i].createdAt
+        }
+        oldestMessageTime = min
+    }
 
     for (const [id, entry] of permissionsById) {
         if (toolIdsInMessages.has(id)) continue

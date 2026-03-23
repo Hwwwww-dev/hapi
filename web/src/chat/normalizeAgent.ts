@@ -1,36 +1,12 @@
-import type { AgentEvent, NormalizedAgentContent, NormalizedMessage, ToolResultPermission } from '@/chat/types'
+import type { AgentEvent, NormalizedAgentContent, NormalizedMessage } from '@/chat/types'
 import { asNumber, asString, isObject, safeStringify } from '@hapi/protocol'
 import { isClaudeChatVisibleMessage } from '@hapi/protocol/messages'
+import { normalizeToolResultPermissions, parseToolResultBlock, parseToolUseBlock } from '@/chat/tool-utils'
 
 const MAX_ASSISTANT_SOURCE_BLOCKS = 16
 const MAX_THINKING_PARSE_TEXT_LENGTH = 64 * 1024
 const MAX_THINKING_BLOCKS = 32
 const MAX_REASONING_TEXT_LENGTH = 64 * 1024
-
-function normalizeToolResultPermissions(value: unknown): ToolResultPermission | undefined {
-    if (!isObject(value)) return undefined
-    const date = asNumber(value.date)
-    const result = value.result
-    if (date === null) return undefined
-    if (result !== 'approved' && result !== 'denied') return undefined
-
-    const mode = asString(value.mode) ?? undefined
-    const allowedTools = Array.isArray(value.allowedTools)
-        ? value.allowedTools.filter((tool) => typeof tool === 'string')
-        : undefined
-    const decision = value.decision
-    const normalizedDecision = decision === 'approved' || decision === 'approved_for_session' || decision === 'denied' || decision === 'abort'
-        ? decision
-        : undefined
-
-    return {
-        date,
-        result,
-        mode,
-        allowedTools,
-        decision: normalizedDecision
-    }
-}
 
 function normalizeAgentEvent(value: unknown): AgentEvent | null {
     if (!isObject(value) || typeof value.type !== 'string') return null
@@ -155,24 +131,10 @@ function normalizeAssistantBlocks(
             normalized.push(toReasoningContent(block.thinking, fallbackUuid, fallbackParentUUID))
             continue
         }
-        if ((block.type === 'tool_use' || block.type === 'tool_call') && typeof block.id === 'string') {
-            const name = asString(block.name) ?? 'Tool'
-            const input = 'input' in block ? (block as Record<string, unknown>).input : undefined
-            const description = isObject(input) && typeof input.description === 'string' ? input.description : null
-            normalized.push({ type: 'tool-call', id: block.id, name, input, description, uuid: fallbackUuid, parentUUID: fallbackParentUUID })
-            continue
-        }
-        if (block.type === 'tool_result' && typeof block.tool_use_id === 'string') {
-            normalized.push({
-                type: 'tool-result',
-                tool_use_id: block.tool_use_id,
-                content: 'content' in block ? (block as Record<string, unknown>).content : undefined,
-                is_error: Boolean(block.is_error),
-                uuid: fallbackUuid,
-                parentUUID: fallbackParentUUID,
-                permissions: normalizeToolResultPermissions(block.permissions)
-            })
-        }
+        const toolUse = parseToolUseBlock(block, fallbackUuid, fallbackParentUUID)
+        if (toolUse) { normalized.push(toolUse); continue }
+        const toolResult = parseToolResultBlock(block, fallbackUuid, fallbackParentUUID)
+        if (toolResult) { normalized.push(toolResult) }
     }
 
     return normalized
@@ -198,47 +160,7 @@ function normalizeAssistantOutput(
     if (typeof modelContent === 'string') {
         appendNormalizedTextBlocks(blocks, modelContent, uuid, parentUUID)
     } else if (Array.isArray(modelContent)) {
-        if (modelContent.length > MAX_ASSISTANT_SOURCE_BLOCKS) {
-            return {
-                id: messageId,
-                localId,
-                createdAt,
-                role: 'agent',
-                isSidechain,
-                content: collapseAssistantContent(modelContent, uuid, parentUUID),
-                meta
-            }
-        }
-
-        for (const block of modelContent) {
-            if (!isObject(block) || typeof block.type !== 'string') continue
-            if (block.type === 'text' && typeof block.text === 'string') {
-                appendNormalizedTextBlocks(blocks, block.text, uuid, parentUUID)
-                continue
-            }
-            if (block.type === 'thinking' && typeof block.thinking === 'string') {
-                blocks.push(toReasoningContent(block.thinking, uuid, parentUUID))
-                continue
-            }
-            if ((block.type === 'tool_use' || block.type === 'tool_call') && typeof block.id === 'string') {
-                const name = asString(block.name) ?? 'Tool'
-                const input = 'input' in block ? (block as Record<string, unknown>).input : undefined
-                const description = isObject(input) && typeof input.description === 'string' ? input.description : null
-                blocks.push({ type: 'tool-call', id: block.id, name, input, description, uuid, parentUUID })
-                continue
-            }
-            if (block.type === 'tool_result' && typeof block.tool_use_id === 'string') {
-                blocks.push({
-                    type: 'tool-result',
-                    tool_use_id: block.tool_use_id,
-                    content: 'content' in block ? (block as Record<string, unknown>).content : undefined,
-                    is_error: Boolean(block.is_error),
-                    uuid,
-                    parentUUID,
-                    permissions: normalizeToolResultPermissions(block.permissions)
-                })
-            }
-        }
+        blocks.push(...normalizeAssistantBlocks(modelContent, uuid, parentUUID))
     }
 
     const usage = isObject(message.usage) ? (message.usage as Record<string, unknown>) : null

@@ -56,7 +56,7 @@ export const SessionChat = memo(function SessionChat(props: {
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
     const [atBottom, setAtBottom] = useState(true)
-    const seqSnapshotRef = useRef(0)
+    const [seqSnapshot, setSeqSnapshot] = useState(0)
     const threadRef = useRef<HappyThreadHandle>(null)
     const [statusActionPending, setStatusActionPending] = useState<'resume' | 'disconnect' | 'refresh' | null>(null)
     const agentFlavor = props.session.metadata?.flavor ?? null
@@ -200,14 +200,13 @@ export const SessionChat = memo(function SessionChat(props: {
 
     // Count truly NEW messages (seq > snapshot) — ignores loadMore'd old messages
     const newMessageCount = useMemo(() => {
-        const snapshot = seqSnapshotRef.current
-        if (snapshot === 0) return 0
+        if (seqSnapshot === 0) return 0
         let count = 0
         for (const m of props.messages) {
-            if ((m.seq ?? 0) > snapshot && !isSidechainMessage(m)) count++
+            if ((m.seq ?? 0) > seqSnapshot && !isSidechainMessage(m)) count++
         }
         return count
-    }, [props.messages])
+    }, [props.messages, seqSnapshot])
 
     const reduced = useMemo(
         () => reduceChatBlocks(normalizedMessages, props.session.agentState),
@@ -289,16 +288,16 @@ export const SessionChat = memo(function SessionChat(props: {
     }, [props.onSend])
 
     const handleAtBottomChange = useCallback((value: boolean) => {
-        if (!value && seqSnapshotRef.current === 0) {
-            // Capture the newest seq when user scrolls away from bottom
+        if (!value) {
+            // Recapture the newest seq every time user scrolls away from bottom
             let maxSeq = 0
             for (const m of props.messages) {
                 const s = m.seq ?? 0
                 if (s > maxSeq) maxSeq = s
             }
-            seqSnapshotRef.current = maxSeq
-        } else if (value) {
-            seqSnapshotRef.current = 0
+            setSeqSnapshot(maxSeq)
+        } else {
+            setSeqSnapshot(0)
             props.onFlushPending()
         }
         setAtBottom(value)

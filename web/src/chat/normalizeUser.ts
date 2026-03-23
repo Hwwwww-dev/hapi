@@ -1,6 +1,7 @@
-import type { NormalizedAgentContent, NormalizedMessage, ToolResultPermission } from '@/chat/types'
+import type { NormalizedAgentContent, NormalizedMessage } from '@/chat/types'
 import type { AttachmentMetadata } from '@/types/api'
-import { asNumber, asString, isObject } from '@hapi/protocol'
+import { isObject } from '@hapi/protocol'
+import { parseToolResultBlock } from '@/chat/tool-utils'
 
 function parseAttachments(raw: unknown): AttachmentMetadata[] | undefined {
     if (!Array.isArray(raw)) return undefined
@@ -25,31 +26,6 @@ function parseAttachments(raw: unknown): AttachmentMetadata[] | undefined {
         }
     }
     return attachments.length > 0 ? attachments : undefined
-}
-
-function normalizeToolResultPermissions(value: unknown): ToolResultPermission | undefined {
-    if (!isObject(value)) return undefined
-    const date = asNumber(value.date)
-    const result = value.result
-    if (date === null) return undefined
-    if (result !== 'approved' && result !== 'denied') return undefined
-
-    const mode = asString(value.mode) ?? undefined
-    const allowedTools = Array.isArray(value.allowedTools)
-        ? value.allowedTools.filter((tool) => typeof tool === 'string')
-        : undefined
-    const decision = value.decision
-    const normalizedDecision = decision === 'approved' || decision === 'approved_for_session' || decision === 'denied' || decision === 'abort'
-        ? decision
-        : undefined
-
-    return {
-        date,
-        result,
-        mode,
-        allowedTools,
-        decision: normalizedDecision
-    }
 }
 
 export function normalizeUserRecord(
@@ -103,15 +79,8 @@ export function normalizeUserRecord(
             }
 
             if (block.type === 'tool_result' && typeof block.tool_use_id === 'string') {
-                agentBlocks.push({
-                    type: 'tool-result',
-                    tool_use_id: block.tool_use_id,
-                    content: 'content' in block ? (block as Record<string, unknown>).content : undefined,
-                    is_error: Boolean(block.is_error),
-                    uuid: messageId,
-                    parentUUID: null,
-                    permissions: normalizeToolResultPermissions(block.permissions)
-                })
+                const toolResult = parseToolResultBlock(block, messageId, null)
+                if (toolResult) agentBlocks.push(toolResult)
             }
         }
 

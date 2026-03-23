@@ -135,6 +135,7 @@ export function HappyComposer(props: {
     const [showContinueHint, setShowContinueHint] = useState(false)
 
     const textareaRef = useRef<HTMLTextAreaElement>(null)
+    const settingsPanelRef = useRef<HTMLDivElement>(null)
     const prevControlledByUser = useRef(controlledByUser)
 
     useEffect(() => {
@@ -170,6 +171,10 @@ export function HappyComposer(props: {
     }, [controlledByUser])
 
     const { haptic: platformHaptic, isTouch } = usePlatform()
+    const isMac = useMemo(
+        () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform),
+        []
+    )
     const { isStandalone, isIOS } = usePWAInstall()
     const isIOSPWA = isIOS && isStandalone
     const bottomPaddingClass = isIOSPWA ? 'pb-0' : 'pb-3'
@@ -460,6 +465,23 @@ export function HappyComposer(props: {
         setShowSettings(prev => !prev)
     }, [haptic])
 
+    // Close settings panel when clicking outside (exclude the toggle button itself)
+    useEffect(() => {
+        if (!showSettings) return
+        const handleClickOutside = (e: MouseEvent) => {
+            const panel = settingsPanelRef.current
+            const target = e.target as Node
+            if (panel && !panel.contains(target)) {
+                // Don't close if the click landed on the settings toggle button
+                const btn = (target as Element).closest?.('.settings-button')
+                if (btn) return
+                setShowSettings(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [showSettings])
+
     const handleFormSubmit = useCallback((event: ReactFormEvent<HTMLFormElement>) => {
         event.preventDefault()
         if (!canSend || !attachmentsReady) return
@@ -497,7 +519,7 @@ export function HappyComposer(props: {
     const overlays = useMemo(() => {
         if (showSettings && (showCollaborationSettings || showPermissionSettings || showModelSettings)) {
             return (
-                <div className="absolute bottom-[100%] mb-2 w-full">
+                <div ref={settingsPanelRef} className="absolute bottom-[100%] mb-2 w-full">
                     <FloatingOverlay maxHeight={320}>
                         {showCollaborationSettings ? (
                             <div className="py-2">
@@ -713,6 +735,14 @@ export function HappyComposer(props: {
                                 className="flex-1 resize-none bg-transparent text-base leading-snug text-[var(--app-fg)] placeholder-[var(--app-hint)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                             />
                         </div>
+
+                        {!isTouch && (
+                            <div className="flex justify-end px-3 pb-1">
+                                <span className="text-[length:var(--text-badge)] text-[var(--app-hint)] opacity-50 select-none">
+                                    {isMac ? t('composer.shortcutHint.mac') : t('composer.shortcutHint.other')}
+                                </span>
+                            </div>
+                        )}
 
                         <ComposerButtons
                             canSend={canSend}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
 import type { ApiClient } from '@/api/client'
 import type { GitCommandResponse } from '@/types/api'
@@ -258,7 +259,7 @@ export function FileViewDialog({ api, sessionId, filePath, commitHash, staged, o
         return () => document.removeEventListener('keydown', onKey)
     }, [onClose])
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/50 animate-backdrop-fade" onClick={onClose} />
@@ -267,6 +268,10 @@ export function FileViewDialog({ api, sessionId, filePath, commitHash, staged, o
             <div className="relative flex flex-col bg-[var(--app-bg)] rounded-xl w-full max-w-2xl max-h-[88dvh] shadow-xl animate-fade-in-scale">
                 {/* Header */}
                 <div className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-[var(--app-border)] max-sm:px-3 max-sm:py-2 max-sm:gap-1.5">
+                    <div className="min-w-0 flex-1">
+                        <div className="truncate text-[length:var(--text-body)] font-semibold">{fileName}</div>
+                        {commitHash && <div className="truncate text-[length:var(--text-caption)] text-[var(--app-hint)] font-mono">{commitHash.slice(0, 8)}</div>}
+                    </div>
                     <button
                         type="button"
                         onClick={onClose}
@@ -275,10 +280,6 @@ export function FileViewDialog({ api, sessionId, filePath, commitHash, staged, o
                     >
                         <IconClose style={{ fontSize: 'var(--icon-md)' }} />
                     </button>
-                    <div className="min-w-0 flex-1">
-                        <div className="truncate text-[length:var(--text-body)] font-semibold">{fileName}</div>
-                        {commitHash && <div className="truncate text-[length:var(--text-caption)] text-[var(--app-hint)] font-mono">{commitHash.slice(0, 8)}</div>}
-                    </div>
                 </div>
 
                 {/* Content */}
@@ -292,6 +293,7 @@ export function FileViewDialog({ api, sessionId, filePath, commitHash, staged, o
                     />
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     )
 }

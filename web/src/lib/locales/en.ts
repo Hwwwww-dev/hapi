@@ -79,6 +79,7 @@ export default {
   // Session header
   'session.title': 'Files',
   'session.more': 'More actions',
+  'session.newSession': 'New Session',
 
   // Session actions
   'session.action.rename': 'Rename',
@@ -595,4 +596,14 @@ export default {
   'dialog.git.deleteBranch.confirming': 'Deleting…',
   'notify.git.tagCreateOk': 'Tag created',
   'notify.git.tagDeleteOk': 'Tag deleted',
+
+  // Error boundary
+  'errorBoundary.title': 'Something went wrong',
+  'errorBoundary.description': 'An unexpected error occurred while rendering the chat. You can try reloading this view.',
+  'errorBoundary.details': 'Error details',
+  'errorBoundary.reload': 'Reload',
+
+  // Composer shortcut hint
+  'composer.shortcutHint.mac': '\u2318+Enter',
+  'composer.shortcutHint.other': 'Ctrl+Enter',
 } as const

@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import type { ChatBlock } from './types'
 
 export interface ChatContextValue {
@@ -13,8 +13,9 @@ export interface ChatContextValue {
 const ChatContext = createContext<ChatContextValue | null>(null)
 
 export function ChatProvider(props: ChatContextValue & { children: ReactNode }) {
-    const { children, ...value } = props
-    return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>
+    const { children, blocks, isRunning, isDisabled } = props
+    const contextValue = useMemo(() => ({ blocks, isRunning, isDisabled }), [blocks, isRunning, isDisabled])
+    return <ChatContext.Provider value={contextValue}>{children}</ChatContext.Provider>
 }
 
 export function useChatContext(): ChatContextValue {
