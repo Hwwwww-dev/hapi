@@ -32,6 +32,7 @@ import { ComposerButtons } from '@/components/AssistantChat/ComposerButtons'
 import { AttachmentItem } from '@/components/AssistantChat/AttachmentItem'
 import { useTranslation } from '@/lib/use-translation'
 import { getClaudeComposerModelOptions, getNextClaudeComposerModel } from './claudeModelOptions'
+import { getClaudeComposerEffortOptions } from './claudeEffortOptions'
 
 export interface TextInputState {
     text: string
@@ -45,6 +46,7 @@ export function HappyComposer(props: {
     permissionMode?: PermissionMode
     collaborationMode?: CodexCollaborationMode
     model?: string | null
+    effort?: string | null
     active?: boolean
     allowSendWhenInactive?: boolean
     thinking?: boolean
@@ -57,6 +59,7 @@ export function HappyComposer(props: {
     onCollaborationModeChange?: (mode: CodexCollaborationMode) => void
     onPermissionModeChange?: (mode: PermissionMode) => void
     onModelChange?: (model: string | null) => void
+    onEffortChange?: (effort: string | null) => void
     onSwitchToRemote?: () => void
     onTerminal?: () => void
     terminalUnsupported?: boolean
@@ -77,6 +80,7 @@ export function HappyComposer(props: {
         permissionMode: rawPermissionMode,
         collaborationMode: rawCollaborationMode,
         model: rawModel,
+        effort: rawEffort,
         active = true,
         allowSendWhenInactive = false,
         thinking = false,
@@ -89,6 +93,7 @@ export function HappyComposer(props: {
         onCollaborationModeChange,
         onPermissionModeChange,
         onModelChange,
+        onEffortChange,
         onSwitchToRemote,
         onTerminal,
         terminalUnsupported = false,
@@ -104,6 +109,7 @@ export function HappyComposer(props: {
     const permissionMode = rawPermissionMode ?? 'default'
     const collaborationMode = rawCollaborationMode ?? 'default'
     const model = rawModel ?? null
+    const effort = rawEffort ?? null
 
     const composerCtx = useComposerContext()
     const composerText = composerCtx.text
@@ -318,6 +324,10 @@ export function HappyComposer(props: {
         () => getClaudeComposerModelOptions(model),
         [model]
     )
+    const claudeEffortOptions = useMemo(
+        () => getClaudeComposerEffortOptions(effort),
+        [effort]
+    )
     const permissionModes = useMemo(
         () => permissionModeOptions.map((option) => option.mode),
         [permissionModeOptions]
@@ -513,15 +523,23 @@ export function HappyComposer(props: {
         haptic('light')
     }, [onModelChange, controlsDisabled, haptic])
 
+    const handleEffortChange = useCallback((nextEffort: string | null) => {
+        if (!onEffortChange || controlsDisabled) return
+        onEffortChange(nextEffort)
+        setShowSettings(false)
+        haptic('light')
+    }, [onEffortChange, controlsDisabled, haptic])
+
     const showCollaborationSettings = Boolean(onCollaborationModeChange && collaborationModeOptions.length > 0)
     const showPermissionSettings = Boolean(onPermissionModeChange && permissionModeOptions.length > 0)
     const showModelSettings = Boolean(onModelChange && isClaudeFlavor(agentFlavor))
-    const showSettingsButton = Boolean(showCollaborationSettings || showPermissionSettings || showModelSettings)
+    const showEffortSettings = Boolean(onEffortChange && isClaudeFlavor(agentFlavor))
+    const showSettingsButton = Boolean(showCollaborationSettings || showPermissionSettings || showModelSettings || showEffortSettings)
     const showAbortButton = true
     const voiceEnabled = Boolean(onVoiceToggle)
 
     const overlays = useMemo(() => {
-        if (showSettings && (showCollaborationSettings || showPermissionSettings || showModelSettings)) {
+        if (showSettings && (showCollaborationSettings || showPermissionSettings || showModelSettings || showEffortSettings)) {
             return (
                 <div ref={settingsPanelRef} className="absolute bottom-[100%] mb-2 w-full">
                     <FloatingOverlay maxHeight={320}>
@@ -562,7 +580,7 @@ export function HappyComposer(props: {
                             </div>
                         ) : null}
 
-                        {showCollaborationSettings && (showPermissionSettings || showModelSettings) ? (
+                        {showCollaborationSettings && (showPermissionSettings || showModelSettings || showEffortSettings) ? (
                             <div className="mx-3 h-px bg-[var(--app-divider)]" />
                         ) : null}
 
@@ -603,7 +621,7 @@ export function HappyComposer(props: {
                             </div>
                         ) : null}
 
-                        {(showCollaborationSettings || showPermissionSettings) && showModelSettings ? (
+                        {(showCollaborationSettings || showPermissionSettings) && (showModelSettings || showEffortSettings) ? (
                             <div className="mx-3 h-px bg-[var(--app-divider)]" />
                         ) : null}
 
@@ -643,6 +661,47 @@ export function HappyComposer(props: {
                                 ))}
                             </div>
                         ) : null}
+
+                        {showModelSettings && showEffortSettings ? (
+                            <div className="mx-3 h-px bg-[var(--app-divider)]" />
+                        ) : null}
+
+                        {showEffortSettings ? (
+                            <div className="py-2">
+                                <div className="px-3 pb-1 text-xs font-semibold text-[var(--app-hint)]">
+                                    {t('misc.effort')}
+                                </div>
+                                {claudeEffortOptions.map((option) => (
+                                    <button
+                                        key={option.value ?? 'auto'}
+                                        type="button"
+                                        disabled={controlsDisabled}
+                                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                                            controlsDisabled
+                                                ? 'cursor-not-allowed opacity-50'
+                                                : 'cursor-pointer hover:bg-[var(--app-secondary-bg)]'
+                                        }`}
+                                        onClick={() => handleEffortChange(option.value)}
+                                        onMouseDown={(e) => e.preventDefault()}
+                                    >
+                                        <div
+                                            className={`flex h-4 w-4 items-center justify-center rounded-full border-2 ${
+                                                effort === option.value
+                                                    ? 'border-[var(--app-link)]'
+                                                    : 'border-[var(--app-hint)]'
+                                            }`}
+                                        >
+                                            {effort === option.value && (
+                                                <div className="h-2 w-2 rounded-full bg-[var(--app-link)]" />
+                                            )}
+                                        </div>
+                                        <span className={effort === option.value ? 'text-[var(--app-link)]' : ''}>
+                                            {option.label}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
                     </FloatingOverlay>
                 </div>
             )
@@ -668,18 +727,22 @@ export function HappyComposer(props: {
         showCollaborationSettings,
         showPermissionSettings,
         showModelSettings,
+        showEffortSettings,
         claudeModelOptions,
+        claudeEffortOptions,
         suggestions,
         selectedIndex,
         controlsDisabled,
         collaborationMode,
         permissionMode,
         model,
+        effort,
         collaborationModeOptions,
         permissionModeOptions,
         handleCollaborationChange,
         handlePermissionChange,
         handleModelChange,
+        handleEffortChange,
         handleSuggestionSelect,
         t
     ])

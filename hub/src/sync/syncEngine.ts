@@ -200,6 +200,7 @@ export class SyncEngine {
         mode?: 'local' | 'remote'
         permissionMode?: PermissionMode
         model?: string | null
+        effort?: string | null
         collaborationMode?: CodexCollaborationMode
     }): void {
         this.sessionCache.handleSessionAlive(payload)
@@ -231,8 +232,15 @@ export class SyncEngine {
         this.machineCache.reloadAll()
     }
 
-    getOrCreateSession(tag: string, metadata: unknown, agentState: unknown, namespace: string, model?: string): Session {
-        return this.sessionCache.getOrCreateSession(tag, metadata, agentState, namespace, model)
+    getOrCreateSession(
+        tag: string,
+        metadata: unknown,
+        agentState: unknown,
+        namespace: string,
+        model?: string,
+        effort?: string
+    ): Session {
+        return this.sessionCache.getOrCreateSession(tag, metadata, agentState, namespace, model, effort)
     }
 
     upsertNativeSession(payload: {
@@ -753,6 +761,7 @@ export class SyncEngine {
         config: {
             permissionMode?: PermissionMode
             model?: string | null
+            effort?: string | null
             collaborationMode?: CodexCollaborationMode
         }
     ): Promise<void> {
@@ -764,6 +773,7 @@ export class SyncEngine {
             applied?: {
                 permissionMode?: Session['permissionMode']
                 model?: Session['model']
+                effort?: Session['effort']
                 collaborationMode?: Session['collaborationMode']
             }
         }
@@ -785,9 +795,10 @@ export class SyncEngine {
         sessionType?: 'simple' | 'worktree',
         worktreeName?: string,
         resumeSessionId?: string,
+        effort?: string,
         sessionId?: string
     ): Promise<{ type: 'success'; sessionId: string } | { type: 'error'; message: string }> {
-        return await this.rpcGateway.spawnSession(machineId, directory, agent, model, modelReasoningEffort, yolo, sessionType, worktreeName, resumeSessionId, sessionId)
+        return await this.rpcGateway.spawnSession(machineId, directory, agent, model, modelReasoningEffort, yolo, sessionType, worktreeName, resumeSessionId, effort, sessionId)
     }
 
     async resumeSession(sessionId: string, namespace: string): Promise<ResumeSessionResult> {
@@ -858,6 +869,7 @@ export class SyncEngine {
             undefined,
             undefined,
             resumeToken,
+            session.effort ?? undefined,
             access.sessionId
         )
 

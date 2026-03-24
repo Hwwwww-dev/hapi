@@ -100,6 +100,7 @@ export class RpcGateway {
         config: {
             permissionMode?: PermissionMode
             model?: string | null
+            effort?: string | null
             collaborationMode?: CodexCollaborationMode
         }
     ): Promise<unknown> {
@@ -120,6 +121,7 @@ export class RpcGateway {
         sessionType?: 'simple' | 'worktree',
         worktreeName?: string,
         resumeSessionId?: string,
+        effort?: string,
         sessionId?: string
     ): Promise<{ type: 'success'; sessionId: string } | { type: 'error'; message: string }> {
         try {
@@ -137,6 +139,7 @@ export class RpcGateway {
                     sessionType,
                     worktreeName,
                     resumeSessionId,
+                    effort,
                     approvedNewDirectoryCreation: false
                 }
             )

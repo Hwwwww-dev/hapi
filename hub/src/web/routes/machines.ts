@@ -8,7 +8,8 @@ const spawnBodySchema = z.object({
     directory: z.string().min(1),
     agent: z.enum(['claude', 'codex', 'cursor', 'gemini', 'opencode']).optional(),
     model: z.string().optional(),
-    modelReasoningEffort: z.enum(['low', 'medium', 'high', 'xhigh']).optional(),
+    effort: z.string().optional(),
+    modelReasoningEffort: z.string().optional(),
     yolo: z.boolean().optional(),
     sessionType: z.enum(['simple', 'worktree']).optional(),
     worktreeName: z.string().optional()
@@ -67,7 +68,9 @@ export function createMachinesRoutes(getSyncEngine: () => SyncEngine | null): Ho
             parsed.data.modelReasoningEffort,
             parsed.data.yolo,
             parsed.data.sessionType,
-            parsed.data.worktreeName
+            parsed.data.worktreeName,
+            undefined,
+            parsed.data.effort
         )
         return c.json(result)
     })
