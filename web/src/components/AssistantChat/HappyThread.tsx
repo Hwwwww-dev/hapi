@@ -331,7 +331,7 @@ export const HappyThread = forwardRef<HappyThreadHandle, {
     return (
         <HappyChatProvider value={chatContextValue}>
             <div className="flex min-h-0 flex-1 flex-col relative">
-                <div ref={viewportRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+                <div ref={viewportRef} className="app-scroll-y min-h-0 flex-1 overflow-x-hidden">
                     <div className="mx-auto w-full max-w-content min-w-0 p-3">
                         <div ref={topSentinelRef} className="h-px w-full" aria-hidden="true" />
                         {showSkeleton ? (
