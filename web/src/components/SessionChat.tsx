@@ -197,18 +197,20 @@ export const SessionChat = memo(function SessionChat(props: {
         [props.messages]
     )
 
-    // Count NEW visible messages based on normalized (post-merge) count
-    const [normalizedSnapshot, setNormalizedSnapshot] = useState(0)
-
-    const visibleNormalized = useMemo(
-        () => normalizedMessages.filter(m => !m.isSidechain),
-        [normalizedMessages]
-    )
+    // Count NEW messages by seq — only counts messages arriving AFTER user scrolled away.
+    // Uses raw messages (which have seq), then divides by 2 to approximate visible count
+    // (each visible turn = assistant + tool_result = ~2 raw messages)
+    const [seqSnapshot, setSeqSnapshot] = useState(0)
 
     const newMessageCount = useMemo(() => {
-        if (normalizedSnapshot === 0) return 0
-        return Math.max(0, visibleNormalized.length - normalizedSnapshot)
-    }, [visibleNormalized.length, normalizedSnapshot])
+        if (seqSnapshot === 0) return 0
+        let count = 0
+        for (const m of props.messages) {
+            if ((m.seq ?? 0) > seqSnapshot && !isSidechainMessage(m)) count++
+        }
+        // Approximate visible block count: tool calls produce ~2 raw messages per visible block
+        return Math.max(0, Math.ceil(count / 2))
+    }, [props.messages, seqSnapshot])
 
     const reduced = useMemo(
         () => reduceChatBlocks(normalizedMessages, props.session.agentState),
@@ -291,15 +293,20 @@ export const SessionChat = memo(function SessionChat(props: {
 
     const handleAtBottomChange = useCallback((value: boolean) => {
         if (!value) {
-            // Capture current visible normalized count when scrolling away
-            setNormalizedSnapshot(visibleNormalized.length)
+            // Capture maxSeq when scrolling away — loadMore'd old messages have lower seq, so won't be counted
+            let maxSeq = 0
+            for (const m of props.messages) {
+                const s = m.seq ?? 0
+                if (s > maxSeq) maxSeq = s
+            }
+            setSeqSnapshot(maxSeq)
         } else {
-            setNormalizedSnapshot(0)
+            setSeqSnapshot(0)
             props.onFlushPending()
         }
         setAtBottom(value)
         props.onAtBottomChange(value)
-    }, [props.onAtBottomChange, props.onFlushPending, visibleNormalized.length])
+    }, [props.onAtBottomChange, props.onFlushPending, props.messages])
 
     const handleScrollToBottom = useCallback(() => {
         handleAtBottomChange(true)

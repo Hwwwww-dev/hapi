@@ -244,7 +244,7 @@ function AppInner() {
         return { all: true }
     }, [selectedSessionId])
 
-    const { subscriptionId } = useSSE({
+    const { subscriptionId, sseConnected } = useSSE({
         enabled: Boolean(api && token),
         token: token ?? '',
         baseUrl,
@@ -348,7 +348,7 @@ function AppInner() {
                     reason={sseDisconnectReason}
                 />
                 <VoiceErrorBanner />
-                <OfflineBanner />
+                <OfflineBanner sseConnected={sseConnected} />
                 <div className="h-full flex flex-col">
                     <Outlet />
                 </div>

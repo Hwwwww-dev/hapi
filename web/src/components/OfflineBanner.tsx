@@ -1,11 +1,12 @@
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useTranslation } from '@/lib/use-translation'
 
-export function OfflineBanner() {
+export function OfflineBanner({ sseConnected }: { sseConnected: boolean }) {
     const { t } = useTranslation()
-    const isOnline = useOnlineStatus()
+    const browserOnline = useOnlineStatus()
 
-    if (isOnline) {
+    // Only show offline banner when BOTH browser reports offline AND SSE is disconnected
+    if (browserOnline || sseConnected) {
         return null
     }
 

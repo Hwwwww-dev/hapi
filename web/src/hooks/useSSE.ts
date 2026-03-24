@@ -171,7 +171,7 @@ export function useSSE(options: {
     onDisconnect?: (reason: string) => void
     onError?: (error: unknown) => void
     onToast?: (event: ToastEvent) => void
-}): { subscriptionId: string | null } {
+}): { subscriptionId: string | null; sseConnected: boolean } {
     const queryClient = useQueryClient()
     const onEventRef = useRef(options.onEvent)
     const onConnectRef = useRef(options.onConnect)
@@ -190,6 +190,7 @@ export function useSSE(options: {
     const lastActivityAtRef = useRef(0)
     const [reconnectNonce, setReconnectNonce] = useState(0)
     const [subscriptionId, setSubscriptionId] = useState<string | null>(null)
+    const [sseConnected, setSseConnected] = useState(false)
 
     useEffect(() => {
         onEventRef.current = options.onEvent
@@ -546,10 +547,12 @@ export function useSSE(options: {
             reconnectAttemptRef.current = 0
             disconnectNotified = false
             lastActivityAtRef.current = Date.now()
+            setSseConnected(true)
             onConnectRef.current?.()
         }
         eventSource.onerror = (error) => {
             onErrorRef.current?.(error)
+            setSseConnected(false)
             if (eventSource.readyState === EventSource.CLOSED) {
                 requestReconnect('closed')
                 return
@@ -591,5 +594,5 @@ export function useSSE(options: {
         }
     }, [options.baseUrl, options.enabled, options.token, subscriptionKey, queryClient, reconnectNonce])
 
-    return { subscriptionId }
+    return { subscriptionId, sseConnected }
 }
