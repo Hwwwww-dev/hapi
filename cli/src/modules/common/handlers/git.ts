@@ -288,6 +288,13 @@ export function registerGitHandlers(rpcHandlerManager: RpcHandlerManager, workin
         return await queuedGitCommand(args, resolved.cwd, data.timeout)
     })
 
+    rpcHandlerManager.registerHandler<{ cwd?: string; index?: number; timeout?: number }, GitCommandResponse>('git-stash-show', async (data) => {
+        const resolved = resolveCwd(data.cwd, workingDirectory)
+        if (resolved.error) return rpcError(resolved.error)
+        const ref = data.index !== undefined ? `stash@{${data.index}}` : 'stash@{0}'
+        return await queuedGitCommand(['stash', 'show', '--name-status', ref], resolved.cwd, data.timeout)
+    })
+
     rpcHandlerManager.registerHandler<{ cwd?: string; branch: string; squash?: boolean; timeout?: number }, GitCommandResponse>('git-merge', async (data) => {
         const resolved = resolveCwd(data.cwd, workingDirectory)
         if (resolved.error) return rpcError(resolved.error)

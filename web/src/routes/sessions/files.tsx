@@ -8,6 +8,7 @@ import { ChangesTab } from '@/components/SessionFiles/ChangesTab'
 import { CommitsTab } from '@/components/SessionFiles/CommitsTab'
 import { TagsTab } from '@/components/SessionFiles/TagsTab'
 import { BranchesTab } from '@/components/SessionFiles/BranchesTab'
+import { StashTab } from '@/components/SessionFiles/StashTab'
 import { FileViewDialog } from '@/components/SessionFiles/FileViewDialog'
 import { StashSheet } from '@/components/SessionFiles/StashSheet'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -22,7 +23,7 @@ import { IconLeft, IconSync, IconBranch, IconTool, IconArrowDown, IconStorage } 
 
 const TabPane = Tabs.TabPane
 
-type TabType = 'changes' | 'commits' | 'tags' | 'branches' | 'directories'
+type TabType = 'changes' | 'commits' | 'tags' | 'branches' | 'stash' | 'directories'
 
 export default function FilesPage() {
     const { t } = useTranslation()
@@ -34,7 +35,7 @@ export default function FilesPage() {
     const { session } = useSession(api, sessionId)
     const { expanded, handleExpandedChange } = useDirectoryExpanded(sessionId)
 
-    const validTabs: TabType[] = ['changes', 'commits', 'tags', 'branches', 'directories']
+    const validTabs: TabType[] = ['changes', 'commits', 'tags', 'branches', 'stash', 'directories']
     const initialTab: TabType = validTabs.includes(search.tab as TabType) ? (search.tab as TabType) : 'changes'
     const [activeTab, setActiveTab] = useState<TabType>(initialTab)
 
@@ -124,6 +125,7 @@ export default function FilesPage() {
         { key: 'commits', label: t('files.tab.commits') },
         { key: 'branches', label: t('files.tab.branches') },
         { key: 'tags', label: t('files.tab.tags') },
+        { key: 'stash', label: t('files.tab.stash') },
         { key: 'directories', label: t('files.tab.files') },
     ]
 
@@ -229,6 +231,9 @@ export default function FilesPage() {
                     )}
                     {activeTab === 'branches' && (
                         <BranchesTab api={api} sessionId={sessionId} currentBranch={gitStatus?.branch ?? null} onBranchChanged={() => void handleRefreshAll()} />
+                    )}
+                    {activeTab === 'stash' && (
+                        <StashTab api={api} sessionId={sessionId} onRefresh={() => void handleRefreshAll()} />
                     )}
                     {activeTab === 'directories' && (
                         <DirectoryTree api={api} sessionId={sessionId} rootLabel={rootLabel} onOpenFile={(path) => handleOpenFile(path)} expandedPaths={expanded} onExpandedChange={handleExpandedChange} />

@@ -1039,6 +1039,10 @@ export class SyncEngine {
         return await this.rpcGateway.gitStashDrop(sessionId, options)
     }
 
+    async gitStashShow(sessionId: string, options: { cwd?: string; index?: number }): Promise<RpcCommandResponse> {
+        return await this.rpcGateway.gitStashShow(sessionId, options)
+    }
+
     async gitMerge(sessionId: string, options: { cwd?: string; branch: string; squash?: boolean }): Promise<RpcCommandResponse> {
         return await this.rpcGateway.gitMerge(sessionId, options)
     }

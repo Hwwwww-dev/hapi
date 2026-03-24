@@ -427,6 +427,7 @@ export default {
   'files.tab.commits': 'Commits',
   'files.tab.tags': 'Tags',
   'files.tab.branches': 'Branches',
+  'files.tab.stash': 'Stash',
   'files.tab.files': 'Files',
   'files.header.git': 'VCS',
   'files.header.refresh': 'Refresh',
@@ -498,6 +499,12 @@ export default {
   'git.stashDrop': 'Drop',
   'git.stashApplyFailed': 'Apply failed',
   'git.stashDropFailed': 'Drop failed',
+  'git.stashDropConfirmTitle': 'Drop Stash',
+  'git.stashDropConfirmDesc': 'Are you sure you want to drop stash@{{index}}? This cannot be undone.',
+  'git.stashRequiredMsg': 'Enter a description for this stash...',
+  'git.stashMessageRequired': 'A stash message is required',
+  'git.stashFiles': '{{n}} file(s)',
+  'git.stashNoFiles': 'No files',
 
   // SessionFiles - FileViewDialog
   'git.diff': 'Diff',

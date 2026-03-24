@@ -461,6 +461,11 @@ export class ApiClient {
         })
     }
 
+    async gitStashShow(sessionId: string, index?: number): Promise<GitParsedResponse<string>> {
+        const params = index !== undefined ? `?index=${index}` : ''
+        return await this.request<GitParsedResponse<string>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-stash-show${params}`)
+    }
+
     async getGitStatusFiles(sessionId: string): Promise<GitParsedResponse<GitStatusFiles>> {
         return await this.request<GitParsedResponse<GitStatusFiles>>(`/api/sessions/${encodeURIComponent(sessionId)}/git-status-files`)
     }

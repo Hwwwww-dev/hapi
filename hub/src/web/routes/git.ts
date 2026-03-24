@@ -514,6 +514,19 @@ export function createGitRoutes(getSyncEngine: () => SyncEngine | null): Hono<We
         return c.json(result)
     })
 
+    app.get('/sessions/:id/git-stash-show', async (c) => {
+        const engine = requireSyncEngine(c, getSyncEngine)
+        if (engine instanceof Response) return engine
+        const sessionResult = requireSessionFromParam(c, engine)
+        if (sessionResult instanceof Response) return sessionResult
+        const sessionPath = sessionResult.session.metadata?.path
+        if (!sessionPath) return c.json({ success: false, error: 'Session path not available' })
+        const index = c.req.query('index') ? Number(c.req.query('index')) : undefined
+        const result = await runRpc(() => engine.gitStashShow(sessionResult.sessionId, { cwd: sessionPath, index }))
+        if (!result.success) return c.json({ success: false, error: result.error ?? 'Unknown error' })
+        return c.json({ success: true, data: result.stdout ?? '' })
+    })
+
     app.post('/sessions/:id/git-merge', async (c) => {
         const engine = requireSyncEngine(c, getSyncEngine)
         if (engine instanceof Response) return engine

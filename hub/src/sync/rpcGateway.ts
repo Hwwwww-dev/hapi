@@ -315,6 +315,10 @@ export class RpcGateway {
         return await this.sessionRpc(sessionId, 'git-stash-drop', options) as RpcCommandResponse
     }
 
+    async gitStashShow(sessionId: string, options: { cwd?: string; index?: number }): Promise<RpcCommandResponse> {
+        return await this.sessionRpc(sessionId, 'git-stash-show', options) as RpcCommandResponse
+    }
+
     async gitMerge(sessionId: string, options: { cwd?: string; branch: string; squash?: boolean }): Promise<RpcCommandResponse> {
         return await this.sessionRpc(sessionId, 'git-merge', options) as RpcCommandResponse
     }

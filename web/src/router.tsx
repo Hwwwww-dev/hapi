@@ -435,9 +435,9 @@ const sessionDetailRoute = createRoute({
 const sessionFilesRoute = createRoute({
     getParentRoute: () => sessionDetailRoute,
     path: 'vcs',
-    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'commits' | 'tags' | 'branches' | 'directories' } => {
+    validateSearch: (search: Record<string, unknown>): { tab?: 'changes' | 'commits' | 'tags' | 'branches' | 'stash' | 'directories' } => {
         const tabValue = typeof search.tab === 'string' ? search.tab : undefined
-        const validTabs = ['changes', 'commits', 'tags', 'branches', 'directories'] as const
+        const validTabs = ['changes', 'commits', 'tags', 'branches', 'stash', 'directories'] as const
         const tab = validTabs.find(t => t === tabValue)
 
         return tab ? { tab } : {}

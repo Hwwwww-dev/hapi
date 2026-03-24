@@ -429,6 +429,7 @@ export default {
   'files.tab.commits': '提交',
   'files.tab.tags': '标签',
   'files.tab.branches': '分支',
+  'files.tab.stash': '储藏',
   'files.tab.files': '文件',
   'files.header.git': 'VCS',
   'files.header.refresh': '刷新',
@@ -500,6 +501,12 @@ export default {
   'git.stashDrop': '删除',
   'git.stashApplyFailed': '应用失败',
   'git.stashDropFailed': '删除失败',
+  'git.stashDropConfirmTitle': '删除储藏',
+  'git.stashDropConfirmDesc': '确定要删除 stash@{{index}} 吗？此操作不可撤销。',
+  'git.stashRequiredMsg': '请输入储藏说明...',
+  'git.stashMessageRequired': '储藏说明不能为空',
+  'git.stashFiles': '{{n}} 个文件',
+  'git.stashNoFiles': '没有文件',
 
   // SessionFiles - FileViewDialog
   'git.diff': '差异',
