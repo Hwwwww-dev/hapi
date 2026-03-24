@@ -1,7 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import type { ApiClient } from '@/api/client'
-import type { AttachmentMetadata, CodexCollaborationMode, DecryptedMessage, PermissionMode, Session } from '@/types/api'
+import type {
+    AttachmentMetadata,
+    CodexCollaborationMode,
+    DecryptedMessage,
+    PermissionMode,
+    Session,
+    SlashCommand
+} from '@/types/api'
 import { isSidechainMessage } from '@/lib/messages'
 import type { ChatBlock, NormalizedMessage } from '@/chat/types'
 import type { Suggestion } from '@/hooks/useActiveSuggestions'
@@ -14,6 +21,8 @@ import { useAttachmentManager } from '@/lib/useAttachmentManager'
 import { HappyComposer } from '@/components/AssistantChat/HappyComposer'
 import { HappyThread } from '@/components/AssistantChat/HappyThread'
 import type { HappyThreadHandle } from '@/components/AssistantChat/HappyThread'
+import { findUnsupportedCodexBuiltinSlashCommand } from '@/lib/codexSlashCommands'
+import { useToast } from '@/lib/toast-context'
 import { SessionHeader } from '@/components/SessionHeader'
 import { TeamPanel } from '@/components/TeamPanel'
 import { usePlatform } from '@/hooks/usePlatform'
@@ -48,9 +57,11 @@ export const SessionChat = memo(function SessionChat(props: {
     autocompleteSuggestions?: (query: string) => Promise<Suggestion[]>
     onSendQueued?: (text: string, attachments?: AttachmentMetadata[]) => Promise<void>
     sessionId?: string | null
+    availableSlashCommands?: readonly SlashCommand[]
 }) {
     const { t } = useTranslation()
     const { haptic } = usePlatform()
+    const { addToast } = useToast()
     const navigate = useNavigate()
     const sessionInactive = !props.session.active
     const terminalSupported = isRemoteTerminalSupported(props.session.metadata)
@@ -289,9 +300,26 @@ export const SessionChat = memo(function SessionChat(props: {
     }, [navigate, props.session.id])
 
     const handleSend = useCallback((text: string, attachments?: AttachmentMetadata[]) => {
+        if (agentFlavor === 'codex') {
+            const unsupportedCommand = findUnsupportedCodexBuiltinSlashCommand(
+                text,
+                props.availableSlashCommands ?? []
+            )
+            if (unsupportedCommand) {
+                haptic.notification('error')
+                addToast({
+                    title: t('composer.codexSlashUnsupported.title'),
+                    body: t('composer.codexSlashUnsupported.body', { command: `/${unsupportedCommand}` }),
+                    sessionId: props.session.id,
+                    url: `/sessions/${props.session.id}`
+                })
+                return
+            }
+        }
+
         props.onSend(text, attachments)
         setForceScrollToken((token) => token + 1)
-    }, [props.onSend])
+    }, [agentFlavor, props.availableSlashCommands, props.onSend, props.session.id, addToast, haptic, t])
 
     const handleAtBottomChange = useCallback((value: boolean) => {
         if (!value) {

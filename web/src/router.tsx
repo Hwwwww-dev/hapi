@@ -272,6 +272,7 @@ function SessionPageContent(props: {
     // Get agent type from session metadata for slash commands
     const agentType = session?.metadata?.flavor ?? 'claude'
     const {
+        commands: slashCommands,
         getSuggestions: getSlashSuggestions,
     } = useSlashCommands(api, sessionId, agentType)
     const {
@@ -313,6 +314,7 @@ function SessionPageContent(props: {
             autocompleteSuggestions={getAutocompleteSuggestions}
             onSendQueued={sendQueued}
             sessionId={sessionId}
+            availableSlashCommands={slashCommands}
         />
     )
 }
