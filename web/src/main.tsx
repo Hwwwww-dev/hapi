@@ -39,6 +39,7 @@ async function bootstrap() {
     initializeBaseFontSize()
 
     const isTelegram = isTelegramEnvironment()
+    document.documentElement.dataset.telegramApp = isTelegram ? 'true' : 'false'
     if (isTelegram) {
         await loadTelegramSdk()
     }

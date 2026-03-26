@@ -177,6 +177,7 @@ export default {
   'newSession.type.worktree.placeholder': 'feature-x (default 1228-xxxx)',
   'newSession.agent': 'Agent',
   'newSession.model': 'Model',
+  'newSession.effort': 'Effort',
   'newSession.model.optional': 'optional',
   'newSession.reasoningEffort': 'Reasoning effort',
   'newSession.reasoningEffort.low': 'Low',
@@ -218,6 +219,7 @@ export default {
   'terminal.commandArgs': 'Command args',
   'terminal.stdout': 'Stdout',
   'terminal.stderr': 'Stderr',
+  'terminal.unsupportedWindows': 'Remote terminal is unavailable on Windows hosts.',
   'terminal.paste.fallbackTitle': 'Paste input',
   'terminal.paste.fallbackDescription': 'Clipboard read is unavailable. Paste your text below.',
   'terminal.paste.placeholder': 'Paste terminal input here…',
@@ -285,6 +287,8 @@ export default {
   'composer.send': 'Send',
   'composer.stop': 'Stop',
   'composer.voice': 'Voice assistant',
+  'composer.codexSlashUnsupported.title': 'Codex command unavailable',
+  'composer.codexSlashUnsupported.body': 'HAPI remote mode does not yet run built-in Codex slash commands like {command}. Use natural language instead, or run it in the local Codex TUI.',
 
   // Voice assistant
   'voice.connecting': 'Connecting...',
@@ -355,6 +359,7 @@ export default {
   'misc.collaborationMode': 'Collaboration Mode',
   'misc.permissionMode': 'Permission Mode',
   'misc.model': 'Model',
+  'misc.effort': 'Effort',
   'misc.loading': 'Loading…',
   'misc.loadOlder': 'Load more',
   'misc.newMessage': '{n} new message{s}',

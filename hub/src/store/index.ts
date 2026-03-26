@@ -25,7 +25,7 @@ export { PushStore } from './pushStore'
 export { SessionStore } from './sessionStore'
 export { UserStore } from './userStore'
 
-const SCHEMA_VERSION: number = 9
+const SCHEMA_VERSION: number = 10
 const REQUIRED_TABLES = [
     'sessions',
     'session_native_aliases',
@@ -198,6 +198,19 @@ export class Store {
             return
         }
 
+        if (currentVersion === 8 && SCHEMA_VERSION === 10) {
+            this.migrateFromV8ToV9()
+            this.migrateFromV9ToV10()
+            this.setUserVersion(SCHEMA_VERSION)
+            return
+        }
+
+        if (currentVersion === 9 && SCHEMA_VERSION === 10) {
+            this.migrateFromV9ToV10()
+            this.setUserVersion(SCHEMA_VERSION)
+            return
+        }
+
         if (currentVersion !== SCHEMA_VERSION) {
             throw this.buildSchemaMismatchError(currentVersion)
         }
@@ -219,6 +232,7 @@ export class Store {
                 agent_state TEXT,
                 agent_state_version INTEGER DEFAULT 1,
                 model TEXT,
+                effort TEXT,
                 todos TEXT,
                 todos_updated_at INTEGER,
                 team_state TEXT,
@@ -525,6 +539,13 @@ export class Store {
         this.db.exec(`DROP INDEX IF EXISTS idx_messages_sidechain`)
         this.db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_sidechain_group ON messages(session_id, sidechain_group_id) WHERE sidechain_group_id IS NOT NULL`)
         this.db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_root ON messages(session_id, seq DESC) WHERE is_sidechain = 0`)
+    }
+
+    private migrateFromV9ToV10(): void {
+        const columns = this.getSessionColumnNames()
+        if (!columns.has('effort')) {
+            this.db.exec('ALTER TABLE sessions ADD COLUMN effort TEXT')
+        }
     }
 
     private getSessionColumnNames(): Set<string> {

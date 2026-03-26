@@ -23,6 +23,7 @@ export type SessionBootstrapOptions = {
     existingSessionId?: string
     agentState?: AgentState | null
     model?: string
+    effort?: string
     metadataOverrides?: Partial<Metadata>
 }
 
@@ -136,7 +137,8 @@ export async function bootstrapSession(options: SessionBootstrapOptions): Promis
         existingSessionId,
         metadata,
         state: agentState,
-        model: options.model
+        model: options.model,
+        effort: options.effort
     })
 
     const session = api.sessionSyncClient(sessionInfo)

@@ -73,6 +73,7 @@ function createSession(overrides: Partial<SessionSummary> = {}): SessionSummary 
         todoProgress: null,
         pendingRequestsCount: 0,
         model: null,
+        effort: null,
         ...overrides
     }
 }

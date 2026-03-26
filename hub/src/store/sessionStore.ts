@@ -11,6 +11,7 @@ import {
     getSessionsByNamespace,
     isSessionSoftDeleted,
     reconcileSessionTimestamps,
+    setSessionEffort,
     setSessionModel,
     setSessionTeamState,
     setSessionTodos,
@@ -26,8 +27,8 @@ export class SessionStore {
         this.db = db
     }
 
-    getOrCreateSession(tag: string, metadata: unknown, agentState: unknown, namespace: string, model?: string, overrideId?: string): StoredSession | null {
-        return getOrCreateSession(this.db, tag, metadata, agentState, namespace, model, overrideId)
+    getOrCreateSession(tag: string, metadata: unknown, agentState: unknown, namespace: string, model?: string, effort?: string, overrideId?: string): StoredSession | null {
+        return getOrCreateSession(this.db, tag, metadata, agentState, namespace, model, effort, overrideId)
     }
 
     updateSessionMetadata(
@@ -59,6 +60,10 @@ export class SessionStore {
 
     setSessionModel(id: string, model: string | null, namespace: string, options?: { touchUpdatedAt?: boolean }): boolean {
         return setSessionModel(this.db, id, model, namespace, options)
+    }
+
+    setSessionEffort(id: string, effort: string | null, namespace: string, options?: { touchUpdatedAt?: boolean }): boolean {
+        return setSessionEffort(this.db, id, effort, namespace, options)
     }
 
     getSession(id: string): StoredSession | null {

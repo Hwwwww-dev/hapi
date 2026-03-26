@@ -41,8 +41,8 @@ export function BranchSwitcher({ api, sessionId, currentBranch, hasBlockingChang
         setLoading(true)
         const res = await api.getGitBranches(sessionId)
         setLoading(false)
-        if (res.success && res.stdout) {
-            setBranches(res.stdout.split('\n').map(b => b.trim()).filter(Boolean))
+        if (res.success && res.data) {
+            setBranches(res.data.map(b => b.name).filter(Boolean))
         } else {
             const msg = res.error ?? 'Failed to load branches'
             setError(msg)

@@ -29,7 +29,7 @@ describe('NativeSyncStateStore', () => {
             { path: '/tmp/project', host: 'local' },
             null,
             'default'
-        )
+        )!
         firstStore.nativeSyncState.upsert({
             sessionId: session.id,
             provider: 'claude',
@@ -65,7 +65,7 @@ describe('NativeSyncStateStore', () => {
             { path: '/tmp/project', host: 'local' },
             null,
             'default'
-        )
+        )!
         store.nativeSyncState.upsert({
             sessionId: session.id,
             provider: 'codex',

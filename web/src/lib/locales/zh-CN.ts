@@ -179,6 +179,7 @@ export default {
   'newSession.type.worktree.placeholder': 'feature-x (默认 1228-xxxx)',
   'newSession.agent': '代理',
   'newSession.model': '模型',
+  'newSession.effort': '思考强度',
   'newSession.model.optional': '可选',
   'newSession.reasoningEffort': '推理强度',
   'newSession.reasoningEffort.low': '低',
@@ -220,6 +221,7 @@ export default {
   'terminal.commandArgs': '命令参数',
   'terminal.stdout': '标准输出',
   'terminal.stderr': '标准错误',
+  'terminal.unsupportedWindows': 'Windows 主机暂不支持远程终端。',
   'terminal.paste.fallbackTitle': '粘贴输入',
   'terminal.paste.fallbackDescription': '无法读取剪贴板，请在下方粘贴文本。',
   'terminal.paste.placeholder': '在此粘贴终端输入…',
@@ -287,6 +289,8 @@ export default {
   'composer.send': '发送',
   'composer.stop': '停止',
   'composer.voice': '语音助手',
+  'composer.codexSlashUnsupported.title': '无法执行 Codex 命令',
+  'composer.codexSlashUnsupported.body': 'HAPI 远程模式暂不支持 {command} 这类 Codex 内建 slash command，请改用自然语言，或在本地 Codex TUI 中执行。',
 
   // Voice assistant
   'voice.connecting': '连接中...',
@@ -357,6 +361,7 @@ export default {
   'misc.collaborationMode': '协作模式',
   'misc.permissionMode': '权限模式',
   'misc.model': '模型',
+  'misc.effort': '思考强度',
   'misc.loading': '加载中…',
   'misc.loadOlder': '加载更多',
   'misc.newMessage': '{n} 条新消息',

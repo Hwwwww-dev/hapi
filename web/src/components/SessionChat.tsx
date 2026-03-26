@@ -1,7 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import type { ApiClient } from '@/api/client'
-import type { AttachmentMetadata, CodexCollaborationMode, DecryptedMessage, PermissionMode, Session } from '@/types/api'
+import type {
+    AttachmentMetadata,
+    CodexCollaborationMode,
+    DecryptedMessage,
+    PermissionMode,
+    Session,
+    SlashCommand
+} from '@/types/api'
 import { isSidechainMessage } from '@/lib/messages'
 import type { ChatBlock, NormalizedMessage } from '@/chat/types'
 import type { Suggestion } from '@/hooks/useActiveSuggestions'
@@ -14,6 +21,8 @@ import { useAttachmentManager } from '@/lib/useAttachmentManager'
 import { HappyComposer } from '@/components/AssistantChat/HappyComposer'
 import { HappyThread } from '@/components/AssistantChat/HappyThread'
 import type { HappyThreadHandle } from '@/components/AssistantChat/HappyThread'
+import { findUnsupportedCodexBuiltinSlashCommand } from '@/lib/codexSlashCommands'
+import { useToast } from '@/lib/toast-context'
 import { SessionHeader } from '@/components/SessionHeader'
 import { TeamPanel } from '@/components/TeamPanel'
 import { usePlatform } from '@/hooks/usePlatform'
@@ -22,6 +31,7 @@ import { useTranslation } from '@/lib/use-translation'
 import { useVoiceOptional } from '@/lib/voice-context'
 import { RealtimeVoiceSession, registerSessionStore, registerVoiceHooksStore, voiceHooks } from '@/realtime'
 import { ScrollToBottomButton } from '@/components/AssistantChat/ScrollToBottomButton'
+import { isRemoteTerminalSupported } from '@/utils/terminalSupport'
 
 const SESSION_CHAT_RENDERER_INSTANCE_ID = Date.now()
 
@@ -47,11 +57,14 @@ export const SessionChat = memo(function SessionChat(props: {
     autocompleteSuggestions?: (query: string) => Promise<Suggestion[]>
     onSendQueued?: (text: string, attachments?: AttachmentMetadata[]) => Promise<void>
     sessionId?: string | null
+    availableSlashCommands?: readonly SlashCommand[]
 }) {
     const { t } = useTranslation()
     const { haptic } = usePlatform()
+    const { addToast } = useToast()
     const navigate = useNavigate()
     const sessionInactive = !props.session.active
+    const terminalSupported = isRemoteTerminalSupported(props.session.metadata)
     const normalizedCacheRef = useRef<Map<string, { source: DecryptedMessage; normalized: NormalizedMessage | null }>>(new Map())
     const blocksByIdRef = useRef<Map<string, ChatBlock>>(new Map())
     const [forceScrollToken, setForceScrollToken] = useState(0)
@@ -62,7 +75,7 @@ export const SessionChat = memo(function SessionChat(props: {
     const controlledByUser = props.session.agentState?.controlledByUser === true
     const isSubagent = !!props.session.metadata?.parentNativeSessionId
     const codexCollaborationModeSupported = agentFlavor === 'codex' && !controlledByUser
-    const { abortSession, archiveSession, switchSession, setPermissionMode, setCollaborationMode, setModel } = useSessionActions(
+    const { abortSession, archiveSession, switchSession, setPermissionMode, setCollaborationMode, setModel, setEffort } = useSessionActions(
         props.api,
         props.session.id,
         agentFlavor,
@@ -260,6 +273,17 @@ export const SessionChat = memo(function SessionChat(props: {
         }
     }, [setModel, props.onRefresh, haptic])
 
+    const handleEffortChange = useCallback(async (effort: string | null) => {
+        try {
+            await setEffort(effort)
+            haptic.notification('success')
+            props.onRefresh()
+        } catch (e) {
+            haptic.notification('error')
+            console.error('Failed to set effort:', e)
+        }
+    }, [setEffort, props.onRefresh, haptic])
+
     // Abort handler
     const handleAbort = useCallback(async () => {
         await abortSession()
@@ -287,9 +311,26 @@ export const SessionChat = memo(function SessionChat(props: {
     }, [navigate, props.session.id])
 
     const handleSend = useCallback((text: string, attachments?: AttachmentMetadata[]) => {
+        if (agentFlavor === 'codex') {
+            const unsupportedCommand = findUnsupportedCodexBuiltinSlashCommand(
+                text,
+                props.availableSlashCommands ?? []
+            )
+            if (unsupportedCommand) {
+                haptic.notification('error')
+                addToast({
+                    title: t('composer.codexSlashUnsupported.title'),
+                    body: t('composer.codexSlashUnsupported.body', { command: `/${unsupportedCommand}` }),
+                    sessionId: props.session.id,
+                    url: `/sessions/${props.session.id}`
+                })
+                return
+            }
+        }
+
         props.onSend(text, attachments)
         setForceScrollToken((token) => token + 1)
-    }, [props.onSend])
+    }, [agentFlavor, props.availableSlashCommands, props.onSend, props.session.id, addToast, haptic, t])
 
     const handleAtBottomChange = useCallback((value: boolean) => {
         if (!value) {
@@ -384,7 +425,7 @@ export const SessionChat = memo(function SessionChat(props: {
     const isDisabled = props.isSending || !props.session.active
 
     return (
-        <div className="flex h-full flex-col">
+        <div className="flex h-full min-h-0 flex-col">
             <SessionHeader
                 session={props.session}
                 onBack={props.onBack}
@@ -442,6 +483,7 @@ export const SessionChat = memo(function SessionChat(props: {
                         permissionMode={props.session.permissionMode}
                         collaborationMode={codexCollaborationModeSupported ? props.session.collaborationMode : undefined}
                         model={props.session.model}
+                        effort={props.session.effort}
                         agentFlavor={agentFlavor}
                         active={props.session.active}
                         allowSendWhenInactive
@@ -458,8 +500,10 @@ export const SessionChat = memo(function SessionChat(props: {
                         }
                         onPermissionModeChange={handlePermissionModeChange}
                         onModelChange={handleModelChange}
+                        onEffortChange={handleEffortChange}
                         onSwitchToRemote={handleSwitchToRemote}
-                        onTerminal={props.session.active ? handleViewTerminal : undefined}
+                        onTerminal={props.session.active && terminalSupported ? handleViewTerminal : undefined}
+                        terminalUnsupported={props.session.active && !terminalSupported}
                         autocompleteSuggestions={props.autocompleteSuggestions}
                         voiceStatus={voice?.status}
                         voiceMicMuted={voice?.micMuted}

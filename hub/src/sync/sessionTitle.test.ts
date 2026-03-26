@@ -10,7 +10,7 @@ describe('session title fallback', () => {
         const session = store.sessions.getOrCreateSession('tag-1', {
             path: '/tmp/project',
             host: 'local'
-        }, null, 'default')
+        }, null, 'default')!
 
         const updated = maybeApplyFirstMessageSessionTitle(store, session.id, {
             role: 'user',
@@ -37,7 +37,7 @@ describe('session title fallback', () => {
             path: '/tmp/project',
             host: 'local',
             summary: createSessionTitleSummary('Generated Title', 200, 'generated')
-        }, null, 'default')
+        }, null, 'default')!
 
         const updated = maybeApplyFirstMessageSessionTitle(store, session.id, {
             role: 'user',

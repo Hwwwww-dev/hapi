@@ -65,14 +65,14 @@ export const AgentIcon = memo(function AgentIcon({ flavor, size = 'var(--icon-sm
         case 'online':
             return (
                 <svg {...svgProps} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    {/* Signal — online status with pulse */}
-                    <path d="M2 12C2 6.5 6.5 2 12 2s10 4.5 10 10" fill="none" opacity="0.3">
+                    {/* WiFi signal — online status */}
+                    <path d="M1 8.4C4.1 4.1 7.8 2 12 2s7.9 2.1 11 6.4" opacity="0.3">
                         <animate attributeName="opacity" values="0.3;0.7;0.3" dur="2s" repeatCount="indefinite" />
                     </path>
-                    <path d="M7 12c0-2.8 2.2-5 5-5s5 2.2 5 5" fill="none" opacity="0.6">
+                    <path d="M5 12.8c1.8-2.5 4.2-4 7-4s5.2 1.5 7 4" opacity="0.6">
                         <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite" begin="0.3s" />
                     </path>
-                    <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none">
+                    <circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none">
                         <animate attributeName="r" values="1.5;2;1.5" dur="2s" repeatCount="indefinite" />
                     </circle>
                 </svg>
