@@ -2,6 +2,7 @@ import type { NativeSyncProvider } from './providers/provider'
 import { buildStableNativeTag } from './providers/provider'
 import type { NativeMessageImport, NativeSyncState, NativeSessionSummary } from './types'
 import { createSessionTitleSummary } from '@hapi/protocol'
+import { logger } from '@/ui/logger'
 
 export type NativeSyncApi = {
     upsertNativeSession(payload: {
@@ -120,7 +121,8 @@ export class NativeSyncService {
             let summaries: NativeSessionSummary[]
             try {
                 summaries = await provider.discoverSessions()
-            } catch {
+            } catch (error) {
+                logger.debug(`[NATIVE SYNC] Failed to discover sessions for provider ${provider.name}:`, error instanceof Error ? error.message : error)
                 continue
             }
 
@@ -135,9 +137,9 @@ export class NativeSyncService {
 
                 try {
                     await this.syncSession(provider, summary)
-                } catch {
-                } finally {
                     this.lastSessionSyncAt.set(sessionKey, this.now())
+                } catch (error) {
+                    logger.debug(`[NATIVE SYNC] Failed to sync session ${summary.nativeSessionId}:`, error instanceof Error ? error.message : error)
                 }
             }
         }

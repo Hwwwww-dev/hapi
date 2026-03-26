@@ -126,7 +126,8 @@ export function createMachinesRoutes(getSyncEngine: () => SyncEngine | null): Ho
         try {
             const result = await engine.listMachineDirectory(machineId, parsed.data.path)
             return c.json(result)
-        } catch {
+        } catch (error) {
+            console.error('[Machine Directory Browse]', machineId, parsed.data.path, error instanceof Error ? error.message : error)
             return c.json({ success: false, error: 'Machine directory browse unavailable' }, 500)
         }
     })
@@ -152,7 +153,8 @@ export function createMachinesRoutes(getSyncEngine: () => SyncEngine | null): Ho
         try {
             const result = await engine.createMachineDirectory(machineId, parsed.data.parentPath, parsed.data.name)
             return c.json(result)
-        } catch {
+        } catch (error) {
+            console.error('[Machine Directory Create]', machineId, parsed.data.parentPath, parsed.data.name, error instanceof Error ? error.message : error)
             return c.json({ success: false, error: 'Machine directory creation unavailable' }, 500)
         }
     })
