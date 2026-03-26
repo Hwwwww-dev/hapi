@@ -18,9 +18,9 @@ export function AgentSelector(props: {
                 value={props.agent}
                 onChange={(val) => props.onAgentChange(val as AgentType)}
                 disabled={props.isDisabled}
-                className="flex gap-3"
+                className="flex flex-wrap gap-3"
             >
-                {(['claude', 'codex', 'cursor'] as const).map((agentType) => (
+                {(['claude', 'codex', 'cursor', 'gemini', 'opencode'] as const).map((agentType) => (
                     <Radio key={agentType} value={agentType}>
                         <span className="text-sm capitalize">{agentType}</span>
                     </Radio>
