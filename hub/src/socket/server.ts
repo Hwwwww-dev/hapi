@@ -133,7 +133,8 @@ export function createSocketServer(deps: SocketServerDeps): {
             socket.data.namespace = parsed.data.ns
             next()
             return
-        } catch {
+        } catch (error) {
+            console.error('[SocketServer] Terminal token verification failed:', error)
             return next(new Error('Invalid token'))
         }
     })

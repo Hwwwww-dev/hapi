@@ -56,7 +56,8 @@ export function updateVersionedField<T>(args: VersionedUpdateArgs<T>): Versioned
             version: current.version,
             value: args.decode(current.field_value)
         }
-    } catch {
+    } catch (error) {
+        console.error('[VersionedUpdate] updateVersionedField failed:', error)
         return { result: 'error' }
     }
 }

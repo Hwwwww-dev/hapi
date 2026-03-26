@@ -54,14 +54,16 @@ export class Store {
             mkdirSync(dir, { recursive: true, mode: 0o700 })
             try {
                 chmodSync(dir, 0o700)
-            } catch {
+            } catch (error) {
+                console.error('[Store] Failed to chmod database directory:', error)
             }
 
             if (!existsSync(dbPath)) {
                 try {
                     const fd = openSync(dbPath, 'a', 0o600)
                     closeSync(fd)
-                } catch {
+                } catch (error) {
+                    console.error('[Store] Failed to create database file:', error)
                 }
             }
         }
@@ -77,7 +79,8 @@ export class Store {
             for (const path of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
                 try {
                     chmodSync(path, 0o600)
-                } catch {
+                } catch (error) {
+                    console.error(`[Store] Failed to chmod database file ${path}:`, error)
                 }
             }
         }

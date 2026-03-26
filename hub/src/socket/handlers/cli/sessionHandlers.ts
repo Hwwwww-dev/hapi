@@ -76,7 +76,8 @@ export function registerSessionHandlers(socket: CliSocketWithData, deps: Session
             ? (() => {
                 try {
                     return JSON.parse(raw) as unknown
-                } catch {
+                } catch (error) {
+                    console.error('[SessionHandlers] Failed to parse message content:', error)
                     return raw
                 }
             })()

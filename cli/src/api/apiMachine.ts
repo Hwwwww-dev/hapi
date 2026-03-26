@@ -93,7 +93,8 @@ export class ApiMachineClient {
                 try {
                     const stats = await stat(trimmed)
                     exists[trimmed] = stats.isDirectory()
-                } catch {
+                } catch (error) {
+                    logger.debug(`[API MACHINE] stat() failed for path: ${trimmed}`, error)
                     exists[trimmed] = false
                 }
             }))

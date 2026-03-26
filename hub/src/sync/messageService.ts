@@ -23,8 +23,8 @@ function extractToolUseIds(messages: StoredMessage[]): string[] {
                     }
                 }
             }
-        } catch {
-            // Skip unparseable messages
+        } catch (error) {
+            console.error('[MessageService] Failed to parse message:', error)
         }
     }
     return ids

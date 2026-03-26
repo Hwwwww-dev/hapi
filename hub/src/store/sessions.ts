@@ -258,7 +258,8 @@ export function setSessionTodos(
         })
 
         return result.changes === 1
-    } catch {
+    } catch (error) {
+        console.error('[SessionStore] setSessionTodos failed:', error)
         return false
     }
 }
@@ -288,7 +289,8 @@ export function setSessionTeamState(
         })
 
         return result.changes === 1
-    } catch {
+    } catch (error) {
+        console.error('[SessionStore] setSessionTeamState failed:', error)
         return false
     }
 }
@@ -321,7 +323,8 @@ export function setSessionModel(
         })
 
         return result.changes === 1
-    } catch {
+    } catch (error) {
+        console.error('[SessionStore] setSessionModel failed:', error)
         return false
     }
 }
@@ -354,7 +357,8 @@ export function setSessionEffort(
         })
 
         return result.changes === 1
-    } catch {
+    } catch (error) {
+        console.error('[SessionStore] setSessionEffort failed:', error)
         return false
     }
 }

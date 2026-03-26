@@ -160,8 +160,9 @@ export function StatusBar(props: {
         ? getCodexCollaborationModeLabel(displayCollaborationMode)
         : null
 
-    // Effort display — show non-default effort as capsule with tone
-    const effortLabel = props.effort && props.effort !== 'auto' && props.effort !== 'default'
+    // Effort display — only show known effort values as capsule
+    const KNOWN_EFFORTS = ['low', 'medium', 'high', 'max'] as const
+    const effortLabel = props.effort && KNOWN_EFFORTS.includes(props.effort as typeof KNOWN_EFFORTS[number])
         ? `${props.effort.charAt(0).toUpperCase()}${props.effort.slice(1)}`
         : null
     const effortTone = props.effort === 'max' ? 'danger'
@@ -171,9 +172,9 @@ export function StatusBar(props: {
     const hasCapsules = Boolean(collaborationModeLabel || effortLabel || displayPermissionMode)
 
     return (
-        <div className="flex flex-wrap items-center justify-between gap-y-0.5 px-2 pb-1">
+        <div className="flex items-center justify-between px-2 pb-1">
             {/* Left: connection status + context + message count */}
-            <div className="flex items-baseline gap-3 shrink-0">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 shrink min-w-0">
                 <div className="flex items-center gap-1.5 shrink-0">
                     <span
                         className={`h-2 w-2 shrink-0 rounded-full ${connectionStatus.dotColor} ${connectionStatus.isPulsing ? 'animate-pulse' : ''}`}
@@ -210,7 +211,7 @@ export function StatusBar(props: {
                                     ? 'border-amber-500/30 bg-amber-500/10 text-amber-500'
                                     : 'border-blue-500/30 bg-blue-500/10 text-blue-500'
                         }`}>
-                            ⚡ {effortLabel}
+                            {effortLabel}
                         </span>
                     ) : null}
                     {displayPermissionMode ? (

@@ -42,7 +42,8 @@ async function findHapiAgent(apiKey: string): Promise<string | null> {
         const hapiAgent = agents.find(agent => agent.name === VOICE_AGENT_NAME)
 
         return hapiAgent?.agent_id || null
-    } catch {
+    } catch (error) {
+        console.error('[Voice] Failed to find existing agent:', error)
         return null
     }
 }

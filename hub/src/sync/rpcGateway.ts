@@ -166,7 +166,8 @@ export class RpcGateway {
                 : (() => {
                     try {
                         return JSON.stringify(result)
-                    } catch {
+                    } catch (error) {
+                        console.error('[RpcGateway] Failed to stringify spawn result:', error)
                         return String(result)
                     }
                 })()
@@ -456,7 +457,8 @@ export class RpcGateway {
 
         try {
             return JSON.parse(response) as unknown
-        } catch {
+        } catch (error) {
+            console.error(`[RpcGateway] Failed to parse RPC response for ${method}:`, error)
             return response
         }
     }
