@@ -1,7 +1,7 @@
 export type AgentType = 'claude' | 'codex' | 'cursor' | 'gemini' | 'opencode'
 export type SessionType = 'simple' | 'worktree'
 export type CodexReasoningEffort = 'default' | 'low' | 'medium' | 'high' | 'xhigh'
-export type ClaudeEffort = 'auto' | 'medium' | 'high' | 'max'
+export type ClaudeEffort = 'auto' | 'low' | 'medium' | 'high' | 'max'
 
 export const MODEL_OPTIONS: Record<AgentType, { value: string; label: string }[]> = {
     claude: [
@@ -40,6 +40,7 @@ export const CODEX_REASONING_EFFORT_OPTIONS: { value: CodexReasoningEffort; labe
 
 export const CLAUDE_EFFORT_OPTIONS: { value: ClaudeEffort; label: string }[] = [
     { value: 'auto', label: 'Auto' },
+    { value: 'low', label: 'Low' },
     { value: 'medium', label: 'Medium' },
     { value: 'high', label: 'High' },
     { value: 'max', label: 'Max' },
