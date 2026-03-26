@@ -124,7 +124,9 @@ describe('ApiSessionClient keepAlive reconnect state', () => {
             agentState: null,
             agentStateVersion: 1,
             thinking: false,
-            thinkingAt: 0
+            thinkingAt: 0,
+            model: null,
+            effort: null
         })
 
         client.keepAlive(true, 'remote', { permissionMode: 'default' })
@@ -160,7 +162,9 @@ describe('ApiSessionClient keepAlive reconnect state', () => {
             agentState: null,
             agentStateVersion: 1,
             thinking: false,
-            thinkingAt: 0
+            thinkingAt: 0,
+            model: null,
+            effort: null
         })
 
         client.sendClaudeSessionMessage({

@@ -10,7 +10,7 @@ describe('SessionStore time semantics', () => {
             { path: '/tmp/project', host: 'local' },
             null,
             'default'
-        )
+        )!
 
         const reconciled = store.sessions.reconcileSessionTimestamps(session.id, 'default', {
             createdAt: 100,
@@ -30,7 +30,7 @@ describe('SessionStore time semantics', () => {
             { path: '/tmp/project', host: 'local' },
             null,
             'default'
-        )
+        )!
 
         store.messages.importNativeMessage(session.id, {
             content: { role: 'assistant', content: 'first' },
@@ -65,7 +65,7 @@ describe('SessionStore time semantics', () => {
             { path: '/tmp/project', host: 'local' },
             null,
             'default'
-        )
+        )!
 
         store.sessions.reconcileSessionTimestamps(session.id, 'default', {
             createdAt: 200,
@@ -89,7 +89,7 @@ describe('SessionStore time semantics', () => {
             { path: '/tmp/project', host: 'local' },
             null,
             'default'
-        )
+        )!
 
         const first = store.sessions.reconcileSessionTimestamps(session.id, 'default', {
             createdAt: 100,
@@ -111,7 +111,7 @@ describe('SessionStore time semantics', () => {
             { path: '/tmp/project', host: 'local' },
             null,
             'default'
-        )
+        )!
 
         const reconciled = store.sessions.reconcileSessionTimestamps(session.id, 'default', {
             createdAt: 200,
@@ -131,7 +131,7 @@ describe('SessionStore time semantics', () => {
             { path: '/tmp/project', host: 'local' },
             null,
             'default'
-        )
+        )!
 
         store.sessions.reconcileSessionTimestamps(session.id, 'default', {
             createdAt: 100,
@@ -179,7 +179,7 @@ describe('SessionStore time semantics', () => {
             { path: '/tmp/project', host: 'local' },
             null,
             'default'
-        )
+        )!
 
         store.sessions.reconcileSessionTimestamps(session.id, 'default', {
             createdAt: 100,
@@ -212,7 +212,7 @@ describe('SessionStore time semantics', () => {
             },
             null,
             'default'
-        )
+        )!
 
         store.sessions.reconcileSessionTimestamps(session.id, 'default', {
             createdAt: 100,

@@ -10,7 +10,7 @@ describe('MessageStore native import', () => {
             { path: '/tmp/project', host: 'local' },
             null,
             'default'
-        )
+        )!
 
         const first = store.messages.importNativeMessage(session.id, {
             content: { role: 'assistant', content: 'hello' },
@@ -40,7 +40,7 @@ describe('MessageStore native import', () => {
             { path: '/tmp/project', host: 'local' },
             null,
             'default'
-        )
+        )!
 
         const first = store.messages.importNativeMessage(session.id, {
             content: { role: 'assistant', content: 'first' },
@@ -74,7 +74,7 @@ describe('MessageStore native import', () => {
             { path: '/tmp/project', host: 'local' },
             null,
             'default'
-        )
+        )!
 
         const first = store.messages.importNativeMessage(session.id, {
             content: { role: 'assistant', content: 'hello' },
@@ -109,7 +109,7 @@ describe('MessageStore native import', () => {
             { path: '/tmp/project', host: 'local' },
             null,
             'default'
-        )
+        )!
 
         const first = store.messages.importNativeMessage(session.id, {
             content: { role: 'assistant', content: 'stale' },

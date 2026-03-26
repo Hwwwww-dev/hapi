@@ -240,7 +240,11 @@ export class SyncEngine {
         model?: string,
         effort?: string
     ): Session {
-        return this.sessionCache.getOrCreateSession(tag, metadata, agentState, namespace, model, effort)
+        const session = this.sessionCache.getOrCreateSession(tag, metadata, agentState, namespace, model, effort)
+        if (!session) {
+            throw new Error(`Failed to create session for tag: ${tag}`)
+        }
+        return session
     }
 
     upsertNativeSession(payload: {

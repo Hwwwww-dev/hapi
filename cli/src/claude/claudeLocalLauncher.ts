@@ -1,7 +1,7 @@
 import { claudeLocal } from "./claudeLocal";
 import { Session } from "./session";
 import { createSessionScanner } from "./utils/sessionScanner";
-import { isClaudeChatVisibleMessage } from "./utils/chatVisibility";
+import { isClaudeChatVisibleMessage } from "@hapi/protocol/messages";
 import { BaseLocalLauncher } from "@/modules/common/launcher/BaseLocalLauncher";
 
 export async function claudeLocalLauncher(session: Session): Promise<'switch' | 'exit'> {

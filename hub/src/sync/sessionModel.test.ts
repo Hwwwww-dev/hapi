@@ -27,7 +27,7 @@ describe('session model', () => {
             null,
             'default',
             'gpt-5.4'
-        )
+        )!
 
         expect(session.model).toBe('gpt-5.4')
         expect(toSessionSummary(session).model).toBe('gpt-5.4')
@@ -46,7 +46,7 @@ describe('session model', () => {
             'default',
             'sonnet',
             'high'
-        )
+        )!
 
         expect(session.effort).toBe('high')
         expect(toSessionSummary(session).effort).toBe('high')
@@ -63,13 +63,13 @@ describe('session model', () => {
             null,
             'default',
             'gpt-5.4'
-        )
+        )!
         const newSession = cache.getOrCreateSession(
             'session-model-new',
             { path: '/tmp/project', host: 'localhost', flavor: 'codex' },
             null,
             'default'
-        )
+        )!
 
         await cache.mergeSessions(oldSession.id, newSession.id, 'default')
 
@@ -88,7 +88,7 @@ describe('session model', () => {
             null,
             'default',
             'sonnet'
-        )
+        )!
 
         cache.applySessionConfig(session.id, { model: 'opus[1m]' })
         expect(cache.getSession(session.id)?.model).toBe('opus[1m]')
@@ -110,7 +110,7 @@ describe('session model', () => {
             null,
             'default',
             'sonnet'
-        )
+        )!
 
         cache.handleSessionAlive({
             sid: session.id,
@@ -135,7 +135,7 @@ describe('session model', () => {
             'default',
             'sonnet',
             'medium'
-        )
+        )!
 
         cache.applySessionConfig(session.id, { effort: 'max' })
         expect(cache.getSession(session.id)?.effort).toBe('max')
@@ -158,7 +158,7 @@ describe('session model', () => {
             'default',
             'sonnet',
             'high'
-        )
+        )!
 
         cache.handleSessionAlive({
             sid: session.id,
@@ -182,7 +182,7 @@ describe('session model', () => {
             null,
             'default',
             'gpt-5.4'
-        )
+        )!
 
         cache.applySessionConfig(session.id, { collaborationMode: 'plan' })
         expect(cache.getSession(session.id)?.collaborationMode).toBe('plan')

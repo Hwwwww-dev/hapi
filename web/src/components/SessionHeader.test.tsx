@@ -56,7 +56,8 @@ describe('SessionHeader', () => {
             agentStateVersion: 1,
             thinking: false,
             thinkingAt: 0,
-            model: null
+            model: null,
+            effort: null
         }
 
         renderWithProviders(
@@ -94,7 +95,8 @@ describe('SessionHeader', () => {
             agentStateVersion: 1,
             thinking: false,
             thinkingAt: 0,
-            model: null
+            model: null,
+            effort: null
         }
 
         renderWithProviders(
@@ -127,7 +129,8 @@ describe('SessionHeader', () => {
             agentStateVersion: 1,
             thinking: false,
             thinkingAt: 0,
-            model: null
+            model: null,
+            effort: null
         }
 
         renderWithProviders(
@@ -163,7 +166,8 @@ describe('SessionHeader', () => {
             agentStateVersion: 1,
             thinking: false,
             thinkingAt: 0,
-            model: null
+            model: null,
+            effort: null
         }
 
         renderWithProviders(

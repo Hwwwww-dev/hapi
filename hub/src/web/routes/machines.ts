@@ -65,7 +65,7 @@ export function createMachinesRoutes(getSyncEngine: () => SyncEngine | null): Ho
             parsed.data.directory,
             parsed.data.agent,
             parsed.data.model,
-            parsed.data.modelReasoningEffort,
+            parsed.data.modelReasoningEffort as 'high' | 'medium' | 'low' | 'xhigh' | undefined,
             parsed.data.yolo,
             parsed.data.sessionType,
             parsed.data.worktreeName,

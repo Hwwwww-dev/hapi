@@ -28,8 +28,9 @@ describe('toSessionSummary', () => {
             thinkingAt: 0,
             todos: undefined,
             teamState: undefined,
-            permissionMode: undefined,
-            modelMode: undefined
+            model: null,
+            effort: null,
+            permissionMode: undefined
         }
 
         expect(toSessionSummary(session).metadata).toEqual(expect.objectContaining({
@@ -59,8 +60,9 @@ describe('toSessionSummary', () => {
             thinkingAt: 0,
             todos: undefined,
             teamState: undefined,
-            permissionMode: undefined,
-            modelMode: undefined
+            model: null,
+            effort: null,
+            permissionMode: undefined
         }
 
         expect(toSessionSummary(session)).toEqual(expect.objectContaining({

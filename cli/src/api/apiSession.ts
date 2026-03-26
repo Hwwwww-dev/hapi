@@ -90,7 +90,7 @@ export class ApiSessionClient extends EventEmitter {
     private lastKeepAliveState: {
         thinking: boolean
         mode?: 'local' | 'remote'
-        runtime?: { permissionMode?: SessionPermissionMode; modelMode?: SessionModelMode }
+        runtime?: { permissionMode?: SessionPermissionMode; model?: SessionModel; effort?: string | null; collaborationMode?: SessionCollaborationMode }
     }
 
     constructor(token: string, session: Session) {

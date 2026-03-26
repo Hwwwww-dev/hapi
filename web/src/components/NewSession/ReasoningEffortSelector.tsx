@@ -28,8 +28,8 @@ export function ReasoningEffortSelector(props: {
                 className="w-full"
             >
                 {CODEX_REASONING_EFFORT_OPTIONS.map((option) => (
-                    <Select.Option key={option} value={option}>
-                        {t(`newSession.reasoningEffort.${option}`)}
+                    <Select.Option key={option.value} value={option.value}>
+                        {t(`newSession.reasoningEffort.${option.value}`)}
                     </Select.Option>
                 ))}
             </Select>

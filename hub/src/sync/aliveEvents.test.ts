@@ -24,7 +24,7 @@ describe('alive incremental events', () => {
             { path: '/tmp/project', host: 'localhost' },
             { requests: {}, completedRequests: {} },
             'default'
-        )
+        )!
 
         events.length = 0
         cache.handleSessionAlive({ sid: session.id, time: Date.now(), thinking: false })

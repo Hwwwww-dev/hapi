@@ -503,11 +503,6 @@ export class SessionCache {
             } else if (runtimeTarget?.permissionMode !== undefined) {
                 refreshed.permissionMode = runtimeTarget.permissionMode
             }
-            if (runtimeSource?.modelMode !== undefined) {
-                refreshed.modelMode = runtimeSource.modelMode
-            } else if (runtimeTarget?.modelMode !== undefined) {
-                refreshed.modelMode = runtimeTarget.modelMode
-            }
 
             this.publisher.emit({ type: 'session-updated', sessionId: targetSessionId, data: refreshed })
         }

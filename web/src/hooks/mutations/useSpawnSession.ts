@@ -32,7 +32,7 @@ export function useSpawnSession(api: ApiClient | null): {
                 input.directory,
                 input.agent,
                 input.model,
-                input.modelReasoningEffort,
+                input.modelReasoningEffort as 'high' | 'medium' | 'low' | 'xhigh' | undefined,
                 input.yolo,
                 input.sessionType,
                 input.worktreeName,

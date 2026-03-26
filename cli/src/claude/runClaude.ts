@@ -19,8 +19,6 @@ import { PermissionModeSchema } from '@hapi/protocol/schemas';
 import { formatMessageWithAttachments } from '@/utils/attachmentFormatter';
 import { normalizeClaudeSessionModel } from './model';
 import { normalizeClaudeSessionEffort } from './effort';
-import { getInvokedCwd } from '@/utils/invokedCwd';
-
 export interface StartOptions {
     model?: string
     effort?: string
