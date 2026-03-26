@@ -4,7 +4,6 @@ import {
     getPermissionModeTone,
     isPermissionModeAllowedForFlavor
 } from '@hapi/protocol'
-import type { PermissionModeTone } from '@hapi/protocol'
 import { useEffect, useMemo } from 'react'
 import type { AgentState, CodexCollaborationMode, PermissionMode } from '@/types/api'
 import type { ConversationStatus } from '@/realtime/types'
@@ -22,13 +21,6 @@ function WavyText({ text }: { text: string }) {
             ))}
         </span>
     )
-}
-
-const PERMISSION_TONE_CLASSES: Record<PermissionModeTone, string> = {
-    neutral: 'text-[var(--app-hint)]',
-    info: 'text-blue-500',
-    warning: 'text-amber-500',
-    danger: 'text-red-500'
 }
 
 function getConnectionStatus(
@@ -122,6 +114,7 @@ export function StatusBar(props: {
     messageCount?: number
     totalMessages?: number | null
     model?: string | null
+    effort?: string | null
     permissionMode?: PermissionMode
     collaborationMode?: CodexCollaborationMode
     agentFlavor?: string | null
@@ -160,7 +153,6 @@ export function StatusBar(props: {
 
     const permissionModeLabel = displayPermissionMode ? getPermissionModeLabel(displayPermissionMode) : null
     const permissionModeTone = displayPermissionMode ? getPermissionModeTone(displayPermissionMode) : null
-    const permissionModeColor = permissionModeTone ? PERMISSION_TONE_CLASSES[permissionModeTone] : 'text-[var(--app-hint)]'
     const displayCollaborationMode = props.agentFlavor === 'codex' && props.collaborationMode === 'plan'
         ? props.collaborationMode
         : null
@@ -168,14 +160,25 @@ export function StatusBar(props: {
         ? getCodexCollaborationModeLabel(displayCollaborationMode)
         : null
 
+    // Effort display — show non-default effort as capsule with tone
+    const effortLabel = props.effort && props.effort !== 'auto' && props.effort !== 'default'
+        ? `${props.effort.charAt(0).toUpperCase()}${props.effort.slice(1)}`
+        : null
+    const effortTone = props.effort === 'max' ? 'danger'
+        : props.effort === 'high' ? 'warning'
+        : 'info'
+
+    const hasCapsules = Boolean(collaborationModeLabel || effortLabel || displayPermissionMode)
+
     return (
-        <div className="flex flex-wrap items-center justify-between gap-y-0.5 px-2 pb-1 overflow-hidden">
-            <div className="flex items-baseline gap-3 min-w-0 overflow-hidden">
-                <div className="flex items-center gap-1.5 min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-y-0.5 px-2 pb-1">
+            {/* Left: connection status + context + message count */}
+            <div className="flex items-baseline gap-3 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                     <span
                         className={`h-2 w-2 shrink-0 rounded-full ${connectionStatus.dotColor} ${connectionStatus.isPulsing ? 'animate-pulse' : ''}`}
                     />
-                    <span className={`text-xs truncate ${connectionStatus.color}`}>
+                    <span className={`text-xs whitespace-nowrap ${connectionStatus.color}`}>
                         {connectionStatus.isPulsing ? <WavyText text={connectionStatus.text} /> : connectionStatus.text}
                     </span>
                 </div>
@@ -191,18 +194,40 @@ export function StatusBar(props: {
                 ) : null}
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-                {collaborationModeLabel ? (
-                    <span className="text-xs text-blue-500 truncate">
-                        {collaborationModeLabel}
-                    </span>
-                ) : null}
-                {displayPermissionMode ? (
-                    <span className={`text-xs truncate ${permissionModeColor}`}>
-                        {permissionModeLabel}
-                    </span>
-                ) : null}
-            </div>
+            {/* Right: capsule badges — wrap to next line on narrow screens */}
+            {hasCapsules ? (
+                <div className="flex items-center gap-1.5">
+                    {collaborationModeLabel ? (
+                        <span className="inline-flex items-center rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[length:var(--text-badge)] text-blue-500 whitespace-nowrap">
+                            {collaborationModeLabel}
+                        </span>
+                    ) : null}
+                    {effortLabel ? (
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[length:var(--text-badge)] whitespace-nowrap ${
+                            effortTone === 'danger'
+                                ? 'border-red-500/30 bg-red-500/10 text-red-500'
+                                : effortTone === 'warning'
+                                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-500'
+                                    : 'border-blue-500/30 bg-blue-500/10 text-blue-500'
+                        }`}>
+                            ⚡ {effortLabel}
+                        </span>
+                    ) : null}
+                    {displayPermissionMode ? (
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[length:var(--text-badge)] whitespace-nowrap ${
+                            permissionModeTone === 'danger'
+                                ? 'border-red-500/30 bg-red-500/10 text-red-500'
+                                : permissionModeTone === 'warning'
+                                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-500'
+                                    : permissionModeTone === 'info'
+                                        ? 'border-blue-500/30 bg-blue-500/10 text-blue-500'
+                                        : 'border-[var(--app-hint)]/30 bg-[var(--app-hint)]/10 text-[var(--app-hint)]'
+                        }`}>
+                            {permissionModeLabel}
+                        </span>
+                    ) : null}
+                </div>
+            ) : null}
         </div>
     )
 }

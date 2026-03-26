@@ -762,6 +762,7 @@ export function HappyComposer(props: {
                         messageCount={messageCount}
                         totalMessages={totalMessages}
                         model={model}
+                        effort={effort}
                         permissionMode={permissionMode}
                         collaborationMode={collaborationMode}
                         agentFlavor={agentFlavor}
