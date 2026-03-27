@@ -162,6 +162,12 @@ function parseCodexBashOutput(text: string): CodexBashOutput | null {
     }
 }
 
+export function getMutationResultRenderMode(text: string, state: string): { mode: 'code' | 'auto'; language?: string } {
+    const isMultiline = text.split('\n').length > 3
+    const mode = state === 'error' || isMultiline ? 'code' as const : 'auto' as const
+    return { mode, language: mode === 'code' ? 'text' : undefined }
+}
+
 function looksLikeHtml(text: string): boolean {
     const trimmed = text.trimStart()
     return trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html') || trimmed.startsWith('<div') || trimmed.startsWith('<span')
@@ -539,12 +545,14 @@ const MutationResultView: ToolViewComponent = (props: ToolViewProps) => {
 
     const text = extractTextFromResult(result)
 
-    // Error state: show full error text
-    if (state === 'error' && typeof text === 'string' && text.trim().length > 0) {
+    // Show text result with appropriate rendering: error in red, multiline as code block
+    if (typeof text === 'string' && text.trim().length > 0) {
+        const colorClass = state === 'error' ? 'text-red-600' : 'text-[var(--app-fg)]'
+        const { mode, language } = getMutationResultRenderMode(text, state)
         return (
             <>
-                <div className="text-[length:var(--text-body)] text-red-600">
-                    {renderText(text, { mode: 'code' })}
+                <div className={`text-[length:var(--text-body)] ${colorClass}`}>
+                    {renderText(text, { mode, language })}
                 </div>
                 <RawJsonDevOnly value={result} />
             </>
