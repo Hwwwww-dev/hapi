@@ -77,3 +77,7 @@ export function formatFlavorName(flavor?: string | null): string {
     if (!key) return 'Unknown'
     return FLAVOR_DISPLAY_NAMES[key] ?? key
 }
+
+export function supportsModelChange(flavor?: string | null): boolean {
+    return flavor === 'claude' || flavor === 'gemini'
+}

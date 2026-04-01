@@ -40,6 +40,18 @@ export type ClaudeModelPreset = typeof CLAUDE_MODEL_PRESETS[number]
 
 export type AgentFlavor = 'claude' | 'codex' | 'gemini' | 'opencode' | 'cursor'
 
+export const GEMINI_MODEL_LABELS = {
+    'gemini-3.1-pro-preview': 'Gemini 3.1 Pro Preview',
+    'gemini-3-flash-preview': 'Gemini 3 Flash Preview',
+    'gemini-2.5-pro': 'Gemini 2.5 Pro',
+    'gemini-2.5-flash': 'Gemini 2.5 Flash',
+    'gemini-2.5-flash-lite': 'Gemini 2.5 Flash Lite',
+} as const
+
+export type GeminiModelPreset = keyof typeof GEMINI_MODEL_LABELS
+export const GEMINI_MODEL_PRESETS = Object.keys(GEMINI_MODEL_LABELS) as GeminiModelPreset[]
+export const DEFAULT_GEMINI_MODEL: GeminiModelPreset = 'gemini-2.5-pro'
+
 export const PERMISSION_MODE_LABELS: Record<PermissionMode, string> = {
     default: 'Default',
     acceptEdits: 'Accept Edits',
