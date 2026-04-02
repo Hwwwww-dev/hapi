@@ -337,9 +337,90 @@ describe('normalizeDecryptedMessage', () => {
         }))
     })
 
+    it('converts <task-notification> user output to event', () => {
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'agent',
+            content: {
+                type: 'output',
+                data: {
+                    type: 'user',
+                    message: { content: '<task-notification> <summary>Background command stopped</summary> </task-notification>' }
+                }
+            }
+        }))
+
+        expect(normalized).toMatchObject({
+            id: 'msg-1',
+            role: 'event',
+            isSidechain: false,
+            content: { type: 'message', message: 'Background command stopped' }
+        })
+    })
+
+    it('treats <task-notification> without summary as sidechain (dropped by reducer)', () => {
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'agent',
+            content: {
+                type: 'output',
+                data: {
+                    type: 'user',
+                    uuid: 'u3',
+                    message: { content: '<task-notification> <status>killed</status> </task-notification>' }
+                }
+            }
+        }))
+
+        expect(normalized).toMatchObject({
+            role: 'agent',
+            isSidechain: true,
+        })
+    })
+
+    it('treats non-sidechain string user output as sidechain', () => {
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'agent',
+            content: {
+                type: 'output',
+                data: {
+                    type: 'user',
+                    isSidechain: false,
+                    uuid: 'u1',
+                    message: { content: 'This is a subagent prompt' }
+                }
+            }
+        }))
+
+        expect(normalized).toMatchObject({
+            role: 'agent',
+            isSidechain: true,
+        })
+        if (normalized?.role !== 'agent') throw new Error('Expected agent')
+        expect(normalized.content[0]).toMatchObject({
+            type: 'sidechain',
+            prompt: 'This is a subagent prompt'
+        })
+    })
+
+    it('treats <system-reminder> user output as sidechain (dropped by reducer)', () => {
+        const normalized = normalizeDecryptedMessage(createMessage({
+            role: 'agent',
+            content: {
+                type: 'output',
+                data: {
+                    type: 'user',
+                    uuid: 'u2',
+                    message: { content: '<system-reminder>Some internal reminder</system-reminder>' }
+                }
+            }
+        }))
+
+        expect(normalized).toMatchObject({
+            role: 'agent',
+            isSidechain: true,
+        })
+    })
+
     it('normalizes sidechain user message (role-wrapped output format) with isSidechain=true', () => {
-        // Real root cause fix: sidechain messages have role='user' but content.type='output',
-        // which normalizeUserRecord cannot handle. normalize.ts must fall back to normalizeAgentRecord.
         const normalized = normalizeDecryptedMessage(createMessage({
             role: 'user',
             content: {
