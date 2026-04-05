@@ -1,5 +1,8 @@
 import type { SessionSummary } from '@/types/api'
 
+// Re-export from shared package (upstream module reorganization)
+export { isKnownFlavor, supportsModelChange, supportsEffort } from '@hapi/protocol'
+
 export const SESSION_AGENT_TABS = ['online', 'claude', 'codex', 'cursor'] as const
 
 export type SessionAgentTab = (typeof SESSION_AGENT_TABS)[number]
@@ -15,10 +18,6 @@ export function isClaudeFlavor(flavor?: string | null): boolean {
 
 export function isCursorFlavor(flavor?: string | null): boolean {
     return flavor === 'cursor'
-}
-
-export function isKnownFlavor(flavor?: string | null): boolean {
-    return isClaudeFlavor(flavor) || isCodexFamilyFlavor(flavor) || isCursorFlavor(flavor)
 }
 
 export function normalizeSessionAgentTab(value?: string | null): SessionAgentTab {
@@ -76,8 +75,4 @@ export function formatFlavorName(flavor?: string | null): string {
     const key = flavor?.trim()
     if (!key) return 'Unknown'
     return FLAVOR_DISPLAY_NAMES[key] ?? key
-}
-
-export function supportsModelChange(flavor?: string | null): boolean {
-    return flavor === 'claude' || flavor === 'gemini'
 }
