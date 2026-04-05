@@ -14,7 +14,8 @@ export function AttachmentItem({ attachment, onRemove }: { attachment: HappyAtta
                     <IconExclamationCircleFill style={{ fontSize: 'var(--icon-md)' }} />
                 </span>
             ) : null}
-            <span className="max-w-[150px] truncate">{attachment.name}</span>
+            <span className={`max-w-[150px] truncate ${isError ? 'text-red-500 line-through' : ''}`}>{attachment.name}</span>
+            {isError ? <span className="text-xs text-red-500 whitespace-nowrap">Upload failed</span> : null}
             <button
                 type="button"
                 onClick={() => onRemove(attachment.id)}
