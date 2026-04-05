@@ -3,12 +3,13 @@ import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Image as ArcoImage } from '@arco-design/web-react'
 import type { CodeHeaderProps } from '@/chat/chat-types'
+import remarkDisableIndentedCode from '@/lib/remark-disable-indented-code'
 import { cn } from '@/lib/utils'
 import { SyntaxHighlighter } from '@/components/assistant-ui/shiki-highlighter'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { CopyIcon, CheckIcon } from '@/components/icons'
 
-export const MARKDOWN_PLUGINS = [remarkGfm]
+export const MARKDOWN_PLUGINS = [remarkGfm, remarkDisableIndentedCode]
 
 const CodeBlockContext = createContext(false)
 
