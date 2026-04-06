@@ -266,6 +266,27 @@ function normalizeUserOutput(
         }
     }
 
+    // Non-sidechain array content that is all text blocks — these are real
+    // user messages that the CLI wrapped as agent output because
+    // isExternalUserMessage rejects array content. Emit as role:'user' so
+    // they display in the user lane.
+    if (!isSidechain && Array.isArray(messageContent)) {
+        const textParts = messageContent
+            .filter((b: unknown) => isObject(b) && b.type === 'text' && typeof b.text === 'string')
+            .map((b: Record<string, unknown>) => b.text as string)
+        if (textParts.length > 0 && textParts.length === messageContent.length) {
+            return {
+                id: messageId,
+                localId,
+                createdAt,
+                role: 'user',
+                isSidechain: false,
+                content: { type: 'text', text: textParts.join('\n\n') },
+                meta
+            }
+        }
+    }
+
     const blocks: NormalizedAgentContent[] = []
 
     if (Array.isArray(messageContent)) {

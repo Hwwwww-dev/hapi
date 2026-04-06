@@ -591,4 +591,57 @@ describe('normalizeDecryptedMessage', () => {
             parentUUID: null
         })
     })
+
+    it('normalizes non-sidechain text-only array-content user output as user message', () => {
+        const message = makeMessage({
+            role: 'agent',
+            content: {
+                type: 'output',
+                data: {
+                    type: 'user',
+                    uuid: 'u5',
+                    isSidechain: false,
+                    message: { content: [{ type: 'text', text: 'Regular user message' }] }
+                }
+            }
+        })
+
+        const normalized = normalizeDecryptedMessage(message)
+
+        expect(normalized).toMatchObject({
+            role: 'user',
+            isSidechain: false,
+            content: { type: 'text', text: 'Regular user message' }
+        })
+    })
+
+    it('treats sidechain user output with mixed tool_result + text array as sidechain', () => {
+        const message = makeMessage({
+            role: 'agent',
+            content: {
+                type: 'output',
+                data: {
+                    type: 'user',
+                    uuid: 'u6',
+                    isSidechain: true,
+                    message: { content: [
+                        { type: 'tool_result', tool_use_id: 'tc-1', content: 'result' },
+                        { type: 'text', text: 'Some subagent text' }
+                    ] }
+                }
+            }
+        })
+
+        const normalized = normalizeDecryptedMessage(message)
+
+        expect(normalized).toMatchObject({
+            role: 'agent',
+            isSidechain: true,
+        })
+        if (normalized?.role !== 'agent') throw new Error('Expected agent')
+        expect(normalized.content[0]).toMatchObject({
+            type: 'sidechain',
+            prompt: 'Some subagent text'
+        })
+    })
 })
