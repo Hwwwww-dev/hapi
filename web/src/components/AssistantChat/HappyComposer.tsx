@@ -131,7 +131,7 @@ export function HappyComposer(props: {
     const hasText = trimmed.length > 0
     const hasAttachments = attachments.length > 0
     const attachmentsReady = !hasAttachments || attachments.every(a => a.status === 'complete')
-    const canSend = (hasText || hasAttachments) && attachmentsReady && !controlsDisabled && !threadIsRunning
+    const canSend = (hasText || hasAttachments) && attachmentsReady && !controlsDisabled
 
     const [inputState, setInputState] = useState<TextInputState>({
         text: '',
@@ -341,6 +341,20 @@ export function HappyComposer(props: {
             return
         }
 
+        // Shift+Enter inserts a newline (standard behavior)
+        if (key === 'Enter' && e.shiftKey) {
+            return // let default textarea behavior handle newline
+        }
+
+        // Enter without shift: send or no-op (never insert newline)
+        if (key === 'Enter' && !e.shiftKey && suggestions.length === 0) {
+            e.preventDefault()
+            if (canSend) {
+                handleSendMessage()
+            }
+            return
+        }
+
         if (suggestions.length > 0) {
             if (key === 'ArrowUp') {
                 e.preventDefault()
@@ -377,8 +391,6 @@ export function HappyComposer(props: {
             }
             return
         }
-
-        // Plain Enter → newline (default textarea behavior, no preventDefault)
 
         // Ctrl+J → insert newline at cursor
         if (key === 'j' && (e.ctrlKey || e.metaKey)) {
