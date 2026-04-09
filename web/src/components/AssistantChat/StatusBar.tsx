@@ -29,6 +29,7 @@ function getConnectionStatus(
     agentState: AgentState | null | undefined,
     voiceStatus: ConversationStatus | undefined,
     vibingMessage: string | null,
+    backgroundTaskCount: number,
     t: (key: string) => string
 ): { text: string; color: string; dotColor: string; isPulsing: boolean } {
     const hasPermissions = agentState?.requests && Object.keys(agentState.requests).length > 0
@@ -64,6 +65,15 @@ function getConnectionStatus(
     if (thinking) {
         return {
             text: vibingMessage ?? 'thinking…',
+            color: 'text-[#007AFF]',
+            dotColor: 'bg-[#007AFF]',
+            isPulsing: true
+        }
+    }
+
+    if (backgroundTaskCount > 0) {
+        return {
+            text: `${backgroundTaskCount} background task${backgroundTaskCount > 1 ? 's' : ''} running`,
             color: 'text-[#007AFF]',
             dotColor: 'bg-[#007AFF]',
             isPulsing: true
@@ -110,6 +120,7 @@ export function StatusBar(props: {
     active: boolean
     thinking: boolean
     agentState: AgentState | null | undefined
+    backgroundTaskCount?: number
     contextSize?: number
     messageCount?: number
     totalMessages?: number | null
@@ -130,8 +141,8 @@ export function StatusBar(props: {
 
     const vibingMessage = getSessionVibingMessage(sid)
     const connectionStatus = useMemo(
-        () => getConnectionStatus(props.active, props.thinking, props.agentState, props.voiceStatus, vibingMessage, t),
-        [props.active, props.thinking, props.agentState, props.voiceStatus, vibingMessage, t]
+        () => getConnectionStatus(props.active, props.thinking, props.agentState, props.voiceStatus, vibingMessage, props.backgroundTaskCount ?? 0, t),
+        [props.active, props.thinking, props.agentState, props.voiceStatus, vibingMessage, props.backgroundTaskCount, t]
     )
 
     const contextWarning = useMemo(

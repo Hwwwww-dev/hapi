@@ -489,6 +489,7 @@ export const SessionChat = memo(function SessionChat(props: {
                         allowSendWhenInactive
                         thinking={props.session.thinking}
                         agentState={props.session.agentState}
+                        backgroundTaskCount={props.session.backgroundTaskCount}
                         contextSize={reduced.latestUsage?.contextSize}
                         messageCount={rootMessageCount}
                         totalMessages={props.totalMessages}

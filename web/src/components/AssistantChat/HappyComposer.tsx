@@ -51,6 +51,7 @@ export function HappyComposer(props: {
     allowSendWhenInactive?: boolean
     thinking?: boolean
     agentState?: AgentState | null
+    backgroundTaskCount?: number
     contextSize?: number
     messageCount?: number
     totalMessages?: number | null
@@ -85,6 +86,7 @@ export function HappyComposer(props: {
         allowSendWhenInactive = false,
         thinking = false,
         agentState,
+        backgroundTaskCount,
         contextSize,
         messageCount,
         totalMessages,
@@ -770,6 +772,7 @@ export function HappyComposer(props: {
                         active={active}
                         thinking={thinking}
                         agentState={agentState}
+                        backgroundTaskCount={backgroundTaskCount}
                         contextSize={contextSize}
                         messageCount={messageCount}
                         totalMessages={totalMessages}
