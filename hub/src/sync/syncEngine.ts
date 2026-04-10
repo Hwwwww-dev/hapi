@@ -200,6 +200,7 @@ export class SyncEngine {
         mode?: 'local' | 'remote'
         permissionMode?: PermissionMode
         model?: string | null
+        modelReasoningEffort?: string | null
         effort?: string | null
         collaborationMode?: CodexCollaborationMode
     }): void {
@@ -242,9 +243,10 @@ export class SyncEngine {
         agentState: unknown,
         namespace: string,
         model?: string,
-        effort?: string
+        effort?: string,
+        modelReasoningEffort?: string
     ): Session {
-        const session = this.sessionCache.getOrCreateSession(tag, metadata, agentState, namespace, model, effort)
+        const session = this.sessionCache.getOrCreateSession(tag, metadata, agentState, namespace, model, effort, modelReasoningEffort)
         if (!session) {
             throw new Error(`Failed to create session for tag: ${tag}`)
         }
@@ -769,6 +771,7 @@ export class SyncEngine {
         config: {
             permissionMode?: PermissionMode
             model?: string | null
+            modelReasoningEffort?: string | null
             effort?: string | null
             collaborationMode?: CodexCollaborationMode
         }
@@ -781,6 +784,7 @@ export class SyncEngine {
             applied?: {
                 permissionMode?: Session['permissionMode']
                 model?: Session['model']
+                modelReasoningEffort?: Session['modelReasoningEffort']
                 effort?: Session['effort']
                 collaborationMode?: Session['collaborationMode']
             }
@@ -872,7 +876,7 @@ export class SyncEngine {
             metadata.path,
             flavor,
             session.model ?? undefined,
-            undefined,
+            (session.modelReasoningEffort ?? undefined) as 'low' | 'medium' | 'high' | 'xhigh' | undefined,
             undefined,
             undefined,
             undefined,

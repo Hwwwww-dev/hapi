@@ -593,7 +593,7 @@ describe('normalizeDecryptedMessage', () => {
     })
 
     it('normalizes non-sidechain text-only array-content user output as user message', () => {
-        const message = makeMessage({
+        const message = createMessage({
             role: 'agent',
             content: {
                 type: 'output',
@@ -616,7 +616,7 @@ describe('normalizeDecryptedMessage', () => {
     })
 
     it('treats sidechain user output with mixed tool_result + text array as sidechain', () => {
-        const message = makeMessage({
+        const message = createMessage({
             role: 'agent',
             content: {
                 type: 'output',

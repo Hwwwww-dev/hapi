@@ -6,6 +6,7 @@ import { convertCodexEvent } from './utils/codexEventConverter';
 import { buildHapiMcpBridge } from './utils/buildHapiMcpBridge';
 import { stripCodexCliOverrides } from './utils/codexCliOverrides';
 import { buildCodexPermissionModeCliArgs } from './utils/permissionModeConfig';
+import type { ReasoningEffort } from './appServerTypes';
 import { BaseLocalLauncher } from '@/modules/common/launcher/BaseLocalLauncher';
 
 export async function codexLocalLauncher(session: CodexSession): Promise<'switch' | 'exit'> {
@@ -42,6 +43,7 @@ export async function codexLocalLauncher(session: CodexSession): Promise<'switch
             await codexLocal({
                 path: session.path,
                 sessionId: resumeSessionId,
+                modelReasoningEffort: (session.getModelReasoningEffort() ?? undefined) as ReasoningEffort | undefined,
                 onSessionFound: handleSessionFound,
                 abort: abortSignal,
                 codexArgs,

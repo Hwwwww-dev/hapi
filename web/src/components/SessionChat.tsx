@@ -75,7 +75,7 @@ export const SessionChat = memo(function SessionChat(props: {
     const controlledByUser = props.session.agentState?.controlledByUser === true
     const isSubagent = !!props.session.metadata?.parentNativeSessionId
     const codexCollaborationModeSupported = agentFlavor === 'codex' && !controlledByUser
-    const { abortSession, archiveSession, switchSession, setPermissionMode, setCollaborationMode, setModel, setEffort } = useSessionActions(
+    const { abortSession, archiveSession, switchSession, setPermissionMode, setCollaborationMode, setModel, setModelReasoningEffort, setEffort } = useSessionActions(
         props.api,
         props.session.id,
         agentFlavor,
@@ -272,6 +272,17 @@ export const SessionChat = memo(function SessionChat(props: {
             console.error('Failed to set model:', e)
         }
     }, [setModel, props.onRefresh, haptic])
+
+    const handleModelReasoningEffortChange = useCallback(async (modelReasoningEffort: string | null) => {
+        try {
+            await setModelReasoningEffort(modelReasoningEffort)
+            haptic.notification('success')
+            props.onRefresh()
+        } catch (e) {
+            haptic.notification('error')
+            console.error('Failed to set model reasoning effort:', e)
+        }
+    }, [setModelReasoningEffort, props.onRefresh, haptic])
 
     const handleEffortChange = useCallback(async (effort: string | null) => {
         try {
@@ -483,6 +494,7 @@ export const SessionChat = memo(function SessionChat(props: {
                         permissionMode={props.session.permissionMode}
                         collaborationMode={codexCollaborationModeSupported ? props.session.collaborationMode : undefined}
                         model={props.session.model}
+                        modelReasoningEffort={agentFlavor === 'codex' ? props.session.modelReasoningEffort : undefined}
                         effort={props.session.effort}
                         agentFlavor={agentFlavor}
                         active={props.session.active}
@@ -501,6 +513,11 @@ export const SessionChat = memo(function SessionChat(props: {
                         }
                         onPermissionModeChange={handlePermissionModeChange}
                         onModelChange={handleModelChange}
+                        onModelReasoningEffortChange={
+                            agentFlavor === 'codex' && props.session.active && !controlledByUser
+                                ? handleModelReasoningEffortChange
+                                : undefined
+                        }
                         onEffortChange={handleEffortChange}
                         onSwitchToRemote={handleSwitchToRemote}
                         onTerminal={props.session.active && terminalSupported ? handleViewTerminal : undefined}

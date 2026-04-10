@@ -57,6 +57,7 @@ describe('SessionHeader', () => {
             thinking: false,
             thinkingAt: 0,
             model: null,
+            modelReasoningEffort: null,
             effort: null
         }
 
@@ -96,6 +97,7 @@ describe('SessionHeader', () => {
             thinking: false,
             thinkingAt: 0,
             model: null,
+            modelReasoningEffort: null,
             effort: null
         }
 
@@ -130,6 +132,7 @@ describe('SessionHeader', () => {
             thinking: false,
             thinkingAt: 0,
             model: null,
+            modelReasoningEffort: null,
             effort: null
         }
 
@@ -167,6 +170,7 @@ describe('SessionHeader', () => {
             thinking: false,
             thinkingAt: 0,
             model: null,
+            modelReasoningEffort: null,
             effort: null
         }
 

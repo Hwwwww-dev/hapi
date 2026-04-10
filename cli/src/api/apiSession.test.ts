@@ -126,6 +126,7 @@ describe('ApiSessionClient keepAlive reconnect state', () => {
             thinking: false,
             thinkingAt: 0,
             model: null,
+            modelReasoningEffort: null,
             effort: null
         })
 
@@ -164,6 +165,7 @@ describe('ApiSessionClient keepAlive reconnect state', () => {
             thinking: false,
             thinkingAt: 0,
             model: null,
+            modelReasoningEffort: null,
             effort: null
         })
 

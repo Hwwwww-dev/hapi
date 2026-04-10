@@ -24,6 +24,7 @@ export type SessionBootstrapOptions = {
     existingSessionId?: string
     agentState?: AgentState | null
     model?: string
+    modelReasoningEffort?: string
     effort?: string
     metadataOverrides?: Partial<Metadata>
 }
@@ -139,6 +140,7 @@ export async function bootstrapSession(options: SessionBootstrapOptions): Promis
         metadata,
         state: agentState,
         model: options.model,
+        modelReasoningEffort: options.modelReasoningEffort,
         effort: options.effort
     })
 

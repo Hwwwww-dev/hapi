@@ -25,6 +25,7 @@ export type {
 export type SessionPermissionMode = PermissionMode
 export type SessionCollaborationMode = CodexCollaborationMode
 export type SessionModel = string | null
+export type SessionModelReasoningEffort = string | null
 export type SessionEffort = string | null
 
 export { AgentStateSchema, AttachmentMetadataSchema, MetadataSchema }
@@ -101,6 +102,7 @@ export const CreateSessionResponseSchema = z.object({
         thinkingAt: z.number(),
         todos: TodosSchema.optional(),
         model: z.string().nullable(),
+        modelReasoningEffort: z.string().nullable(),
         effort: z.string().nullable(),
         permissionMode: PermissionModeSchema.optional(),
         collaborationMode: CodexCollaborationModeSchema.optional()

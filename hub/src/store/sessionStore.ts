@@ -13,6 +13,7 @@ import {
     reconcileSessionTimestamps,
     setSessionEffort,
     setSessionModel,
+    setSessionModelReasoningEffort,
     setSessionTeamState,
     setSessionTodos,
     syncNativeAliasesForSessionMetadata,
@@ -27,8 +28,8 @@ export class SessionStore {
         this.db = db
     }
 
-    getOrCreateSession(tag: string, metadata: unknown, agentState: unknown, namespace: string, model?: string, effort?: string, overrideId?: string): StoredSession | null {
-        return getOrCreateSession(this.db, tag, metadata, agentState, namespace, model, effort, overrideId)
+    getOrCreateSession(tag: string, metadata: unknown, agentState: unknown, namespace: string, model?: string, effort?: string, modelReasoningEffort?: string, overrideId?: string): StoredSession | null {
+        return getOrCreateSession(this.db, tag, metadata, agentState, namespace, model, effort, modelReasoningEffort, overrideId)
     }
 
     updateSessionMetadata(
@@ -60,6 +61,15 @@ export class SessionStore {
 
     setSessionModel(id: string, model: string | null, namespace: string, options?: { touchUpdatedAt?: boolean }): boolean {
         return setSessionModel(this.db, id, model, namespace, options)
+    }
+
+    setSessionModelReasoningEffort(
+        id: string,
+        modelReasoningEffort: string | null,
+        namespace: string,
+        options?: { touchUpdatedAt?: boolean }
+    ): boolean {
+        return setSessionModelReasoningEffort(this.db, id, modelReasoningEffort, namespace, options)
     }
 
     setSessionEffort(id: string, effort: string | null, namespace: string, options?: { touchUpdatedAt?: boolean }): boolean {

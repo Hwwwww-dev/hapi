@@ -15,6 +15,7 @@ const createOrLoadSessionSchema = z.object({
     metadata: z.unknown(),
     agentState: z.unknown().nullable().optional(),
     model: z.string().optional(),
+    modelReasoningEffort: z.string().optional(),
     effort: z.string().optional()
 })
 
@@ -121,7 +122,8 @@ export function createCliRoutes(getSyncEngine: () => SyncEngine | null): Hono<Cl
             parsed.data.agentState ?? null,
             namespace,
             parsed.data.model,
-            parsed.data.effort
+            parsed.data.effort,
+            parsed.data.modelReasoningEffort
         )
         return c.json({ session })
     })

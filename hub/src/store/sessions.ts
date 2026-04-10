@@ -17,6 +17,7 @@ type DbSessionRow = {
     agent_state: string | null
     agent_state_version: number
     model: string | null
+    model_reasoning_effort: string | null
     effort: string | null
     todos: string | null
     todos_updated_at: number | null
@@ -48,6 +49,7 @@ function toStoredSession(row: DbSessionRow): StoredSession {
         agentState: safeJsonParse(row.agent_state),
         agentStateVersion: row.agent_state_version,
         model: row.model,
+        modelReasoningEffort: row.model_reasoning_effort,
         effort: row.effort,
         todos: safeJsonParse(row.todos),
         todosUpdatedAt: row.todos_updated_at,
@@ -125,12 +127,14 @@ export function getOrCreateSession(
     namespace: string,
     model?: string,
     effort?: string,
+    modelReasoningEffort?: string,
     overrideId?: string
 ): StoredSession | null {
     // If overrideId is given, check if it's soft-deleted first
     if (overrideId && isSessionSoftDeleted(db, overrideId)) {
         return null
     }
+
 
     const existing = db.prepare(
         'SELECT * FROM sessions WHERE tag = ? AND namespace = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1'
@@ -152,6 +156,7 @@ export function getOrCreateSession(
             metadata, metadata_version,
             agent_state, agent_state_version,
             model,
+            model_reasoning_effort,
             effort,
             todos, todos_updated_at,
             active, active_at, seq
@@ -160,6 +165,7 @@ export function getOrCreateSession(
             @metadata, 1,
             @agent_state, 1,
             @model,
+            @model_reasoning_effort,
             @effort,
             NULL, NULL,
             0, NULL, 0
@@ -173,6 +179,7 @@ export function getOrCreateSession(
         metadata: metadataJson,
         agent_state: agentStateJson,
         model: model ?? null,
+        model_reasoning_effort: modelReasoningEffort ?? null,
         effort: effort ?? null
     })
 
@@ -325,6 +332,39 @@ export function setSessionModel(
         return result.changes === 1
     } catch (error) {
         console.error('[SessionStore] setSessionModel failed:', error)
+        return false
+    }
+}
+
+export function setSessionModelReasoningEffort(
+    db: Database,
+    id: string,
+    modelReasoningEffort: string | null,
+    namespace: string,
+    options?: { touchUpdatedAt?: boolean }
+): boolean {
+    const now = Date.now()
+    const touchUpdatedAt = options?.touchUpdatedAt === true
+
+    try {
+        const result = db.prepare(`
+            UPDATE sessions
+            SET model_reasoning_effort = @model_reasoning_effort,
+                updated_at = CASE WHEN @touch_updated_at = 1 THEN @updated_at ELSE updated_at END,
+                seq = seq + 1
+            WHERE id = @id
+              AND namespace = @namespace
+              AND model_reasoning_effort IS NOT @model_reasoning_effort
+        `).run({
+            id,
+            namespace,
+            model_reasoning_effort: modelReasoningEffort,
+            updated_at: now,
+            touch_updated_at: touchUpdatedAt ? 1 : 0
+        })
+
+        return result.changes === 1
+    } catch {
         return false
     }
 }

@@ -20,7 +20,7 @@ export function AgentSelector(props: {
                 disabled={props.isDisabled}
                 className="flex flex-wrap gap-3"
             >
-                {(['claude', 'codex', 'cursor', 'gemini', 'opencode'] as const).map((agentType) => (
+                {(['claude', 'codex', 'cursor'] as const).map((agentType) => (
                     <Radio key={agentType} value={agentType}>
                         <span className="text-sm capitalize">{agentType}</span>
                     </Radio>
