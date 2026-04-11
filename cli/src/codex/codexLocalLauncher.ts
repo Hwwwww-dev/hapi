@@ -1,5 +1,6 @@
 import { logger } from '@/ui/logger';
 import { codexLocal } from './codexLocal';
+import type { ReasoningEffort } from './appServerTypes';
 import { CodexSession } from './session';
 import { createCodexSessionScanner } from './utils/codexSessionScanner';
 import { convertCodexEvent } from './utils/codexEventConverter';
