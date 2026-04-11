@@ -1,6 +1,8 @@
 import { createContext, useContext, memo, type ComponentPropsWithoutRef } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
 import { Image as ArcoImage } from '@arco-design/web-react'
 import type { CodeHeaderProps } from '@/chat/chat-types'
 import remarkDisableIndentedCode from '@/lib/remark-disable-indented-code'
@@ -9,7 +11,10 @@ import { SyntaxHighlighter } from '@/components/assistant-ui/shiki-highlighter'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { CopyIcon, CheckIcon } from '@/components/icons'
 
-export const MARKDOWN_PLUGINS = [remarkGfm, remarkDisableIndentedCode]
+import type { MarkdownTextPrimitiveProps } from '@assistant-ui/react-markdown'
+
+export const MARKDOWN_PLUGINS = [remarkGfm, remarkMath, remarkDisableIndentedCode] satisfies NonNullable<MarkdownTextPrimitiveProps['remarkPlugins']>
+export const MARKDOWN_REHYPE_PLUGINS = [rehypeKatex] satisfies NonNullable<MarkdownTextPrimitiveProps['rehypePlugins']>
 
 const CodeBlockContext = createContext(false)
 
@@ -251,6 +256,7 @@ export function MarkdownText({ text, size = 'body' }: { text: string; size?: 'bo
                 <div className={cn('aui-md min-w-0 max-w-full break-words', sizeClass)}>
                     <Markdown
                         remarkPlugins={MARKDOWN_PLUGINS}
+                        rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
                         components={defaultComponents}
                     >
                         {text}

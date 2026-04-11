@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FC, type PropsWithChildren } from 're
 import Markdown from 'react-markdown'
 import { IconRight } from '@arco-design/web-react/icon'
 import { cn } from '@/lib/utils'
-import { defaultComponents, MARKDOWN_PLUGINS } from '@/components/assistant-ui/markdown-text'
+import { defaultComponents, MARKDOWN_PLUGINS, MARKDOWN_REHYPE_PLUGINS } from '@/components/assistant-ui/markdown-text'
 import { useTranslation } from '@/lib/use-translation'
 
 function WavyText({ text }: { text: string }) {
@@ -29,6 +29,7 @@ export const Reasoning: FC<{ text: string }> = ({ text }) => {
         <div className={cn('aui-reasoning-content min-w-0 max-w-full break-words text-[length:var(--text-caption)] text-[var(--app-hint)]')}>
             <Markdown
                 remarkPlugins={MARKDOWN_PLUGINS}
+                rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
                 components={defaultComponents}
             >
                 {text}
