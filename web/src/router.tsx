@@ -33,6 +33,7 @@ import { queryKeys } from '@/lib/query-keys'
 import { useToast } from '@/lib/toast-context'
 import { useTranslation } from '@/lib/use-translation'
 import { fetchLatestMessages, seedMessageWindowFromSession } from '@/lib/message-window-store'
+import { clearDraftsAfterSend } from '@/lib/clearDraftsAfterSend'
 import { getTabFlavor, getTabActive, loadAgentTab, saveAgentTab, type SessionAgentTab } from '@/lib/agentFlavorUtils'
 import { notify } from '@/lib/notify'
 import { IconLeft, IconPlus, IconSync, IconSettings } from '@arco-design/web-react/icon'
@@ -212,6 +213,9 @@ function SessionPageContent(props: {
         retryMessage,
         isSending,
     } = useSendMessage(api, sessionId, {
+        onSuccess: (sentSessionId) => {
+            clearDraftsAfterSend(sentSessionId, sessionId)
+        },
         resolveSessionId: async (currentSessionId) => {
             if (!api || !session || session.active) {
                 return currentSessionId

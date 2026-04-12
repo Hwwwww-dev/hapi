@@ -490,6 +490,8 @@ export const SessionChat = memo(function SessionChat(props: {
                     <div className="relative shrink-0">
                     <ScrollToBottomButton visible={!atBottom} count={newMessageCount + props.pendingCount} onClick={handleScrollToBottom} />
                     <HappyComposer
+                        key={props.session.id}
+                        sessionId={props.session.id}
                         disabled={props.isSending}
                         permissionMode={props.session.permissionMode}
                         collaborationMode={codexCollaborationModeSupported ? props.session.collaborationMode : undefined}
