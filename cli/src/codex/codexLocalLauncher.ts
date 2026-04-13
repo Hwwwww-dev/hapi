@@ -7,7 +7,6 @@ import { convertCodexEvent } from './utils/codexEventConverter';
 import { buildHapiMcpBridge } from './utils/buildHapiMcpBridge';
 import { stripCodexCliOverrides } from './utils/codexCliOverrides';
 import { buildCodexPermissionModeCliArgs } from './utils/permissionModeConfig';
-import type { ReasoningEffort } from './appServerTypes';
 import { BaseLocalLauncher } from '@/modules/common/launcher/BaseLocalLauncher';
 
 export async function codexLocalLauncher(session: CodexSession): Promise<'switch' | 'exit'> {

@@ -10,6 +10,7 @@ export class SessionCache {
     private readonly sessions: Map<string, Session> = new Map()
     private readonly lastBroadcastAtBySessionId: Map<string, number> = new Map()
     private readonly todoBackfillAttemptedSessionIds: Set<string> = new Set()
+    private readonly deduplicateInProgress: Set<string> = new Set()
 
     constructor(
         private readonly store: Store,
@@ -273,16 +274,20 @@ export class SessionCache {
         this.publisher.emit({ type: 'session-updated', sessionId: session.id, data: { active: false, thinking: false, backgroundTaskCount: 0 } })
     }
 
-    expireInactive(now: number = Date.now()): void {
+    expireInactive(now: number = Date.now()): string[] {
         const sessionTimeoutMs = 30_000
+        const expired: string[] = []
 
         for (const session of this.sessions.values()) {
             if (!session.active) continue
             if (now - session.activeAt <= sessionTimeoutMs) continue
             session.active = false
             session.thinking = false
+            expired.push(session.id)
             this.publisher.emit({ type: 'session-updated', sessionId: session.id, data: { active: false } })
         }
+
+        return expired
     }
 
     applySessionConfig(
@@ -603,5 +608,87 @@ export class SessionCache {
         }
 
         return changed ? merged : newMetadata
+    }
+
+    private mergeAgentState(oldState: unknown | null, newState: unknown | null): unknown | null {
+        if (oldState === null) return newState
+        if (newState === null) return oldState
+
+        const oldObj = oldState as Record<string, unknown>
+        const newObj = newState as Record<string, unknown>
+
+        const completedRequests = {
+            ...((oldObj.completedRequests as Record<string, unknown> | undefined) ?? {}),
+            ...((newObj.completedRequests as Record<string, unknown> | undefined) ?? {})
+        }
+        // Filter out requests that are already completed to avoid resurrecting them as pending
+        const completedIds = new Set(Object.keys(completedRequests))
+        const requests = Object.fromEntries(
+            Object.entries({
+                ...((oldObj.requests as Record<string, unknown> | undefined) ?? {}),
+                ...((newObj.requests as Record<string, unknown> | undefined) ?? {})
+            }).filter(([id]) => !completedIds.has(id))
+        )
+
+        return { ...oldObj, ...newObj, requests, completedRequests }
+    }
+
+    private extractAgentSessionId(
+        metadata: NonNullable<Session['metadata']>
+    ): { field: 'codexSessionId' | 'claudeSessionId' | 'geminiSessionId' | 'opencodeSessionId' | 'cursorSessionId'; value: string } | null {
+        if (metadata.codexSessionId) return { field: 'codexSessionId', value: metadata.codexSessionId }
+        if (metadata.claudeSessionId) return { field: 'claudeSessionId', value: metadata.claudeSessionId }
+        if (metadata.geminiSessionId) return { field: 'geminiSessionId', value: metadata.geminiSessionId }
+        if (metadata.opencodeSessionId) return { field: 'opencodeSessionId', value: metadata.opencodeSessionId }
+        if (metadata.cursorSessionId) return { field: 'cursorSessionId', value: metadata.cursorSessionId }
+        return null
+    }
+
+    async deduplicateByAgentSessionId(sessionId: string): Promise<void> {
+        const session = this.sessions.get(sessionId)
+        if (!session?.metadata) return
+
+        const agentId = this.extractAgentSessionId(session.metadata)
+        if (!agentId) return
+
+        // Guard: skip if another dedup for this agent ID is already in progress.
+        // A skipped trigger is acceptable — the web-side display dedup hides any remaining duplicates.
+        if (this.deduplicateInProgress.has(agentId.value)) return
+        this.deduplicateInProgress.add(agentId.value)
+
+        try {
+            const candidates: { id: string; session: Session }[] = [{ id: sessionId, session }]
+            for (const [existingId, existing] of this.sessions) {
+                if (existingId === sessionId) continue
+                if (existing.namespace !== session.namespace) continue
+                if (!existing.metadata) continue
+                if (existing.metadata[agentId.field] !== agentId.value) continue
+                // Only merge inactive duplicates. Active ones still have a live CLI socket
+                // whose keepalive/messages would fail if we deleted their session record.
+                // The web-side display dedup hides active duplicates from the UI.
+                if (existing.active) continue
+                candidates.push({ id: existingId, session: existing })
+            }
+
+            if (candidates.length <= 1) return
+
+            // Keep the most recent session as the merge target so newer state survives.
+            candidates.sort((a, b) =>
+                (b.session.activeAt - a.session.activeAt) || (b.session.updatedAt - a.session.updatedAt)
+            )
+            const targetId = candidates[0].id
+            const targetNamespace = candidates[0].session.namespace
+
+            for (const { id } of candidates.slice(1)) {
+                if (id === targetId) continue
+                try {
+                    await this.mergeSessions(id, targetId, targetNamespace)
+                } catch {
+                    // best-effort: duplicate remains if merge fails
+                }
+            }
+        } finally {
+            this.deduplicateInProgress.delete(agentId.value)
+        }
     }
 }

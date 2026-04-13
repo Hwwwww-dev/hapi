@@ -78,7 +78,6 @@ export function HappyComposer(props: {
     onVoiceMicToggle?: () => void
     // Message queue props
     sendQueued?: (text: string, attachments?: AttachmentMetadata[]) => Promise<void>
-    sessionId?: string | null
 }) {
     const { t } = useTranslation()
     const {
@@ -157,7 +156,7 @@ export function HappyComposer(props: {
     const settingsPanelRef = useRef<HTMLDivElement>(null)
     const prevControlledByUser = useRef(controlledByUser)
 
-    useComposerDraft(sessionId, composerText, (text) => api.composer().setText(text))
+    useComposerDraft(sessionId, composerText, (text) => setInputState({ text, selection: { start: text.length, end: text.length } }))
 
     useEffect(() => {
         setInputState((prev) => {

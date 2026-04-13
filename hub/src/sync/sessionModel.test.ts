@@ -440,4 +440,277 @@ describe('session model', () => {
             engine.stop()
         }
     })
+
+    describe('session dedup by agent session ID', () => {
+        it('merges duplicate when codexSessionId collides', async () => {
+            const store = new Store(':memory:')
+            const events: SyncEvent[] = []
+            const cache = new SessionCache(store, createPublisher(events))
+
+            const s1 = cache.getOrCreateSession(
+                'tag-1',
+                { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-X' },
+                null,
+                'default'
+            )
+            if (!s1) throw new Error('expected s1')
+
+            // Add a message to s1
+            store.messages.addMessage(s1.id, { type: 'text', text: 'hello from s1' }, 'local-1')
+
+            const s2 = cache.getOrCreateSession(
+                'tag-2',
+                { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-X' },
+                null,
+                'default'
+            )
+            if (!s2) throw new Error('expected s2')
+
+            expect(s1.id).not.toBe(s2.id)
+
+            await cache.deduplicateByAgentSessionId(s2.id)
+
+            expect(cache.getSession(s1.id)).toBeUndefined()
+            expect(cache.getSession(s2.id)).toBeDefined()
+
+            const messages = store.messages.getMessages(s2.id, 100)
+            expect(messages.length).toBeGreaterThanOrEqual(1)
+        })
+
+        it('preserves sessions with different agent session IDs', async () => {
+            const store = new Store(':memory:')
+            const events: SyncEvent[] = []
+            const cache = new SessionCache(store, createPublisher(events))
+
+            const s1 = cache.getOrCreateSession(
+                'tag-1',
+                { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-X' },
+                null,
+                'default'
+            )
+            if (!s1) throw new Error('expected s1')
+            const s2 = cache.getOrCreateSession(
+                'tag-2',
+                { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-Y' },
+                null,
+                'default'
+            )
+            if (!s2) throw new Error('expected s2')
+
+            await cache.deduplicateByAgentSessionId(s2.id)
+
+            expect(cache.getSession(s1.id)).toBeDefined()
+            expect(cache.getSession(s2.id)).toBeDefined()
+        })
+
+        it('does not merge across namespaces', async () => {
+            const store = new Store(':memory:')
+            const events: SyncEvent[] = []
+            const cache = new SessionCache(store, createPublisher(events))
+
+            const s1 = cache.getOrCreateSession(
+                'tag-1',
+                { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-X' },
+                null,
+                'ns1'
+            )
+            if (!s1) throw new Error('expected s1')
+            const s2 = cache.getOrCreateSession(
+                'tag-2',
+                { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-X' },
+                null,
+                'ns2'
+            )
+            if (!s2) throw new Error('expected s2')
+
+            await cache.deduplicateByAgentSessionId(s2.id)
+
+            expect(cache.getSession(s1.id)).toBeDefined()
+            expect(cache.getSession(s2.id)).toBeDefined()
+        })
+
+        it('no-op when session has no agent session ID', async () => {
+            const store = new Store(':memory:')
+            const events: SyncEvent[] = []
+            const cache = new SessionCache(store, createPublisher(events))
+
+            const s1 = cache.getOrCreateSession(
+                'tag-1',
+                { path: '/tmp/project', host: 'localhost', flavor: 'codex' },
+                null,
+                'default'
+            )
+            if (!s1) throw new Error('expected s1')
+
+            await cache.deduplicateByAgentSessionId(s1.id)
+
+            expect(cache.getSession(s1.id)).toBeDefined()
+        })
+
+        it('does not merge active duplicates', async () => {
+            const store = new Store(':memory:')
+            const events: SyncEvent[] = []
+            const cache = new SessionCache(store, createPublisher(events))
+
+            const s1 = cache.getOrCreateSession(
+                'tag-1',
+                { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-X' },
+                null,
+                'default'
+            )
+            if (!s1) throw new Error('expected s1')
+
+            // Mark s1 as active (simulating a live CLI connection)
+            cache.handleSessionAlive({ sid: s1.id, time: Date.now(), thinking: false })
+
+            const s2 = cache.getOrCreateSession(
+                'tag-2',
+                { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-X' },
+                null,
+                'default'
+            )
+            if (!s2) throw new Error('expected s2')
+
+            await cache.deduplicateByAgentSessionId(s2.id)
+
+            // s1 is active, so it should NOT be merged/deleted
+            expect(cache.getSession(s1.id)).toBeDefined()
+            expect(cache.getSession(s2.id)).toBeDefined()
+        })
+
+        it('merges duplicate after it becomes inactive via session-end', async () => {
+            const store = new Store(':memory:')
+            const engine = new SyncEngine(
+                store,
+                {} as never,
+                new RpcRegistry(),
+                { broadcast() {} } as never
+            )
+
+            try {
+                const s1 = engine.getOrCreateSession(
+                    'tag-1',
+                    { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-X' },
+                    null,
+                    'default'
+                )
+                if (!s1) throw new Error('expected s1')
+                const s2 = engine.getOrCreateSession(
+                    'tag-2',
+                    { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-X' },
+                    null,
+                    'default'
+                )
+                if (!s2) throw new Error('expected s2')
+
+                // Mark s1 as active
+                engine.handleSessionAlive({ sid: s1.id, time: Date.now() })
+
+                // s1 is active, dedup from s2 should skip it
+                const events: SyncEvent[] = []
+                const cache = (engine as any).sessionCache as SessionCache
+                await cache.deduplicateByAgentSessionId(s2.id)
+                expect(cache.getSession(s1.id)).toBeDefined()
+                expect(cache.getSession(s2.id)).toBeDefined()
+
+                // Now s1 ends — handleSessionEnd should trigger dedup retry
+                engine.handleSessionEnd({ sid: s1.id, time: Date.now() })
+
+                // Give the fire-and-forget dedup a tick to complete
+                await new Promise((r) => setTimeout(r, 50))
+
+                // One of them should be merged away
+                const s1Exists = cache.getSession(s1.id)
+                const s2Exists = cache.getSession(s2.id)
+                expect(!s1Exists || !s2Exists).toBe(true)
+            } finally {
+                engine.stop()
+            }
+        })
+
+        it('merges duplicate after inactivity timeout expires it', async () => {
+            const store = new Store(':memory:')
+            const events: SyncEvent[] = []
+            const cache = new SessionCache(store, createPublisher(events))
+
+            const s1 = cache.getOrCreateSession(
+                'tag-1',
+                { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-X' },
+                null,
+                'default'
+            )
+            if (!s1) throw new Error('expected s1')
+            const s2 = cache.getOrCreateSession(
+                'tag-2',
+                { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-X' },
+                null,
+                'default'
+            )
+            if (!s2) throw new Error('expected s2')
+
+            // Mark s1 as active now
+            cache.handleSessionAlive({ sid: s1.id, time: Date.now() })
+
+            // s1 is active — dedup skips it
+            await cache.deduplicateByAgentSessionId(s2.id)
+            expect(cache.getSession(s1.id)).toBeDefined()
+
+            // Simulate time passing beyond the 30s timeout
+            const expired = cache.expireInactive(Date.now() + 60_000)
+            expect(expired).toContain(s1.id)
+
+            // Now s1 is inactive — dedup should merge it
+            await cache.deduplicateByAgentSessionId(s2.id)
+            expect(cache.getSession(s1.id)).toBeUndefined()
+            expect(cache.getSession(s2.id)).toBeDefined()
+        })
+
+        it('deep-merges agentState and filters completed requests', async () => {
+            const store = new Store(':memory:')
+            const events: SyncEvent[] = []
+            const cache = new SessionCache(store, createPublisher(events))
+
+            const s1 = cache.getOrCreateSession(
+                'tag-1',
+                { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-X' },
+                {
+                    requests: {
+                        'req-1': { tool: 'Bash', arguments: {} },
+                        'req-2': { tool: 'Bash', arguments: {} }
+                    },
+                    completedRequests: {}
+                },
+                'default'
+            )
+            if (!s1) throw new Error('expected s1')
+            const s2 = cache.getOrCreateSession(
+                'tag-2',
+                { path: '/tmp/project', host: 'localhost', flavor: 'codex', codexSessionId: 'thread-X' },
+                {
+                    requests: {
+                        'req-3': { tool: 'Bash', arguments: {} }
+                    },
+                    completedRequests: {
+                        'req-1': { tool: 'Bash', arguments: {}, status: 'approved' }
+                    }
+                },
+                'default'
+            )
+            if (!s2) throw new Error('expected s2')
+
+            await cache.deduplicateByAgentSessionId(s2.id)
+
+            const session = cache.getSession(s2.id)
+            expect(session).toBeDefined()
+            const state = session!.agentState!
+
+            // req-1 was completed in s2 — should NOT appear in requests
+            expect(state.requests?.['req-1']).toBeUndefined()
+            // req-2 and req-3 are still pending
+            expect(state.requests?.['req-2']).toBeDefined()
+            expect(state.requests?.['req-3']).toBeDefined()
+            // completedRequests has req-1
+            expect(state.completedRequests?.['req-1']).toBeDefined()
+        })
+    })
 })

@@ -11,6 +11,7 @@ export type SessionSummaryMetadata = {
     nativeSessionId?: string
     parentNativeSessionId?: string | null
     worktree?: WorktreeMetadata
+    agentSessionId?: string
 }
 
 export type SessionSummary = {
@@ -25,6 +26,7 @@ export type SessionSummary = {
     pendingRequestsCount: number
     model: string | null
     effort: string | null
+    modelReasoningEffort: string | null
 }
 
 export function toSessionSummary(session: Session): SessionSummary {
@@ -40,7 +42,13 @@ export function toSessionSummary(session: Session): SessionSummary {
         nativeProvider: session.metadata.nativeProvider ?? undefined,
         nativeSessionId: session.metadata.nativeSessionId ?? undefined,
         parentNativeSessionId: session.metadata.parentNativeSessionId ?? null,
-        worktree: session.metadata.worktree
+        worktree: session.metadata.worktree,
+        agentSessionId: session.metadata.codexSessionId
+            ?? session.metadata.claudeSessionId
+            ?? session.metadata.geminiSessionId
+            ?? session.metadata.opencodeSessionId
+            ?? session.metadata.cursorSessionId
+            ?? undefined
     } : null
 
     const todoProgress = session.todos?.length ? {
@@ -59,6 +67,7 @@ export function toSessionSummary(session: Session): SessionSummary {
         todoProgress,
         pendingRequestsCount,
         model: session.model,
-        effort: session.effort
+        effort: session.effort,
+        modelReasoningEffort: session.modelReasoningEffort
     }
 }

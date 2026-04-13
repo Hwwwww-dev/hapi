@@ -39,6 +39,41 @@ function getGroupDisplayName(directory: string): string {
     return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`
 }
 
+export const UNKNOWN_MACHINE_ID = '__unknown__'
+
+export function deduplicateSessionsByAgentId(sessions: SessionSummary[], selectedSessionId?: string | null): SessionSummary[] {
+    const byAgentId = new Map<string, SessionSummary[]>()
+    const result: SessionSummary[] = []
+
+    for (const session of sessions) {
+        const agentId = session.metadata?.agentSessionId
+        if (!agentId) {
+            result.push(session)
+            continue
+        }
+        const group = byAgentId.get(agentId)
+        if (group) {
+            group.push(session)
+        } else {
+            byAgentId.set(agentId, [session])
+        }
+    }
+
+    for (const group of byAgentId.values()) {
+        group.sort((a, b) => {
+            // Active session always wins — it's the live connection
+            if (a.active !== b.active) return a.active ? -1 : 1
+            // Among inactive duplicates, keep the selected one visible
+            if (a.id === selectedSessionId) return -1
+            if (b.id === selectedSessionId) return 1
+            return b.updatedAt - a.updatedAt
+        })
+        result.push(group[0])
+    }
+
+    return result
+}
+
 function groupNativeChildren(sessions: SessionSummary[]): SessionWithChildren[] {
     // Build map: nativeSessionId → session (for all sessions)
     const sessionByNativeId = new Map<string, SessionSummary>()
@@ -409,7 +444,8 @@ export function SessionList(props: {
     const groups: SessionGroup[] = useMemo(() => {
         return props.groups
             .map(g => {
-                const withChildren = groupNativeChildren(g.sessions)
+                const deduplicated = deduplicateSessionsByAgentId(g.sessions, selectedSessionId)
+                const withChildren = groupNativeChildren(deduplicated)
                 const hasActiveSession = g.sessions.some(s => s.active)
                 return {
                     directory: g.directory,
@@ -421,7 +457,7 @@ export function SessionList(props: {
                 }
             })
             .filter(g => g.sessions.length > 0)
-    }, [props.groups])
+    }, [props.groups, selectedSessionId])
 
     // Online tab: flat list of all active sessions across all groups (backend already filtered)
     const isOnlineTab = agentTab === 'online'
