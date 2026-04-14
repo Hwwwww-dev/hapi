@@ -16,6 +16,7 @@ import { registerMachineDirectoryHandlers } from '../modules/common/handlers/mac
 import type { SpawnSessionOptions, SpawnSessionResult } from '../modules/common/rpcTypes'
 import { applyVersionedAck } from './versionedUpdate'
 import { getLogicalCwd } from '@/utils/logicalCwd'
+import { buildSocketIoExtraHeaderOptions } from './hubExtraHeaders'
 
 interface ServerToRunnerEvents {
     update: (data: Update) => void
@@ -234,7 +235,8 @@ export class ApiMachineClient {
             path: '/socket.io/',
             reconnection: true,
             reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000
+            reconnectionDelayMax: 5000,
+            ...buildSocketIoExtraHeaderOptions()
         })
 
         this.socket.on('connect', () => {
