@@ -15,6 +15,7 @@ import { TodoWriteView } from '@/components/ToolCard/views/TodoWriteView'
 import { UpdatePlanView } from '@/components/ToolCard/views/UpdatePlanView'
 import { WriteView } from '@/components/ToolCard/views/WriteView'
 import { canonicalizeToolName } from '@/lib/toolNames'
+import { getInputStringAny } from '@/lib/toolInputUtils'
 
 export type ToolViewProps = {
     block: ToolCallBlock
@@ -53,6 +54,15 @@ function AgentInputView({ block }: ToolViewProps) {
     )
 }
 
+const SkillFullView: ToolViewComponent = ({ block }: ToolViewProps) => {
+    const skillName = getInputStringAny(block.tool.input, ['skill'])
+    return (
+        <div className="text-sm text-[var(--app-fg)]">
+            {skillName ?? 'Unknown skill'}
+        </div>
+    )
+}
+
 export const toolViewRegistry: Record<string, ToolViewComponent> = {
     Edit: EditView,
     MultiEdit: MultiEditView,
@@ -77,6 +87,7 @@ export const toolFullViewRegistry: Record<string, ToolViewComponent> = {
     CodexDiff: CodexDiffFullView,
     CodexPatch: CodexPatchView,
     apply_patch: ApplyPatchView,
+    Skill: SkillFullView,
     AskUserQuestion: AskUserQuestionView,
     ExitPlanMode: ExitPlanModeView,
     ask_user_question: AskUserQuestionView,

@@ -9,6 +9,7 @@ import { basename, resolveDisplayPath } from '@/utils/path'
 import { Collapse } from '@arco-design/web-react'
 import { CopyIcon, CheckIcon } from '@/components/icons'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
+import { getInputStringAny } from '@/lib/toolInputUtils'
 
 const CollapseItem = Collapse.Item
 
@@ -656,6 +657,35 @@ const TodoWriteResultView: ToolViewComponent = (props: ToolViewProps) => {
     return <ChecklistList items={todos} />
 }
 
+const SkillResultView: ToolViewComponent = (props: ToolViewProps) => {
+    const { state, result, input } = props.block.tool
+
+    if (result === undefined || result === null) {
+        if (state === 'completed') {
+            return <div className="text-sm text-[var(--app-hint)]">Skill loaded</div>
+        }
+        return <div className="text-sm text-[var(--app-hint)]">{placeholderForState(state)}</div>
+    }
+
+    // For errors, show the error text
+    if (state === 'error') {
+        const text = extractTextFromResult(result)
+        return (
+            <div className="text-sm text-red-600">
+                {text?.trim() ? text : 'Failed to load skill'}
+            </div>
+        )
+    }
+
+    // For successful loads, show just the skill name
+    const skillName = getInputStringAny(input, ['skill'])
+    return (
+        <div className="text-sm text-[var(--app-hint)]">
+            {skillName ? `Skill "${skillName}" loaded` : 'Skill loaded'}
+        </div>
+    )
+}
+
 const GenericResultView: ToolViewComponent = (props: ToolViewProps) => {
     const result = props.block.tool.result
 
@@ -795,34 +825,6 @@ const TaskResultView: ToolViewComponent = (props: ToolViewProps) => {
             <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">(no output)</div>
             <RawJsonDevOnly value={result} />
         </>
-    )
-}
-
-const SkillResultView: ToolViewComponent = (props: ToolViewProps) => {
-    const { state, result } = props.block.tool
-
-    if (result === undefined || result === null) {
-        return <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">{placeholderForState(state)}</div>
-    }
-
-    const text = extractTextFromResult(result)
-    if (!text || text.trim().length === 0) {
-        return <div className="text-[length:var(--text-body)] text-[var(--app-hint)]">(no content)</div>
-    }
-
-    return (
-        <CopyableContent text={text}>
-            <Collapse bordered={false} defaultActiveKey={text.length <= 300 ? ['skill-output'] : []} className="toolcard-collapse rounded-lg border border-[var(--app-divider)]">
-                <CollapseItem
-                    name="skill-output"
-                    header={<span className="text-[length:var(--text-caption)] text-[var(--app-hint)]">Skill output{text.length > 300 ? ` (${Math.round(text.length / 100) / 10}K chars)` : ''}</span>}
-                >
-                <div className="p-3 text-[length:var(--text-body)]">
-                    <MarkdownRenderer content={text} />
-                </div>
-            </CollapseItem>
-        </Collapse>
-        </CopyableContent>
     )
 }
 
