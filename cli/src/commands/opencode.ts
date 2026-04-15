@@ -5,6 +5,7 @@ import { applyForwardedCliWorkdir } from '@/utils/forwardedCliWorkdir'
 import { describeUnknownError } from '@/utils/errorUtils'
 import { maybeAutoStartServer } from '@/utils/autoStartServer'
 import type { CommandDefinition } from './types'
+import { OPENCODE_PERMISSION_MODES } from '@hapi/protocol/modes'
 import type { OpencodePermissionMode } from '@hapi/protocol/types'
 
 export const opencodeCommand: CommandDefinition = {
@@ -19,6 +20,8 @@ export const opencodeCommand: CommandDefinition = {
                 resumeSessionId?: string
             } = {}
 
+            let hasExplicitPermissionMode = false
+
             for (let i = 0; i < commandArgs.length; i++) {
                 const arg = commandArgs[i]
                 if (arg === '--started-by') {
@@ -30,7 +33,14 @@ export const opencodeCommand: CommandDefinition = {
                     } else {
                         throw new Error('Invalid --hapi-starting-mode (expected local or remote)')
                     }
-                } else if (arg === '--yolo') {
+                } else if (arg === '--permission-mode') {
+                    const mode = commandArgs[++i]
+                    if (!mode || !(OPENCODE_PERMISSION_MODES as readonly string[]).includes(mode)) {
+                        throw new Error(`Invalid --permission-mode value: ${mode ?? '(missing)'}`)
+                    }
+                    options.permissionMode = mode as OpencodePermissionMode
+                    hasExplicitPermissionMode = true
+                } else if (arg === '--yolo' && !hasExplicitPermissionMode) {
                     options.permissionMode = 'yolo'
                 } else if (arg === '--resume') {
                     const sessionId = commandArgs[++i]

@@ -13,6 +13,7 @@ import { getEnvironmentInfo } from '@/ui/doctor';
 import { spawnHappyCLI } from '@/utils/spawnHappyCLI';
 import { writeRunnerState, RunnerLocallyPersistedState, readRunnerState, acquireRunnerLock, releaseRunnerLock } from '@/persistence';
 import { isProcessAlive, isWindows, killProcess, killProcessByChildProcess } from '@/utils/process';
+import { PERMISSION_MODES } from '@hapi/protocol/modes';
 import { withRetry } from '@/utils/time';
 import { isRetryableConnectionError } from '@/utils/errorUtils';
 
@@ -378,6 +379,9 @@ export async function startRunner(): Promise<void> {
         }
         if (options.modelReasoningEffort && agent === 'codex') {
           args.push('--model-reasoning-effort', options.modelReasoningEffort);
+        }
+        if (options.permissionMode && agent === 'claude') {
+          args.push('--permission-mode', options.permissionMode);
         }
         if (yolo) {
           args.push('--yolo');
@@ -873,4 +877,46 @@ export async function startRunner(): Promise<void> {
     logger.debug('[RUNNER RUN][FATAL] Failed somewhere unexpectedly - exiting with code 1', error);
     process.exit(1);
   }
+}
+
+export function buildCliArgs(
+  agent: string,
+  options: SpawnSessionOptions,
+  yolo?: boolean
+): string[] {
+  const agentCommand = agent === 'codex'
+    ? 'codex'
+    : agent === 'cursor'
+      ? 'cursor'
+      : agent === 'gemini'
+        ? 'gemini'
+        : agent === 'opencode'
+          ? 'opencode'
+          : 'claude';
+  const args = [agentCommand];
+  if (options.resumeSessionId) {
+    if (agent === 'codex') {
+      args.push('resume', options.resumeSessionId);
+    } else if (agent === 'cursor') {
+      args.push('--resume', options.resumeSessionId);
+    } else {
+      args.push('--resume', options.resumeSessionId);
+    }
+  }
+  args.push('--hapi-starting-mode', 'remote', '--started-by', 'runner');
+  if (options.model && agent !== 'opencode') {
+    args.push('--model', options.model);
+  }
+  if (options.effort && agent === 'claude') {
+    args.push('--effort', options.effort);
+  }
+  if (options.modelReasoningEffort && agent === 'codex') {
+    args.push('--model-reasoning-effort', options.modelReasoningEffort);
+  }
+  if (options.permissionMode && (PERMISSION_MODES as readonly string[]).includes(options.permissionMode)) {
+    args.push('--permission-mode', options.permissionMode);
+  } else if (yolo) {
+    args.push('--yolo');
+  }
+  return args;
 }

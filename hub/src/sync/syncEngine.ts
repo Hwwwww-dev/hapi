@@ -829,9 +829,10 @@ export class SyncEngine {
         worktreeName?: string,
         resumeSessionId?: string,
         effort?: string,
-        sessionId?: string
+        sessionId?: string,
+        permissionMode?: PermissionMode
     ): Promise<{ type: 'success'; sessionId: string } | { type: 'error'; message: string }> {
-        return await this.rpcGateway.spawnSession(machineId, directory, agent, model, modelReasoningEffort, yolo, sessionType, worktreeName, resumeSessionId, effort, sessionId)
+        return await this.rpcGateway.spawnSession(machineId, directory, agent, model, modelReasoningEffort, yolo, sessionType, worktreeName, resumeSessionId, effort, sessionId, permissionMode)
     }
 
     async resumeSession(sessionId: string, namespace: string): Promise<ResumeSessionResult> {
@@ -903,7 +904,8 @@ export class SyncEngine {
             undefined,
             resumeToken,
             session.effort ?? undefined,
-            access.sessionId
+            access.sessionId,
+            session.permissionMode ?? undefined
         )
 
         if (spawnResult.type !== 'success') {

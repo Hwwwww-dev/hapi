@@ -123,7 +123,8 @@ export class RpcGateway {
         worktreeName?: string,
         resumeSessionId?: string,
         effort?: string,
-        sessionId?: string
+        sessionId?: string,
+        permissionMode?: PermissionMode
     ): Promise<{ type: 'success'; sessionId: string } | { type: 'error'; message: string }> {
         try {
             const result = await this.machineRpc(
@@ -141,6 +142,7 @@ export class RpcGateway {
                     worktreeName,
                     resumeSessionId,
                     effort,
+                    permissionMode,
                     approvedNewDirectoryCreation: false
                 }
             )
