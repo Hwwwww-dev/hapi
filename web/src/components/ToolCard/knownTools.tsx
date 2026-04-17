@@ -332,6 +332,18 @@ export const knownTools: Record<string, {
         subtitle: (opts) => formatChecklistCount(extractUpdatePlanChecklist(opts.input, opts.result), 'step'),
         minimal: (opts) => extractUpdatePlanChecklist(opts.input, opts.result).length === 0
     },
+    Agent: {
+        icon: () => <RocketIcon className={DEFAULT_ICON_CLASS} />,
+        title: (opts) => {
+            const description = getInputStringAny(opts.input, ['description'])
+            return description ?? 'Agent'
+        },
+        subtitle: (opts) => {
+            const model = getInputStringAny(opts.input, ['subagent_type'])
+            return model ?? null
+        },
+        minimal: true
+    },
     CodexReasoning: {
         icon: () => <BulbIcon className={DEFAULT_ICON_CLASS} />,
         title: (opts) => getInputStringAny(opts.input, ['title']) ?? 'Reasoning',

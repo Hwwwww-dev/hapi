@@ -15,6 +15,7 @@ import { TodoWriteView } from '@/components/ToolCard/views/TodoWriteView'
 import { UpdatePlanView } from '@/components/ToolCard/views/UpdatePlanView'
 import { WriteView } from '@/components/ToolCard/views/WriteView'
 import { canonicalizeToolName } from '@/lib/toolNames'
+import { isObject } from '@hapi/protocol'
 import { getInputStringAny } from '@/lib/toolInputUtils'
 
 export type ToolViewProps = {
@@ -63,6 +64,25 @@ const SkillFullView: ToolViewComponent = ({ block }: ToolViewProps) => {
     )
 }
 
+const AgentFullView: ToolViewComponent = ({ block }: ToolViewProps) => {
+    const input = block.tool.input
+    const description = getInputStringAny(input, ['description'])
+    const subagentType = getInputStringAny(input, ['subagent_type'])
+    const runInBackground = isObject(input) && input.run_in_background === true
+
+    return (
+        <div className="flex flex-col gap-1 text-sm">
+            {description && (
+                <div className="text-[var(--app-fg)]">{description}</div>
+            )}
+            <div className="flex gap-3 text-[var(--app-hint)]">
+                {subagentType && <span>Type: {subagentType}</span>}
+                {runInBackground && <span>Background</span>}
+            </div>
+        </div>
+    )
+}
+
 export const toolViewRegistry: Record<string, ToolViewComponent> = {
     Edit: EditView,
     MultiEdit: MultiEditView,
@@ -88,6 +108,7 @@ export const toolFullViewRegistry: Record<string, ToolViewComponent> = {
     CodexPatch: CodexPatchView,
     apply_patch: ApplyPatchView,
     Skill: SkillFullView,
+    Agent: AgentFullView,
     AskUserQuestion: AskUserQuestionView,
     ExitPlanMode: ExitPlanModeView,
     ask_user_question: AskUserQuestionView,
