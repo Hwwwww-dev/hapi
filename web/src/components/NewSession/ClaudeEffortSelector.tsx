@@ -1,6 +1,7 @@
+import { Select } from '@arco-design/web-react'
+import { useTranslation } from '@/lib/use-translation'
 import type { AgentType, ClaudeEffort } from './types'
 import { CLAUDE_EFFORT_OPTIONS } from './types'
-import { useTranslation } from '@/lib/use-translation'
 
 export function ClaudeEffortSelector(props: {
     agent: AgentType
@@ -20,18 +21,18 @@ export function ClaudeEffortSelector(props: {
                 {t('newSession.effort')}{' '}
                 <span className="font-normal">({t('newSession.model.optional')})</span>
             </label>
-            <select
+            <Select
                 value={props.effort}
-                onChange={(e) => props.onEffortChange(e.target.value as ClaudeEffort)}
+                onChange={(val) => props.onEffortChange(val as ClaudeEffort)}
                 disabled={props.isDisabled}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--app-divider)] bg-[var(--app-bg)] text-[var(--app-text)] focus:outline-none focus:ring-2 focus:ring-[var(--app-link)] disabled:opacity-50"
+                className="w-full"
             >
                 {CLAUDE_EFFORT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                        {option.label}
-                    </option>
+                    <Select.Option key={option.value} value={option.value}>
+                        {t(`newSession.effort.${option.value}`)}
+                    </Select.Option>
                 ))}
-            </select>
+            </Select>
         </div>
     )
 }

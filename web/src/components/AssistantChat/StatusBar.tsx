@@ -172,11 +172,11 @@ export function StatusBar(props: {
         : null
 
     // Effort display — only show known effort values as capsule
-    const KNOWN_EFFORTS = ['low', 'medium', 'high', 'max'] as const
+    const KNOWN_EFFORTS = ['low', 'medium', 'high', 'max', 'xhigh'] as const
     const effortLabel = props.effort && KNOWN_EFFORTS.includes(props.effort as typeof KNOWN_EFFORTS[number])
         ? `${props.effort.charAt(0).toUpperCase()}${props.effort.slice(1)}`
         : null
-    const effortTone = props.effort === 'max' ? 'danger'
+    const effortTone = props.effort === 'max' || props.effort === 'xhigh' ? 'danger'
         : props.effort === 'high' ? 'warning'
         : 'info'
 

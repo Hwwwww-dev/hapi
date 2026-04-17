@@ -3,7 +3,7 @@ import { GEMINI_MODEL_PRESETS, GEMINI_MODEL_LABELS } from '@hapi/protocol'
 export type AgentType = 'claude' | 'codex' | 'cursor' | 'gemini' | 'opencode'
 export type SessionType = 'simple' | 'worktree'
 export type CodexReasoningEffort = 'default' | 'low' | 'medium' | 'high' | 'xhigh'
-export type ClaudeEffort = 'auto' | 'low' | 'medium' | 'high' | 'max'
+export type ClaudeEffort = 'auto' | 'low' | 'medium' | 'high' | 'max' | 'xhigh'
 
 export const MODEL_OPTIONS: Record<AgentType, { value: string; label: string }[]> = {
     claude: [
@@ -44,5 +44,6 @@ export const CLAUDE_EFFORT_OPTIONS: { value: ClaudeEffort; label: string }[] = [
     { value: 'low', label: 'Low' },
     { value: 'medium', label: 'Medium' },
     { value: 'high', label: 'High' },
+    { value: 'xhigh', label: 'XHigh' },
     { value: 'max', label: 'Max' },
 ]
