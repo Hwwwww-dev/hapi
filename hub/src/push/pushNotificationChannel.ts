@@ -25,7 +25,7 @@ export class PushNotificationChannel implements NotificationChannel {
         const toolName = request?.tool ? ` (${request.tool})` : ''
 
         const payload: PushPayload = {
-            title: 'Permission Request',
+            title: '权限请求',
             body: `${name}${toolName}`,
             tag: `permission-${session.id}`,
             data: {
@@ -63,8 +63,8 @@ export class PushNotificationChannel implements NotificationChannel {
         const name = getSessionName(session)
 
         const payload: PushPayload = {
-            title: 'Ready for input',
-            body: `${agentName} is waiting in ${name}`,
+            title: '等待输入',
+            body: `${agentName} 正在 ${name} 中等待`,
             tag: `ready-${session.id}`,
             data: {
                 type: 'ready',
