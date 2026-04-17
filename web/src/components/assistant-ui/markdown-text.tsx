@@ -6,6 +6,7 @@ import rehypeKatex from 'rehype-katex'
 import { Image as ArcoImage } from '@arco-design/web-react'
 import type { CodeHeaderProps } from '@/chat/chat-types'
 import remarkDisableIndentedCode from '@/lib/remark-disable-indented-code'
+import remarkStripCjkAutolink from '@/lib/remark-strip-cjk-autolink'
 import { cn } from '@/lib/utils'
 import { SyntaxHighlighter } from '@/components/assistant-ui/shiki-highlighter'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
@@ -13,7 +14,7 @@ import { CopyIcon, CheckIcon } from '@/components/icons'
 
 import type { MarkdownTextPrimitiveProps } from '@assistant-ui/react-markdown'
 
-export const MARKDOWN_PLUGINS = [remarkGfm, remarkMath, remarkDisableIndentedCode] satisfies NonNullable<MarkdownTextPrimitiveProps['remarkPlugins']>
+export const MARKDOWN_PLUGINS = [remarkGfm, remarkStripCjkAutolink, remarkMath, remarkDisableIndentedCode] satisfies NonNullable<MarkdownTextPrimitiveProps['remarkPlugins']>
 export const MARKDOWN_REHYPE_PLUGINS = [rehypeKatex] satisfies NonNullable<MarkdownTextPrimitiveProps['rehypePlugins']>
 
 const CodeBlockContext = createContext(false)
